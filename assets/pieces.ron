@@ -1,0 +1,28 @@
+(
+    pieces: [
+        (
+            shape: [(0, 0)],
+            color: "RED",
+            points: 5, // Base points for placement
+            effects: [
+                (
+                    condition: IsEmpty,
+                    points: 2,
+                    offsets: [(1, 0), (-1, 0)],
+                ),
+            ],
+        ),
+        (
+            shape: [(0, 0), (1, 0)],
+            color: "BLUE",
+            points: 10,
+            effects: [
+                (
+                    condition: MatchesColor("RED"), 
+                    points: 5,
+                    offsets: [(0, 1)],
+                ),
+            ],
+        ),
+    ]
+)

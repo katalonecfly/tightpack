@@ -1,8 +1,9 @@
 use bevy::picking::prelude::*;
 use bevy::prelude::*;
+use serde::Deserialize;
 use std::collections::HashMap;
 
-// --- Constants ---
+// --- Constants & Resources ---
 const TILE_SIZE: f32 = 40.0;
 const BOARD_SIZE: IVec2 = IVec2::new(8, 8);
 const BOARD_OFFSET: Vec3 = Vec3::new(-200.0, 0.0, 0.0);
@@ -18,6 +19,36 @@ fn main() {
         .run();
 }
 
+// --- RON Parsing Structs (The "Raw" Data) ---
+
+#[derive(Deserialize)]
+struct RawPieceLibrary {
+    pieces: Vec<RawPieceConfig>,
+}
+
+#[derive(Deserialize)]
+struct RawPieceConfig {
+    shape: Vec<IVec2>,
+    color: String,
+    points: i32,
+    effects: Vec<RawGameEffect>,
+}
+
+#[derive(Deserialize)]
+struct RawGameEffect {
+    condition: RawEffectCondition,
+    points: i32,
+    #[serde(default)] // If missing in RON, this becomes an empty Vec
+    offsets: Vec<IVec2>, 
+}
+
+#[derive(Deserialize)]
+enum RawEffectCondition {
+    MatchesColor(String),
+    IsEmpty,
+    NoColorOnBoard(String),
+}
+
 // --- Components & Resources ---
 
 #[derive(Resource, Default)]
@@ -26,12 +57,13 @@ struct GameState {
     score: i32,
 }
 
-#[derive(Component)]
+#[derive(Component, Clone)]
 struct Piece {
     type_id: usize,
     shape: Vec<IVec2>,
     original_shape: Vec<IVec2>,
     color: LinearRgba,
+    points: i32, // Base points
     effects: Vec<GameEffect>,
     original_effects: Vec<GameEffect>,
     original_pos: Vec3,
@@ -75,6 +107,18 @@ struct Dragging;
 fn setup(mut commands: Commands) {
     commands.spawn(Camera2d);
 
+    // 1. Central Color Registry
+    let mut color_map = HashMap::new();
+    color_map.insert("RED".to_string(), LinearRgba::RED);
+    color_map.insert("BLUE".to_string(), LinearRgba::BLUE);
+    color_map.insert("GREEN".to_string(), LinearRgba::GREEN);
+    color_map.insert("YELLOW".to_string(), LinearRgba::new(1.0, 1.0, 0.0, 1.0));    // 2. Load and Parse RON
+    let file_content = std::fs::read_to_string("assets/pieces.ron")
+        .expect("Missing assets/pieces.ron");
+    let lib: RawPieceLibrary = ron::from_str(&file_content)
+        .expect("Failed to parse RON");
+
+    // 3. Setup Board (Visuals)
     for x in 0..BOARD_SIZE.x {
         for y in 0..BOARD_SIZE.y {
             commands.spawn((
@@ -84,32 +128,35 @@ fn setup(mut commands: Commands) {
         }
     }
 
-    let piece_definitions = vec![
-        (
-            vec![IVec2::ZERO],
-            LinearRgba::RED,
-            vec![GameEffect {
-                condition: EffectCondition::IsEmpty,
-                points: 5,
-                offsets: Some(vec![IVec2::X, IVec2::NEG_X]),
-            }],
-            5,
-        ),
-        (
-            vec![IVec2::ZERO, IVec2::X],
-            LinearRgba::BLUE,
-            vec![GameEffect {
-                condition: EffectCondition::MatchesColor(LinearRgba::RED),
-                points: 10,
-                offsets: Some(vec![IVec2::Y]),
-            }],
-            3,
-        ),
-    ];
+    // 4. Bake and Spawn Pieces
+    for (type_id, raw) in lib.pieces.into_iter().enumerate() {
+        let piece_color = *color_map.get(&raw.color).unwrap_or(&LinearRgba::WHITE);
+        
+        // Convert raw effects (strings) to real effects (RGBA)
+        let baked_effects: Vec<GameEffect> = raw.effects.into_iter().map(|re| {
+            let condition = match re.condition {
+                RawEffectCondition::IsEmpty => EffectCondition::IsEmpty,
+                RawEffectCondition::MatchesColor(name) => 
+                    EffectCondition::MatchesColor(*color_map.get(&name).unwrap_or(&LinearRgba::WHITE)),
+                RawEffectCondition::NoColorOnBoard(name) => 
+                    EffectCondition::NoColorOnBoard(*color_map.get(&name).unwrap_or(&LinearRgba::WHITE)),
+            };
 
-    for (type_id, (shape, color, effects, count)) in piece_definitions.into_iter().enumerate() {
+            // Convert the Vec to Option here: 
+            // Empty Vec becomes None (Self-effect), non-empty becomes Some (Target-effect)
+            let offsets = if re.offsets.is_empty() { None } else { Some(re.offsets) };
+
+            GameEffect { 
+                condition, 
+                points: re.points, 
+                offsets 
+            }
+        }).collect();
+
         let pos = INVENTORY_OFFSET + Vec3::new(0.0, 150.0 - (type_id as f32 * 100.0), 1.0);
+        let count = 10; // Hardcoded as requested
 
+        // Spawn Label
         commands.spawn((
             Text2d::new(format!("x{}", count)),
             TextFont { font_size: 24.0, ..default() },
@@ -117,8 +164,17 @@ fn setup(mut commands: Commands) {
             StashLabel(type_id),
         ));
 
+        // Spawn instances
         for _ in 0..count {
-            spawn_draggable_piece(&mut commands, type_id, shape.clone(), color, effects.clone(), pos);
+            spawn_draggable_piece(
+                &mut commands,
+                type_id,
+                raw.shape.clone(),
+                piece_color,
+                raw.points,
+                baked_effects.clone(),
+                pos,
+            );
         }
     }
 
@@ -140,6 +196,7 @@ fn spawn_draggable_piece(
     type_id: usize,
     shape: Vec<IVec2>,
     color: LinearRgba,
+    points: i32,        // Fix: Added missing 'points' argument
     effects: Vec<GameEffect>,
     pos: Vec3,
 ) {
@@ -153,6 +210,7 @@ fn spawn_draggable_piece(
                 shape: shape.clone(),
                 original_shape: shape.clone(),
                 color,
+                points,      // Fix: Added missing field to the struct initializer
                 effects: effects.clone(),
                 original_effects: effects.clone(),
                 original_pos: pos,
@@ -312,9 +370,13 @@ fn recalculate_score(state: &mut GameState, query: &Query<(&mut Transform, &mut 
     let mut total = 0;
     for (_, piece, _) in query.iter() {
         if let Some(pos) = piece.placed_at {
+            // Add base placement points
+            total += piece.points;
+
             for effect in &piece.effects {
                 match &effect.offsets {
                     Some(offsets) => {
+                        // Check specific neighbor tiles
                         for offset in offsets {
                             if check_condition(&effect.condition, Some(pos + *offset), state) {
                                 total += effect.points;
@@ -322,7 +384,8 @@ fn recalculate_score(state: &mut GameState, query: &Query<(&mut Transform, &mut 
                         }
                     }
                     None => {
-                        if check_condition(&effect.condition, None, state) {
+                        // No offsets? Check the piece's own position (or global state)
+                        if check_condition(&effect.condition, Some(pos), state) {
                             total += effect.points;
                         }
                     }
