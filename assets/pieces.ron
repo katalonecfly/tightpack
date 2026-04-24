@@ -3,24 +3,57 @@
         (
             shape: [(0, 0)],
             color: "RED",
-            points: 5, // Base points for placement
+            points: 1, // Base points for placement
             effects: [
-                (
-                    condition: IsEmpty,
-                    points: 2,
-                    offsets: [(1, 0), (-1, 0)],
-                ),
+            ],
+        ),
+        (
+            shape: [(0, 0)],
+            color: "GREEN",
+            points: 1, // Base points for placement
+            effects: [
+            ],
+        ),
+        (
+            shape: [(0, 0)],
+            color: "BLUE",
+            points: 1, // Base points for placement
+            effects: [
             ],
         ),
         (
             shape: [(0, 0), (1, 0)],
             color: "BLUE",
-            points: 10,
+            points: 3,
             effects: [
                 (
                     condition: MatchesColor("RED"), 
-                    points: 5,
-                    offsets: [(0, 1)],
+                    points: 1,
+                    offsets: [(0, 1), (1, 1), (0, -1), (1, -1), (-1, 0), (2, 0)],
+                ),
+            ],
+        ),
+        (
+            shape: [(0, 0), (1, 0), (0,1)],
+            color: "RED",
+            points: 5,
+            effects: [
+                (
+                    condition: IsEmpty,
+                    points: 1,
+                    offsets: [(1, 1)],
+                ),
+            ],
+        ),
+        (
+            shape: [(0, 0), (1, 0), (2, 0), (3, 0)],
+            color: "GREEN",
+            points: 9,
+            effects: [
+                (
+                    condition: IsEmpty,
+                    points: 1,
+                    offsets: [(4, 0), (5, 0), (6, 0), (7, 0)],
                 ),
             ],
         ),

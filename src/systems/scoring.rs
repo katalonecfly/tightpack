@@ -7,16 +7,21 @@ pub fn recalculate_score(state: &mut GameState, query: &Query<(&mut Transform, &
     for (_, piece, _) in query.iter() {
         if let Some(pos) = piece.placed_at {
             total += piece.points;
+            
             for effect in &piece.effects {
                 match &effect.offsets {
                     Some(offsets) => {
                         for offset in offsets {
-                            if check_condition(&effect.condition, Some(pos + *offset), state) {
-                                total += effect.points;
+                            let target_cell = pos + *offset;
+                            if crate::helpers::is_in_bounds(target_cell) {
+                                if check_condition(&effect.condition, Some(target_cell), state) {
+                                    total += effect.points;
+                                }
                             }
                         }
                     }
                     None => {
+                        // Self-effects are always on the board if placed_at is Some
                         if check_condition(&effect.condition, Some(pos), state) {
                             total += effect.points;
                         }

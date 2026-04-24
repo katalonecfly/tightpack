@@ -23,14 +23,19 @@ pub fn update_effect_previews(state: Res<GameState>, piece_query: Query<(&Piece,
                 if is_hovered {
                     *visibility = Visibility::Visible;
                     let mut active = false;
+                    
                     if let Some(grid_pos) = piece.placed_at {
-                        active = check_condition(&preview.condition, Some(grid_pos + preview.offset), &state);
+                        let target_cell = grid_pos + preview.offset;
+                        if crate::helpers::is_in_bounds(target_cell) {
+                            active = check_condition(&preview.condition, Some(target_cell), &state);
+                        }
                     }
+                    
                     if active {
-                        sprite.color = Color::srgb(1.0, 1.0, 0.0).into();
+                        sprite.color = Color::srgb(1.0, 1.0, 0.0).into(); // Bright yellow
                         sprite.custom_size = Some(Vec2::splat(12.0));
                     } else {
-                        sprite.color = Color::srgba(1.0, 1.0, 0.0, 0.4).into();
+                        sprite.color = Color::srgba(1.0, 1.0, 0.0, 0.4).into(); // Faded yellow
                         sprite.custom_size = Some(Vec2::splat(8.0));
                     }
                 } else { *visibility = Visibility::Hidden; }

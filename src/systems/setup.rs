@@ -43,7 +43,11 @@ pub fn setup(mut commands: Commands) {
             GameEffect { condition, points: re.points, offsets }
         }).collect();
 
-        let pos = INVENTORY_OFFSET + Vec3::new(0.0, 150.0 - (type_id as f32 * 100.0), 1.0);
+        // Calculate the Y coordinate of the top row of the board
+        let top_y = (BOARD_SIZE.y - 1) as f32 * TILE_SIZE;
+        
+        // Position the stash relative to the board's top, moving downward per type
+        let pos = INVENTORY_OFFSET + Vec3::new(0.0, top_y - (type_id as f32 * 100.0), 1.0);
         let count = 10;
 
         commands.spawn((
