@@ -70,7 +70,15 @@ pub fn setup(mut commands: Commands) {
     ));
 }
 
-fn spawn_draggable_piece(commands: &mut Commands, type_id: usize, shape: Vec<IVec2>, color: LinearRgba, points: i32, effects: Vec<GameEffect>, pos: Vec3) {
+fn spawn_draggable_piece(
+    commands: &mut Commands, 
+    type_id: usize, 
+    shape: Vec<IVec2>, 
+    color: LinearRgba, 
+    points: i32, 
+    effects: Vec<GameEffect>, 
+    pos: Vec3
+) {
     let parent = commands.spawn((
         Transform::from_translation(pos),
         Visibility::default(),
@@ -93,7 +101,9 @@ fn spawn_draggable_piece(commands: &mut Commands, type_id: usize, shape: Vec<IVe
     .observe(crate::systems::interaction::on_hover_in)
     .observe(crate::systems::interaction::on_hover_out)
     .id();
-
+    
+    crate::systems::visuals::refresh_piece_visuals(commands, parent, &shape, color);
+    
     for offset in shape {
         let child = commands.spawn((
             Sprite::from_color(color, Vec2::splat(TILE_SIZE - 4.0)),

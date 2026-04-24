@@ -13,6 +13,9 @@ pub struct Piece {
     pub placed_at: Option<IVec2>,
 }
 
+#[derive(Component)]
+pub struct PieceVisual;
+
 #[derive(Clone)]
 pub struct GameEffect {
     pub condition: EffectCondition,
