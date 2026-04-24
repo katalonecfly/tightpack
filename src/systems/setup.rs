@@ -8,10 +8,11 @@ pub fn setup(mut commands: Commands) {
     commands.spawn(Camera2d);
 
     let mut color_map = HashMap::new();
-    color_map.insert("RED".to_string(), LinearRgba::RED);
-    color_map.insert("BLUE".to_string(), LinearRgba::BLUE);
-    color_map.insert("GREEN".to_string(), LinearRgba::GREEN);
-    color_map.insert("YELLOW".to_string(), LinearRgba::new(1.0, 1.0, 0.0, 1.0));
+
+    color_map.insert("RED".to_string(), Color::srgb_u8(216, 46, 63).to_linear());
+    color_map.insert("BLUE".to_string(), Color::srgb_u8(53, 129, 216).to_linear());
+    color_map.insert("GREEN".to_string(), Color::srgb_u8(40, 204, 45).to_linear());
+    color_map.insert("YELLOW".to_string(), Color::srgb_u8(255, 225, 53).to_linear());
 
     let file_content = std::fs::read_to_string("assets/pieces.ron").expect("Missing assets/pieces.ron");
     let lib: RawPieceLibrary = ron::from_str(&file_content).expect("Failed to parse RON");

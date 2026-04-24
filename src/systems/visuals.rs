@@ -1,5 +1,4 @@
 use bevy::prelude::*;
-use bevy::picking::prelude::*; // Added for Pickable
 use crate::components::PieceVisual;
 use crate::helpers::TILE_SIZE;
 
@@ -9,8 +8,8 @@ pub fn refresh_piece_visuals(
     shape: &[IVec2],
     color: LinearRgba,
 ) {
-    let inner_size = TILE_SIZE * 0.8;
-    let bridge_width = TILE_SIZE * 0.8;
+    let inner_size = TILE_SIZE * 1.0;
+    let bridge_width = TILE_SIZE * 1.0;
     let bridge_ext = (TILE_SIZE - inner_size) / 2.0;
     let line_thickness = 3.0;
     let perimeter_color = LinearRgba::BLACK;
