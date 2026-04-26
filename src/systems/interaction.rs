@@ -16,19 +16,60 @@ pub fn on_drag_start(on: On<Pointer<DragStart>>, mut commands: Commands, mut que
     }
 }
 
-pub fn on_drag(on: On<Pointer<Drag>>, mut query: Query<&mut Transform, With<Piece>>) {
-    if let Ok(mut transform) = query.get_mut(on.event_target()) {
+pub fn on_drag(
+    on: On<Pointer<Drag>>, 
+    mut query: Query<(&mut Transform, &Piece)>,
+    mut commands: Commands,
+    state: Res<GameState>,
+    ghost_query: Query<Entity, With<GhostTile>>,
+) {
+    let target = on.event_target();
+    if let Ok((mut transform, piece)) = query.get_mut(target) {
+        // Move the actual piece
         transform.translation.x += on.delta.x;
         transform.translation.y -= on.delta.y;
+
+        // --- GHOST LOGIC ---
+        // 1. Clear old ghost
+        for entity in &ghost_query {
+            commands.entity(entity).despawn();
+        }
+
+        // 2. Calculate current grid position
+        let grid_pos = world_to_grid(transform.translation);
+
+        // 3. If within bounds, show where it would land
+        let mut can_place = true;
+        for offset in &piece.shape {
+            let tile_pos = grid_pos + *offset;
+            if !is_in_bounds(tile_pos) || state.board_cells.contains_key(&tile_pos) {
+                can_place = false;
+                break;
+            }
+        }
+
+        if can_place {
+            let ghost_color = LinearRgba::WHITE.with_alpha(0.3);
+            for offset in &piece.shape {
+                commands.spawn((
+                    Sprite::from_color(ghost_color, Vec2::splat(TILE_SIZE - 2.0)),
+                    Transform::from_translation(grid_to_world(grid_pos + *offset).with_z(1.0)),
+                    GhostTile,
+                ));
+            }
+        }
     }
 }
-
 pub fn on_drag_end(
     on: On<Pointer<DragEnd>>, 
     mut commands: Commands, 
     mut query: Query<(&mut Transform, &mut Piece, &Children)>, 
-    mut state: ResMut<GameState>
-) {    
+    mut state: ResMut<GameState>,
+    ghost_query: Query<Entity, With<GhostTile>>,
+) {
+    for entity in &ghost_query {
+        commands.entity(entity).despawn();
+    }    
     let target = on.event_target();
     commands.entity(target).remove::<Dragging>();
     let Ok((mut transform, mut piece, _children)) = query.get_mut(target) else { return };

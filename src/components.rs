@@ -40,3 +40,4 @@ pub struct EffectPreview {
 #[derive(Component)] pub struct StashLabel(pub usize);
 #[derive(Component)] pub struct ScoreText;
 #[derive(Component)] pub struct Dragging;
+#[derive(Component)] pub struct GhostTile;
