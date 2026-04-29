@@ -39,9 +39,13 @@ pub fn setup(mut commands: Commands) {
                 RawEffectCondition::NoColorOnBoard(name) => 
                     EffectCondition::NoColorOnBoard(*color_map.get(&name).unwrap_or(&LinearRgba::WHITE)),
             };
-            // Convert Raw Vec to Internal Option
             let offsets = if re.offsets.is_empty() { None } else { Some(re.offsets) };
-            GameEffect { condition, points: re.points, offsets }
+            GameEffect {
+                condition,
+                points: re.points,
+                offsets,
+                description: re.description,
+            }
         }).collect();
 
         // Calculate the Y coordinate of the top row of the board

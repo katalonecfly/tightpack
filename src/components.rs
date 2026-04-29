@@ -21,6 +21,7 @@ pub struct GameEffect {
     pub condition: EffectCondition,
     pub points: i32,
     pub offsets: Option<Vec<IVec2>>,
+    pub description: String,              // new
 }
 
 #[derive(Clone, PartialEq)]

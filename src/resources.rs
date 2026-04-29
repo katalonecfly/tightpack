@@ -6,3 +6,8 @@ pub struct GameState {
     pub board_cells: HashMap<IVec2, LinearRgba>,
     pub score: i32,
 }
+
+#[derive(Resource, Default)]
+pub struct TooltipState {
+    pub entity: Option<Entity>,
+}

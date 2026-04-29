@@ -19,7 +19,8 @@ pub struct RawGameEffect {
     pub condition: RawEffectCondition,
     pub points: i32,
     #[serde(default)] 
-    pub offsets: Vec<IVec2>, 
+    pub offsets: Vec<IVec2>,
+    pub description: String,
 }
 
 #[derive(Deserialize)]
