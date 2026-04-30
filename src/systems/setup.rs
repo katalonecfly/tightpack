@@ -3,12 +3,12 @@ use std::collections::HashMap;
 use crate::config::*;
 use crate::components::*;
 use crate::helpers::*;
+use crate::Cleanup;
 
-pub fn setup(mut commands: Commands) {
-    commands.spawn(Camera2d);
+pub fn setup_game(mut commands: Commands) {
+    commands.spawn((Camera2d, Cleanup));
 
     let mut color_map = HashMap::new();
-
     color_map.insert("RED".to_string(), Color::srgb_u8(216, 46, 63).to_linear());
     color_map.insert("BLUE".to_string(), Color::srgb_u8(53, 129, 216).to_linear());
     color_map.insert("GREEN".to_string(), Color::srgb_u8(40, 204, 45).to_linear());
@@ -18,25 +18,27 @@ pub fn setup(mut commands: Commands) {
     let lib: RawPieceLibrary = ron::from_str(&file_content).expect("Failed to parse RON");
 
     // Board
+    let board_root = commands.spawn((Transform::default(), Cleanup)).id();
     for x in 0..BOARD_SIZE.x {
         for y in 0..BOARD_SIZE.y {
-            commands.spawn((
+            let tile = commands.spawn((
                 Sprite::from_color(Color::srgb(0.2, 0.2, 0.2), Vec2::splat(TILE_SIZE - 2.0)),
                 Transform::from_translation(grid_to_world(IVec2::new(x, y))),
-            ));
+            )).id();
+            commands.entity(board_root).add_child(tile);
         }
     }
 
     // Pieces
     for (type_id, raw) in lib.pieces.into_iter().enumerate() {
         let piece_color = *color_map.get(&raw.color).unwrap_or(&LinearRgba::WHITE);
-        
+
         let baked_effects: Vec<GameEffect> = raw.effects.into_iter().map(|re| {
             let condition = match re.condition {
                 RawEffectCondition::IsEmpty => EffectCondition::IsEmpty,
-                RawEffectCondition::MatchesColor(name) => 
+                RawEffectCondition::MatchesColor(name) =>
                     EffectCondition::MatchesColor(*color_map.get(&name).unwrap_or(&LinearRgba::WHITE)),
-                RawEffectCondition::NoColorOnBoard(name) => 
+                RawEffectCondition::NoColorOnBoard(name) =>
                     EffectCondition::NoColorOnBoard(*color_map.get(&name).unwrap_or(&LinearRgba::WHITE)),
             };
             let offsets = if re.offsets.is_empty() { None } else { Some(re.offsets) };
@@ -48,10 +50,7 @@ pub fn setup(mut commands: Commands) {
             }
         }).collect();
 
-        // Calculate the Y coordinate of the top row of the board
         let top_y = (BOARD_SIZE.y - 1) as f32 * TILE_SIZE;
-        
-        // Position the stash relative to the board's top, moving downward per type
         let pos = INVENTORY_OFFSET + Vec3::new(0.0, top_y - (type_id as f32 * 100.0), 1.0);
         let count = 10;
 
@@ -60,6 +59,7 @@ pub fn setup(mut commands: Commands) {
             TextFont { font_size: 24.0, ..default() },
             Transform::from_translation(pos + Vec3::new(-45.0, 35.0, 2.0)),
             StashLabel(type_id),
+            Cleanup,
         ));
 
         for _ in 0..count {
@@ -67,22 +67,29 @@ pub fn setup(mut commands: Commands) {
         }
     }
 
+    // Score UI
     commands.spawn((
         Text::new("Score: 0"),
         TextFont { font_size: 40.0, ..default() },
-        Node { position_type: PositionType::Absolute, top: Val::Px(10.0), left: Val::Px(10.0), ..default() },
+        Node {
+            position_type: PositionType::Absolute,
+            top: Val::Px(10.0),
+            left: Val::Px(10.0),
+            ..default()
+        },
         ScoreText,
+        Cleanup,
     ));
 }
 
 fn spawn_draggable_piece(
-    commands: &mut Commands, 
-    type_id: usize, 
-    shape: Vec<IVec2>, 
-    color: LinearRgba, 
-    points: i32, 
-    effects: Vec<GameEffect>, 
-    pos: Vec3
+    commands: &mut Commands,
+    type_id: usize,
+    shape: Vec<IVec2>,
+    color: LinearRgba,
+    points: i32,
+    effects: Vec<GameEffect>,
+    pos: Vec3,
 ) {
     let parent = commands.spawn((
         Transform::from_translation(pos),
@@ -98,7 +105,8 @@ fn spawn_draggable_piece(
             original_effects: effects.clone(),
             original_pos: pos,
             placed_at: None,
-        }
+        },
+        Cleanup,
     ))
     .observe(crate::systems::interaction::on_drag_start)
     .observe(crate::systems::interaction::on_drag)
@@ -106,9 +114,9 @@ fn spawn_draggable_piece(
     .observe(crate::systems::interaction::on_hover_in)
     .observe(crate::systems::interaction::on_hover_out)
     .id();
-    
+
     crate::systems::visuals::refresh_piece_visuals(commands, parent, &shape, color);
-    
+
     for offset in shape {
         let child = commands.spawn((
             Sprite::from_color(color, Vec2::splat(TILE_SIZE - 4.0)),
