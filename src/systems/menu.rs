@@ -67,9 +67,10 @@ pub fn menu_interaction(
                 .map(|t| t.0.clone())
                 .unwrap_or_default();
             match label.as_str() {
-                "Sandbox" => next_state.set(AppState::InGame),
-                _ => {}
-            }
+                "Sandbox" => next_state.set(AppState::Sandbox),
+                "Draft" => next_state.set(AppState::Draft),
+                _ => {} // Duel, Puzzles still do nothing
+            }   
         }
     }
 }

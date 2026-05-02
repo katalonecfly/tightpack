@@ -1,12 +1,12 @@
 use serde::Deserialize;
 use bevy::prelude::*;
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Clone)]      // <-- added Clone
 pub struct RawPieceLibrary {
     pub pieces: Vec<RawPieceConfig>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Clone)]      // <-- added Clone
 pub struct RawPieceConfig {
     pub shape: Vec<IVec2>,
     pub color: String,
@@ -14,7 +14,7 @@ pub struct RawPieceConfig {
     pub effects: Vec<RawGameEffect>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Clone)]      // <-- added Clone
 pub struct RawGameEffect {
     pub condition: RawEffectCondition,
     pub points: i32,
@@ -23,7 +23,7 @@ pub struct RawGameEffect {
     pub description: String,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Clone)]      // <-- added Clone
 pub enum RawEffectCondition {
     MatchesColor(String),
     IsEmpty,
