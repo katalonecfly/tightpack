@@ -219,6 +219,8 @@ pub fn spawn_draggable_piece(
 
     crate::systems::visuals::refresh_piece_visuals(commands, parent, &shape, color);
 
+    use crate::systems::interaction;
+
     for offset in shape {
         let child = commands
             .spawn((
@@ -226,6 +228,11 @@ pub fn spawn_draggable_piece(
                 Transform::from_translation(offset.as_vec2().extend(0.0) * TILE_SIZE),
                 Pickable::default(),
             ))
+            .observe(interaction::on_child_hover_in)
+            .observe(interaction::on_child_hover_out)
+            .observe(interaction::on_drag_start)
+            .observe(interaction::on_drag)
+            .observe(interaction::on_drag_end)
             .id();
         commands.entity(parent).add_child(child);
     }
@@ -249,12 +256,16 @@ pub fn spawn_draggable_piece(
                             condition: effect.condition.clone(),
                         },
                     ))
+                    .observe(interaction::on_child_hover_in)
+                    .observe(interaction::on_child_hover_out)
+                    .observe(interaction::on_drag_start)
+                    .observe(interaction::on_drag)
+                    .observe(interaction::on_drag_end)
                     .id();
                 commands.entity(parent).add_child(preview);
             }
         }
     }
-
     parent
 }
 

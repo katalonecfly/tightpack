@@ -12,6 +12,7 @@ use crate::components::LockedPiece;
 #[derive(Component)]
 pub struct DraftConfirmButton;
 
+#[allow(unused_mut)]
 pub fn refresh_draft_stash(commands: &mut Commands, library: &PieceLibrary) {
     let mut color_map: HashMap<String, LinearRgba> = [
         ("RED".to_string(), Color::srgb_u8(216, 46, 63).to_linear()),
@@ -73,29 +74,22 @@ pub fn generate_draft_stash(mut commands: Commands, library: Res<PieceLibrary>) 
 
 // systems/draft.rs
 
+
 pub fn confirm_button_interaction(
     mut commands: Commands,
     interaction_query: Query<&Interaction, (With<DraftConfirmButton>, Changed<Interaction>)>,
-    // Added Option<&Children> to access the piece’s child entities.
-    draft_pieces: Query<(Entity, &Piece, Option<&Children>), With<DraftPiece>>,
+    draft_pieces: Query<(Entity, &Piece), With<DraftPiece>>,
     library: Res<PieceLibrary>,
 ) {
     for interaction in &interaction_query {
         if *interaction == Interaction::Pressed {
-            for (entity, piece, children) in &draft_pieces {
+            for (entity, piece) in &draft_pieces {
                 if piece.placed_at.is_some() {
-                    // Remove DraftPiece so it won't be cleaned up by refresh.
-                    // Remove Pickable from the parent AND every child → no more drag.
+                    // Lock the piece but keep it pickable for tooltips
                     commands.entity(entity)
                         .remove::<DraftPiece>()
-                        .remove::<Pickable>()
                         .insert(LockedPiece);
-                    if let Some(children) = children {
-                        for &child in children {
-                            commands.entity(child).remove::<Pickable>();
-                        }
-                    }
-                    info!("Piece {:?} locked and made non-pickable", entity);
+                    info!("Piece {:?} locked (still pickable)", entity);
                 } else {
                     commands.entity(entity).despawn();
                 }
