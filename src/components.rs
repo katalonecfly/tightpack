@@ -45,3 +45,6 @@ pub struct EffectPreview {
 
 #[derive(Component)] 
 pub struct DraftPiece;
+
+#[derive(Component)]
+pub struct LockedPiece;

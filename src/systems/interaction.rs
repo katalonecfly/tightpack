@@ -4,12 +4,23 @@ use crate::helpers::*;
 use crate::resources::GameState;
 use crate::systems::scoring::recalculate_score;
 
-pub fn on_drag_start(on: On<Pointer<DragStart>>, mut commands: Commands, mut query: Query<(&mut Transform, &mut Piece, &Children)>, mut state: ResMut<GameState>) {
+// No import for ChildOf needed – it’s in bevy::prelude
+
+// systems/interaction.rs
+
+pub fn on_drag_start(
+    on: On<Pointer<DragStart>>,
+    mut commands: Commands,
+    mut query: Query<(&mut Transform, &mut Piece, &Children)>,
+    mut state: ResMut<GameState>,
+) {
     if let Ok((mut transform, mut piece, _)) = query.get_mut(on.event_target()) {
         commands.entity(on.event_target()).insert(Dragging);
         transform.translation.z = 10.0;
         if let Some(old_pos) = piece.placed_at {
-            for offset in &piece.shape { state.board_cells.remove(&(old_pos + *offset)); }
+            for offset in &piece.shape {
+                state.board_cells.remove(&(old_pos + *offset));
+            }
             piece.placed_at = None;
             recalculate_score(&mut state, &query);
         }
