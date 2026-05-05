@@ -75,22 +75,33 @@ pub fn generate_draft_stash(mut commands: Commands, library: Res<PieceLibrary>) 
 // systems/draft.rs
 
 
+// systems/draft.rs
+// systems/draft.rs
 pub fn confirm_button_interaction(
     mut commands: Commands,
     interaction_query: Query<&Interaction, (With<DraftConfirmButton>, Changed<Interaction>)>,
-    draft_pieces: Query<(Entity, &Piece), With<DraftPiece>>,
+    // Find all entities that are part of the draft (pieces + labels)
+    draft_entities: Query<Entity, With<DraftPiece>>,
+    // For those that are pieces, we can inspect their placement
+    piece_query: Query<&Piece>,
     library: Res<PieceLibrary>,
 ) {
     for interaction in &interaction_query {
         if *interaction == Interaction::Pressed {
-            for (entity, piece) in &draft_pieces {
-                if piece.placed_at.is_some() {
-                    // Lock the piece but keep it pickable for tooltips
-                    commands.entity(entity)
-                        .remove::<DraftPiece>()
-                        .insert(LockedPiece);
-                    info!("Piece {:?} locked (still pickable)", entity);
+            for entity in &draft_entities {
+                if let Ok(piece) = piece_query.get(entity) {
+                    if piece.placed_at.is_some() {
+                        // This piece is placed → lock it and keep it on the board
+                        commands.entity(entity)
+                            .remove::<DraftPiece>()
+                            .insert(LockedPiece);
+                        info!("Piece {:?} locked", entity);
+                    } else {
+                        // Unplaced piece → despawn
+                        commands.entity(entity).despawn();
+                    }
                 } else {
+                    // This is a label (no Piece component) → despawn
                     commands.entity(entity).despawn();
                 }
             }
