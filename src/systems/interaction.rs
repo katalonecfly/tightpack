@@ -111,7 +111,9 @@ pub fn on_drag_end(
     piece_query: Query<(), With<Piece>>,
     child_of_query: Query<&ChildOf>,
     mut drag_piece_query: Query<(&mut Transform, &mut Piece, &Children)>,
-    locked_query: Query<(), With<LockedPiece>>,       // new
+    locked_query: Query<(), With<LockedPiece>>,
+    draft_check: Query<(), With<DraftPiece>>,
+    piece_entities: Query<Entity, With<Piece>>,            // new query for entity IDs
     mut state: ResMut<GameState>,
     ghost_query: Query<Entity, With<GhostTile>>,
 ) {
@@ -141,19 +143,52 @@ pub fn on_drag_end(
                 break;
             }
         }
+
         if can_place {
+            // Place the new piece
             transform.translation = grid_to_world(grid_pos).with_z(1.0);
             piece.placed_at = Some(grid_pos);
             for offset in &piece.shape {
                 state.board_cells.insert(grid_pos + *offset, piece.color);
             }
+
+            // --- Draft mode: reset all other placed draft pieces ---
+            if draft_check.contains(piece_entity) {
+                let mut to_reset = Vec::new();
+                for other_entity in &piece_entities {
+                    if other_entity != piece_entity
+                        && draft_check.contains(other_entity)
+                        && drag_piece_query.get(other_entity).map_or(false, |(_, p, _)| p.placed_at.is_some())
+                    {
+                        to_reset.push(other_entity);
+                    }
+                }
+
+                for entity in to_reset {
+                    if let Ok((mut t, mut p, _)) = drag_piece_query.get_mut(entity) {
+                        if let Some(old_pos) = p.placed_at {
+                            for offset in &p.shape {
+                                state.board_cells.remove(&(old_pos + *offset));
+                            }
+                            p.placed_at = None;
+                        }
+                        t.translation = p.original_pos;
+                        t.translation.z = 1.0;
+                        t.rotation = Quat::IDENTITY;
+                        p.shape = p.original_shape.clone();
+                        p.effects = p.original_effects.clone();
+                    }
+                }
+            }
         } else {
+            // Invalid placement – return piece to stash
             transform.translation = piece.original_pos;
             transform.translation.z = 1.0;
             transform.rotation = Quat::IDENTITY;
             piece.shape = piece.original_shape.clone();
             piece.effects = piece.original_effects.clone();
         }
+
         recalculate_score(&mut state, &drag_piece_query);
     }
 }
