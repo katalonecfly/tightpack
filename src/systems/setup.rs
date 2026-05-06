@@ -6,6 +6,7 @@ use crate::helpers::*;
 use crate::resources::PieceLibrary;
 use crate::Cleanup;
 use crate::systems::draft::DraftConfirmButton;   // <-- import
+use bevy::sprite::Anchor;
 
 // ─── S A N D B O X ────────────────────────────────────
 pub fn setup_sandbox(mut commands: Commands) {
@@ -66,16 +67,20 @@ pub fn setup_sandbox(mut commands: Commands) {
         }
     }
 
-    // Score
+    // ─── Score (2D world text) ──────────────────
+    let board_left = grid_to_world(IVec2::ZERO).x - TILE_SIZE / 2.0;
+    let board_top = grid_to_world(IVec2::new(0, BOARD_SIZE.y - 1)).y + TILE_SIZE / 2.0;
+    let score_y = board_top + 30.0;
+
+    let score_font_size = 30.0;
+    let initial_text = "Score: 0";
+    // approximate half-width: each character ≈ 0.25 * font_size
+    let initial_half_width = initial_text.len() as f32 * score_font_size * 0.25;
+
     commands.spawn((
-        Text::new("Score: 0"),
-        TextFont { font_size: 40.0, ..default() },
-        Node {
-            position_type: PositionType::Absolute,
-            top: Val::Px(10.0),
-            left: Val::Px(10.0),
-            ..default()
-        },
+        Text2d::new(initial_text),
+        TextFont { font_size: score_font_size, ..default() },
+        Transform::from_translation(Vec3::new(board_left + initial_half_width, score_y, 0.0)),
         ScoreText,
         Cleanup,
     ));
@@ -104,44 +109,49 @@ pub fn setup_draft(mut commands: Commands) {
         }
     }
 
-    // Confirm button
+    // Position calculations
+    // ... after board generation
+    let board_left = grid_to_world(IVec2::ZERO).x - TILE_SIZE / 2.0;
+    let board_top = grid_to_world(IVec2::new(0, BOARD_SIZE.y - 1)).y + TILE_SIZE / 2.0;
+    let score_y = board_top + 30.0;
+
+    let score_font_size = 30.0;
+    let initial_text = "Score: 0";
+    // approximate half-width: each character ≈ 0.25 * font_size
+    let initial_half_width = initial_text.len() as f32 * score_font_size * 0.25;
+
     commands.spawn((
-        Button,
-        Node {
-            position_type: PositionType::Absolute,
-            top: Val::Px(10.0),
-            right: Val::Px(10.0),
-            width: Val::Px(120.0),
-            height: Val::Px(50.0),
-            border: UiRect::all(Val::Px(2.0)),
-            justify_content: JustifyContent::Center,
-            align_items: AlignItems::Center,
-            ..default()
-        },
-        BackgroundColor(Color::srgb(0.3, 0.8, 0.3)),
-        BorderColor::all(Color::BLACK),
+        Text2d::new(initial_text),
+        TextFont { font_size: score_font_size, ..default() },
+        Transform::from_translation(Vec3::new(board_left + initial_half_width, score_y, 0.0)),
+        ScoreText,
+        Cleanup,
+    ));
+    // Confirm button remains unchanged (already aligned to the right).
+
+    // Confirm button (world-space sprite)
+    let board_right = grid_to_world(IVec2::new(BOARD_SIZE.x - 1, BOARD_SIZE.y - 1)).x
+        + TILE_SIZE / 2.0;
+    let button_width = 120.0;
+    let button_height = 50.0;
+    let button_x = board_right - button_width / 2.0;
+    let button_y = score_y;   // same height as score
+    let button_pos = Vec3::new(button_x, button_y, 0.0);
+
+    commands.spawn((
+        Sprite::from_color(Color::srgb(0.3, 0.8, 0.3), Vec2::new(button_width, button_height)),
+        Transform::from_translation(button_pos),
+        Pickable::default(),
         DraftConfirmButton,
         Cleanup,
     ))
     .with_child((
-        Text::new("Confirm"),
+        Text2d::new("Confirm"),
         TextFont { font_size: 28.0, ..default() },
         TextColor(Color::WHITE),
-    ));
-
-    // Score
-    commands.spawn((
-        Text::new("Score: 0"),
-        TextFont { font_size: 40.0, ..default() },
-        Node {
-            position_type: PositionType::Absolute,
-            top: Val::Px(10.0),
-            left: Val::Px(10.0),
-            ..default()
-        },
-        ScoreText,
-        Cleanup,
-    ));
+        Transform::default(),
+    ))
+    .observe(super::draft::on_confirm_click);
 }
 
 // ─── H E L P E R S ─────────────────────────────────────

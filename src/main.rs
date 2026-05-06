@@ -52,14 +52,14 @@ fn main() {
             systems::setup::setup_draft,
             systems::draft::generate_draft_stash,
         ).chain())
-        .add_systems(Update, (
-            systems::ui::update_score_ui,
-            systems::ui::update_stash_labels,
-            systems::ui::update_effect_previews,
-            systems::ui::update_tooltip,
-            systems::interaction::handle_rotation,
-            systems::draft::confirm_button_interaction,
-        ).run_if(in_state(AppState::Draft)))
+            .add_systems(Update, (
+        systems::ui::update_score_ui,
+        systems::ui::update_stash_labels,
+        systems::ui::update_effect_previews,
+        systems::ui::update_tooltip,
+        systems::interaction::handle_rotation,
+        // confirm is now handled by an observer, not a system
+    ).run_if(in_state(AppState::Draft)))
         .add_systems(OnExit(AppState::Draft), cleanup_system)
         .run();
 }

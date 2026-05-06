@@ -8,6 +8,7 @@ use crate::helpers::*;
 use crate::resources::PieceLibrary;
 use crate::Cleanup;
 use crate::components::LockedPiece;
+use bevy::picking::prelude::{Pointer, Click};
 
 #[derive(Component)]
 pub struct DraftConfirmButton;
@@ -97,35 +98,27 @@ pub fn generate_draft_stash(mut commands: Commands, library: Res<PieceLibrary>) 
 
 // systems/draft.rs
 // systems/draft.rs
-pub fn confirm_button_interaction(
+
+pub fn on_confirm_click(
+    _trigger: On<Pointer<Click>>,
     mut commands: Commands,
-    interaction_query: Query<&Interaction, (With<DraftConfirmButton>, Changed<Interaction>)>,
-    // Find all entities that are part of the draft (pieces + labels)
     draft_entities: Query<Entity, With<DraftPiece>>,
-    // For those that are pieces, we can inspect their placement
     piece_query: Query<&Piece>,
     library: Res<PieceLibrary>,
 ) {
-    for interaction in &interaction_query {
-        if *interaction == Interaction::Pressed {
-            for entity in &draft_entities {
-                if let Ok(piece) = piece_query.get(entity) {
-                    if piece.placed_at.is_some() {
-                        // This piece is placed → lock it and keep it on the board
-                        commands.entity(entity)
-                            .remove::<DraftPiece>()
-                            .insert(LockedPiece);
-                        info!("Piece {:?} locked", entity);
-                    } else {
-                        // Unplaced piece → despawn
-                        commands.entity(entity).despawn();
-                    }
-                } else {
-                    // This is a label (no Piece component) → despawn
-                    commands.entity(entity).despawn();
-                }
+    for entity in &draft_entities {
+        if let Ok(piece) = piece_query.get(entity) {
+            if piece.placed_at.is_some() {
+                commands.entity(entity)
+                    .remove::<DraftPiece>()
+                    .insert(LockedPiece);
+                info!("Piece {:?} locked", entity);
+            } else {
+                commands.entity(entity).despawn();
             }
-            refresh_draft_stash(&mut commands, &library);
+        } else {
+            commands.entity(entity).despawn();
         }
     }
+    refresh_draft_stash(&mut commands, &library);
 }
