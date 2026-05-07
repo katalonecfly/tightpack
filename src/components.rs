@@ -37,13 +37,18 @@ pub struct EffectPreview {
     pub condition: EffectCondition,
 }
 
-#[derive(Component)] pub struct Hovered;
-#[derive(Component)] pub struct StashLabel(pub usize);
-#[derive(Component)] pub struct ScoreText;
-#[derive(Component)] pub struct Dragging;
-#[derive(Component)] pub struct GhostTile;
+#[derive(Component)]
+pub struct Hovered;
+#[derive(Component)]
+pub struct StashLabel(pub usize);
+#[derive(Component)]
+pub struct ScoreText;
+#[derive(Component)]
+pub struct Dragging;
+#[derive(Component)]
+pub struct GhostTile;
 
-#[derive(Component)] 
+#[derive(Component)]
 pub struct DraftPiece;
 
 #[derive(Component)]

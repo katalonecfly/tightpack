@@ -1,5 +1,5 @@
-use serde::Deserialize;
 use bevy::prelude::*;
+use serde::Deserialize;
 
 #[derive(Deserialize, Clone)]
 pub struct RawPieceLibrary {
@@ -18,7 +18,7 @@ pub struct RawPieceConfig {
 pub struct RawGameEffect {
     pub condition: RawEffectCondition,
     pub points: i32,
-    #[serde(default)] 
+    #[serde(default)]
     pub offsets: Vec<IVec2>,
     pub description: String,
 }

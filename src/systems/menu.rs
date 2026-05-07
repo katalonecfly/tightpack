@@ -1,6 +1,6 @@
-use bevy::prelude::*;
 use crate::AppState;
 use crate::Cleanup;
+use bevy::prelude::*;
 
 const BUTTON_COLOR: Color = Color::srgb(0.3, 0.3, 0.3);
 const TEXT_COLOR: Color = Color::WHITE;
@@ -25,7 +25,10 @@ pub fn setup_menu(mut commands: Commands) {
         .with_children(|parent| {
             parent.spawn((
                 Text::new("Tightpack"),
-                TextFont { font_size: 64.0, ..default() },
+                TextFont {
+                    font_size: 64.0,
+                    ..default()
+                },
                 TextColor(TEXT_COLOR),
             ));
             for label in &["Sandbox", "Draft", "Duel", "Puzzles"] {
@@ -45,7 +48,10 @@ pub fn setup_menu(mut commands: Commands) {
                     ))
                     .with_child((
                         Text::new(*label),
-                        TextFont { font_size: 32.0, ..default() },
+                        TextFont {
+                            font_size: 32.0,
+                            ..default()
+                        },
                         TextColor(TEXT_COLOR),
                     ));
             }
@@ -70,7 +76,7 @@ pub fn menu_interaction(
                 "Sandbox" => next_state.set(AppState::Sandbox),
                 "Draft" => next_state.set(AppState::Draft),
                 _ => {} // Duel, Puzzles still do nothing
-            }   
+            }
         }
     }
 }

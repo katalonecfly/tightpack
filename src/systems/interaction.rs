@@ -1,8 +1,8 @@
-use bevy::prelude::*;
 use crate::components::*;
 use crate::helpers::*;
 use crate::resources::GameState;
 use crate::systems::scoring::recalculate_score;
+use bevy::prelude::*;
 
 // ── Helper: find the piece entity from any child or the piece itself ──
 fn get_piece_entity(
@@ -135,7 +135,10 @@ pub fn on_drag_end(
         let mut can_place = true;
         for offset in &piece.shape {
             let cell = grid_pos + *offset;
-            if cell.x < 0 || cell.x >= BOARD_SIZE.x || cell.y < 0 || cell.y >= BOARD_SIZE.y
+            if cell.x < 0
+                || cell.x >= BOARD_SIZE.x
+                || cell.y < 0
+                || cell.y >= BOARD_SIZE.y
                 || state.board_cells.contains_key(&cell)
             {
                 can_place = false;
@@ -157,7 +160,9 @@ pub fn on_drag_end(
                 for other_entity in &piece_entities {
                     if other_entity != piece_entity
                         && draft_check.contains(other_entity)
-                        && drag_piece_query.get(other_entity).map_or(false, |(_, p, _)| p.placed_at.is_some())
+                        && drag_piece_query
+                            .get(other_entity)
+                            .map_or(false, |(_, p, _)| p.placed_at.is_some())
                     {
                         to_reset.push(other_entity);
                     }

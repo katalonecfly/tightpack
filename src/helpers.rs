@@ -11,7 +11,10 @@ pub fn grid_to_world(grid: IVec2) -> Vec3 {
 
 pub fn world_to_grid(world: Vec3) -> IVec2 {
     let local = world - BOARD_OFFSET;
-    IVec2::new((local.x / TILE_SIZE).round() as i32, (local.y / TILE_SIZE).round() as i32)
+    IVec2::new(
+        (local.x / TILE_SIZE).round() as i32,
+        (local.y / TILE_SIZE).round() as i32,
+    )
 }
 
 pub fn is_in_bounds(grid: IVec2) -> bool {

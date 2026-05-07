@@ -1,6 +1,6 @@
+use crate::config::RawPieceConfig;
 use bevy::prelude::*;
 use std::collections::HashMap;
-use crate::config::RawPieceConfig;
 
 #[derive(Resource, Default)]
 pub struct PieceLibrary(pub Vec<RawPieceConfig>);

@@ -1,13 +1,13 @@
-use bevy::prelude::*;
-use std::collections::HashMap;
-use rand::RngExt;
-use crate::config::RawPieceConfig;
-use crate::components::*;
-use crate::helpers::*;
-use crate::resources::PieceLibrary;
 use crate::Cleanup;
 use crate::components::LockedPiece;
-use bevy::picking::prelude::{Pointer, Click};
+use crate::components::*;
+use crate::config::RawPieceConfig;
+use crate::helpers::*;
+use crate::resources::PieceLibrary;
+use bevy::picking::prelude::{Click, Pointer};
+use bevy::prelude::*;
+use rand::RngExt;
+use std::collections::HashMap;
 
 #[derive(Component)]
 pub struct DraftConfirmButton;
@@ -18,7 +18,10 @@ pub fn refresh_draft_stash(commands: &mut Commands, library: &PieceLibrary) {
         ("RED".to_string(), Color::srgb_u8(216, 46, 63).to_linear()),
         ("BLUE".to_string(), Color::srgb_u8(53, 129, 216).to_linear()),
         ("GREEN".to_string(), Color::srgb_u8(40, 204, 45).to_linear()),
-        ("YELLOW".to_string(), Color::srgb_u8(255, 225, 53).to_linear()),
+        (
+            "YELLOW".to_string(),
+            Color::srgb_u8(255, 225, 53).to_linear(),
+        ),
     ]
     .into();
 
@@ -64,7 +67,10 @@ pub fn refresh_draft_stash(commands: &mut Commands, library: &PieceLibrary) {
         // Label (world space, unparented)
         commands.spawn((
             Text2d::new("x1"),
-            TextFont { font_size: 20.0, ..default() },
+            TextFont {
+                font_size: 20.0,
+                ..default()
+            },
             Transform::from_translation(label_pos),
             StashLabel(type_id),
             DraftPiece,
@@ -102,7 +108,8 @@ pub fn on_confirm_click(
     for entity in &draft_entities {
         if let Ok(piece) = piece_query.get(entity) {
             if piece.placed_at.is_some() {
-                commands.entity(entity)
+                commands
+                    .entity(entity)
                     .remove::<DraftPiece>()
                     .insert(LockedPiece);
                 info!("Piece {:?} locked", entity);
