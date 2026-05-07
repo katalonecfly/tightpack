@@ -20,3 +20,15 @@ pub fn world_to_grid(world: Vec3) -> IVec2 {
 pub fn is_in_bounds(grid: IVec2) -> bool {
     grid.x >= 0 && grid.x < BOARD_SIZE.x && grid.y >= 0 && grid.y < BOARD_SIZE.y
 }
+
+pub const SCORE_FONT_SIZE: f32 = 30.0;
+pub const SCORE_Y_OFFSET: f32 = 30.0;
+
+pub fn score_text_world_pos(text: &str, font_size: f32) -> Vec3 {
+    let board_left = grid_to_world(IVec2::ZERO).x - TILE_SIZE / 2.0;
+    let board_top = grid_to_world(IVec2::new(0, BOARD_SIZE.y - 1)).y + TILE_SIZE / 2.0;
+    let score_y = board_top + SCORE_Y_OFFSET;
+    let half_width = text.len() as f32 * font_size * 0.25;
+    Vec3::new(board_left + half_width, score_y, 0.0)
+}
+

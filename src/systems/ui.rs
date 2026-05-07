@@ -1,9 +1,10 @@
 use crate::components::*;
-use crate::helpers::{TILE_SIZE, grid_to_world};
+use crate::helpers::TILE_SIZE;
 use crate::resources::{GameState, TooltipState};
 use crate::systems::scoring::check_condition;
 use bevy::prelude::*;
 use bevy::window::Window;
+use crate::helpers::{score_text_world_pos, SCORE_FONT_SIZE};
 
 pub fn update_stash_labels(
     mut label_query: Query<(&mut Text2d, &StashLabel)>,
@@ -23,15 +24,10 @@ pub fn update_score_ui(
     mut query: Query<(&mut Text2d, &mut Transform), With<ScoreText>>,
 ) {
     if state.is_changed() {
-        let board_left = grid_to_world(IVec2::ZERO).x - TILE_SIZE / 2.0;
-        let score_font_size = 30.0; // must match the size used in setup
-
         for (mut text2d, mut transform) in &mut query {
             let score_str = format!("Score: {}", state.score);
             text2d.0 = score_str.clone();
-
-            let half_width = score_str.len() as f32 * score_font_size * 0.25;
-            transform.translation.x = board_left + half_width;
+            transform.translation = score_text_world_pos(&score_str, SCORE_FONT_SIZE);
         }
     }
 }

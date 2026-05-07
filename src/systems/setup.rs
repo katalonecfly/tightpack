@@ -7,19 +7,15 @@ use crate::systems::draft::DraftConfirmButton;
 use bevy::prelude::*;
 use std::collections::HashMap;
 
-// ─── S A N D B O X ────────────────────────────────────
-pub fn setup_sandbox(mut commands: Commands) {
+fn spawn_common(commands: &mut Commands) -> Vec<RawPieceConfig> {
     commands.spawn((Camera2d, Cleanup));
 
-    let mut color_map = HashMap::new();
-    color_map.insert("RED".into(), Color::srgb_u8(216, 46, 63).to_linear());
-    color_map.insert("BLUE".into(), Color::srgb_u8(53, 129, 216).to_linear());
-    color_map.insert("GREEN".into(), Color::srgb_u8(40, 204, 45).to_linear());
-    color_map.insert("YELLOW".into(), Color::srgb_u8(255, 225, 53).to_linear());
-
-    let file_content = std::fs::read_to_string("assets/pieces.ron").expect("Missing pieces.ron");
-    let lib: RawPieceLibrary = ron::from_str(&file_content).expect("Failed to parse RON");
-    commands.insert_resource(PieceLibrary(lib.pieces.clone()));
+    let file_content = std::fs::read_to_string("assets/pieces.ron")
+        .expect("Missing pieces.ron");
+    let lib: RawPieceLibrary = ron::from_str(&file_content)
+        .expect("Failed to parse RON");
+    let pieces = lib.pieces.clone();
+    commands.insert_resource(PieceLibrary(lib.pieces));
 
     // Board
     let board_root = commands.spawn((Transform::default(), Cleanup)).id();
@@ -35,8 +31,35 @@ pub fn setup_sandbox(mut commands: Commands) {
         }
     }
 
+    // Score text
+    commands.spawn((
+        Text2d::new("Score: 0"),
+        TextFont {
+            font_size: SCORE_FONT_SIZE,
+            ..default()
+        },
+        Transform::from_translation(score_text_world_pos("Score: 0", SCORE_FONT_SIZE)),
+        ScoreText,
+        Cleanup,
+    ));
+
+    pieces
+}
+
+// ─── S A N D B O X ────────────────────────────────────
+pub fn setup_sandbox(mut commands: Commands) {
+    let pieces = spawn_common(&mut commands);
+
+    let color_map: HashMap<String, LinearRgba> = [
+        ("RED".into(), Color::srgb_u8(216, 46, 63).to_linear()),
+        ("BLUE".into(), Color::srgb_u8(53, 129, 216).to_linear()),
+        ("GREEN".into(), Color::srgb_u8(40, 204, 45).to_linear()),
+        ("YELLOW".into(), Color::srgb_u8(255, 225, 53).to_linear()),
+    ]
+    .into();
+
     // Pieces (vertical stash)
-    for (type_id, raw) in lib.pieces.iter().enumerate() {
+    for (type_id, raw) in pieces.iter().enumerate() {
         let piece_color = *color_map.get(&raw.color).unwrap_or(&LinearRgba::WHITE);
         let baked = bake_effects(raw, &color_map);
         let top_y = (BOARD_SIZE.y - 1) as f32 * TILE_SIZE;
@@ -66,80 +89,22 @@ pub fn setup_sandbox(mut commands: Commands) {
             );
         }
     }
-
-    // ─── Score (2D world text) ──────────────────
-    let board_left = grid_to_world(IVec2::ZERO).x - TILE_SIZE / 2.0;
-    let board_top = grid_to_world(IVec2::new(0, BOARD_SIZE.y - 1)).y + TILE_SIZE / 2.0;
-    let score_y = board_top + 30.0;
-
-    let score_font_size = 30.0;
-    let initial_text = "Score: 0";
-    // approximate half-width: each character ≈ 0.25 * font_size
-    let initial_half_width = initial_text.len() as f32 * score_font_size * 0.25;
-
-    commands.spawn((
-        Text2d::new(initial_text),
-        TextFont {
-            font_size: score_font_size,
-            ..default()
-        },
-        Transform::from_translation(Vec3::new(board_left + initial_half_width, score_y, 0.0)),
-        ScoreText,
-        Cleanup,
-    ));
 }
 
 // ─── D R A F T   S E T U P ─────────────────────────────
 pub fn setup_draft(mut commands: Commands) {
-    commands.spawn((Camera2d, Cleanup));
-
-    let file_content = std::fs::read_to_string("assets/pieces.ron").expect("Missing pieces.ron");
-    let lib: RawPieceLibrary = ron::from_str(&file_content).expect("Failed to parse RON");
-    commands.insert_resource(PieceLibrary(lib.pieces.clone()));
-
-    // Board
-    let board_root = commands.spawn((Transform::default(), Cleanup)).id();
-    for x in 0..BOARD_SIZE.x {
-        for y in 0..BOARD_SIZE.y {
-            let tile = commands
-                .spawn((
-                    Sprite::from_color(Color::srgb(0.2, 0.2, 0.2), Vec2::splat(TILE_SIZE - 2.0)),
-                    Transform::from_translation(grid_to_world(IVec2::new(x, y))),
-                ))
-                .id();
-            commands.entity(board_root).add_child(tile);
-        }
-    }
-
-    // Position calculations
-    let board_left = grid_to_world(IVec2::ZERO).x - TILE_SIZE / 2.0;
-    let board_top = grid_to_world(IVec2::new(0, BOARD_SIZE.y - 1)).y + TILE_SIZE / 2.0;
-    let score_y = board_top + 30.0;
-
-    let score_font_size = 30.0;
-    let initial_text = "Score: 0";
-    // approximate half-width: each character ≈ 0.25 * font_size
-    let initial_half_width = initial_text.len() as f32 * score_font_size * 0.25;
-
-    commands.spawn((
-        Text2d::new(initial_text),
-        TextFont {
-            font_size: score_font_size,
-            ..default()
-        },
-        Transform::from_translation(Vec3::new(board_left + initial_half_width, score_y, 0.0)),
-        ScoreText,
-        Cleanup,
-    ));
-
+    let _pieces = spawn_common(&mut commands);
+    
     // Confirm button (world-space sprite)
     let board_right =
         grid_to_world(IVec2::new(BOARD_SIZE.x - 1, BOARD_SIZE.y - 1)).x + TILE_SIZE / 2.0;
+    let board_top =
+        grid_to_world(IVec2::new(0, BOARD_SIZE.y - 1)).y + TILE_SIZE / 2.0;
+    let score_y = board_top + SCORE_Y_OFFSET;
     let button_width = 120.0;
     let button_height = 50.0;
     let button_x = board_right - button_width / 2.0;
-    let button_y = score_y;
-    let button_pos = Vec3::new(button_x, button_y, 0.0);
+    let button_pos = Vec3::new(button_x, score_y, 0.0);
 
     commands
         .spawn((
