@@ -1,8 +1,7 @@
-// systems/draft.rs
 use bevy::prelude::*;
 use std::collections::HashMap;
-use rand::RngExt;      // provides random_range()
-use crate::config::RawPieceConfig;     // for the vector of references
+use rand::RngExt;
+use crate::config::RawPieceConfig;
 use crate::components::*;
 use crate::helpers::*;
 use crate::resources::PieceLibrary;
@@ -26,7 +25,7 @@ pub fn refresh_draft_stash(commands: &mut Commands, library: &PieceLibrary) {
     let mut rng = rand::rng();
     let all_pieces = &library.0;
 
-    // Pick 3 distinct pieces (unchanged)
+    // Pick 3 distinct pieces
     let mut available: Vec<&RawPieceConfig> = all_pieces.iter().collect();
     let mut chosen = Vec::with_capacity(3);
     for _ in 0..3 {
@@ -34,8 +33,8 @@ pub fn refresh_draft_stash(commands: &mut Commands, library: &PieceLibrary) {
         chosen.push(available.remove(idx));
     }
 
-    let board_left = grid_to_world(IVec2::ZERO).x;           // left edge of board
-    let mut next_left = board_left;                          // world x where next piece's leftmost tile goes
+    let board_left = grid_to_world(IVec2::ZERO).x;
+    let mut next_left = board_left;
 
     for (i, raw) in chosen.iter().enumerate() {
         // Calculate shape bounds
@@ -92,12 +91,6 @@ pub fn refresh_draft_stash(commands: &mut Commands, library: &PieceLibrary) {
 pub fn generate_draft_stash(mut commands: Commands, library: Res<PieceLibrary>) {
     refresh_draft_stash(&mut commands, &library);
 }
-
-// systems/draft.rs
-
-
-// systems/draft.rs
-// systems/draft.rs
 
 pub fn on_confirm_click(
     _trigger: On<Pointer<Click>>,

@@ -1,10 +1,9 @@
-// ui.rs
 use bevy::prelude::*;
 use bevy::window::Window;
 use crate::components::*;
 use crate::resources::{GameState, TooltipState};
 use crate::systems::scoring::check_condition;
-use crate::helpers::{grid_to_world, TILE_SIZE, BOARD_SIZE};
+use crate::helpers::{grid_to_world, TILE_SIZE};
 
 pub fn update_stash_labels(mut label_query: Query<(&mut Text2d, &StashLabel)>, piece_query: Query<(&Piece, &Transform)>) {
     for (mut text, label) in &mut label_query {
@@ -12,7 +11,6 @@ pub fn update_stash_labels(mut label_query: Query<(&mut Text2d, &StashLabel)>, p
         text.0 = format!("x{}", count);
     }
 }
-
 
 pub fn update_score_ui(
     state: Res<GameState>,

@@ -6,7 +6,7 @@ const BUTTON_COLOR: Color = Color::srgb(0.3, 0.3, 0.3);
 const TEXT_COLOR: Color = Color::WHITE;
 
 #[derive(Component)]
-pub(crate) struct MenuButton;   // made pub(crate)
+pub(crate) struct MenuButton;
 
 pub fn setup_menu(mut commands: Commands) {
     commands
@@ -56,7 +56,7 @@ pub fn setup_menu(mut commands: Commands) {
 
 pub fn menu_interaction(
     mut next_state: ResMut<NextState<AppState>>,
-    query: Query<(&Interaction, &Children), (With<MenuButton>, Changed<Interaction>)>,   // no mut
+    query: Query<(&Interaction, &Children), (With<MenuButton>, Changed<Interaction>)>,
     text_query: Query<&mut Text>,
 ) {
     for (interaction, children) in &query {

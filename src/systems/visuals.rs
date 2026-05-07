@@ -27,7 +27,7 @@ pub fn refresh_piece_visuals(
                 },
                 Transform::from_translation(center.extend(0.1)),
                 PieceVisual,
-                Pickable::default(), // <--- CRITICAL: Allow dragging
+                Pickable::default(),
             ));
 
             let directions = [
@@ -44,7 +44,7 @@ pub fn refresh_piece_visuals(
                         Sprite { color: color.into(), custom_size: Some(b_size), ..default() },
                         Transform::from_translation((center + b_offset).extend(0.1)),
                         PieceVisual,
-                        Pickable::default(), // <--- CRITICAL: Allow dragging
+                        Pickable::default(),
                     ));
                 } else {
                     // --- Perimeter Line ---
@@ -56,7 +56,7 @@ pub fn refresh_piece_visuals(
                         Sprite { color: perimeter_color.into(), custom_size: Some(line_size), ..default() },
                         Transform::from_translation((center + line_offset).extend(0.5)),
                         PieceVisual,
-                        Pickable::default(), // <--- CRITICAL: Allow dragging
+                        Pickable::default(),
                     ));
                 }
             }

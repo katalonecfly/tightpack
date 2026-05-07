@@ -1,4 +1,3 @@
-// systems/interaction.rs
 use bevy::prelude::*;
 use crate::components::*;
 use crate::helpers::*;
@@ -59,7 +58,7 @@ pub fn on_drag(
     piece_query: Query<(), With<Piece>>,
     child_of_query: Query<&ChildOf>,
     mut drag_piece_query: Query<(&mut Transform, &Piece)>,
-    locked_query: Query<(), With<LockedPiece>>,       // new
+    locked_query: Query<(), With<LockedPiece>>,
     mut commands: Commands,
     state: Res<GameState>,
     ghost_query: Query<Entity, With<GhostTile>>,
@@ -113,7 +112,7 @@ pub fn on_drag_end(
     mut drag_piece_query: Query<(&mut Transform, &mut Piece, &Children)>,
     locked_query: Query<(), With<LockedPiece>>,
     draft_check: Query<(), With<DraftPiece>>,
-    piece_entities: Query<Entity, With<Piece>>,            // new query for entity IDs
+    piece_entities: Query<Entity, With<Piece>>,
     mut state: ResMut<GameState>,
     ghost_query: Query<Entity, With<GhostTile>>,
 ) {
@@ -193,7 +192,7 @@ pub fn on_drag_end(
     }
 }
 
-// ── Rotation (unchanged) ──
+// ── Rotation ──
 pub fn handle_rotation(
     keyboard: Res<ButtonInput<KeyCode>>,
     mouse: Res<ButtonInput<MouseButton>>,
@@ -248,7 +247,6 @@ pub fn on_child_hover_out(
     }
 }
 
-// ── Legacy hover for the piece entity itself ──
 pub fn on_hover_in(on: On<Pointer<Over>>, mut commands: Commands) {
     commands.entity(on.event_target()).insert(Hovered);
 }

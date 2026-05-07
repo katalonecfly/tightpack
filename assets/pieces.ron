@@ -1,4 +1,3 @@
-// assets/pieces.ron (updated effects with description fields)
 (
     pieces: [
         (
@@ -28,7 +27,7 @@
                     condition: MatchesColor("RED"),
                     points: 1,
                     offsets: [(0, 1), (1, 1), (0, -1), (1, -1), (-1, 0), (2, 0)],
-                    description: "Gain 1 point for each adjacent RED cell",
+                    description: "Gain 1 point(s) for each target RED cell.",
                 ),
             ],
         ),
@@ -41,7 +40,7 @@
                     condition: IsEmpty,
                     points: 1,
                     offsets: [(1, 1)],
-                    description: "Gain 1 point if the diagonal cell is empty",
+                    description: "Gain 1 point(s) for each target empty cell.",
                 ),
             ],
         ),
@@ -54,7 +53,7 @@
                     condition: IsEmpty,
                     points: 1,
                     offsets: [(4, 0), (5, 0), (6, 0), (7, 0)],
-                    description: "Gain 1 point for each empty cell in a line",
+                    description: "Gain 1 point(s) for each target empty cell.",
                 ),
             ],
         ),
