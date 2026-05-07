@@ -1,7 +1,6 @@
 use crate::components::*;
 use crate::helpers::*;
 use crate::resources::GameState;
-use crate::systems::scoring::recalculate_score;
 use bevy::prelude::*;
 
 // ── Helper: find the piece entity from any child or the piece itself ──
@@ -34,7 +33,6 @@ pub fn on_drag_start(
         return;
     };
 
-    // Locked pieces cannot be dragged
     if locked_query.contains(piece_entity) {
         return;
     }
@@ -47,7 +45,7 @@ pub fn on_drag_start(
                 state.board_cells.remove(&(old_pos + *offset));
             }
             piece.placed_at = None;
-            recalculate_score(&mut state, &drag_piece_query);
+            // Score recalculation is now done by a dedicated system
         }
     }
 }
@@ -147,14 +145,12 @@ pub fn on_drag_end(
         }
 
         if can_place {
-            // Place the new piece
             transform.translation = grid_to_world(grid_pos).with_z(1.0);
             piece.placed_at = Some(grid_pos);
             for offset in &piece.shape {
                 state.board_cells.insert(grid_pos + *offset, piece.color);
             }
 
-            // --- Draft mode: reset all other placed draft pieces ---
             if draft_check.contains(piece_entity) {
                 let mut to_reset = Vec::new();
                 for other_entity in &piece_entities {
@@ -185,7 +181,6 @@ pub fn on_drag_end(
                 }
             }
         } else {
-            // Invalid placement – return piece to stash
             transform.translation = piece.original_pos;
             transform.translation.z = 1.0;
             transform.rotation = Quat::IDENTITY;
@@ -193,7 +188,7 @@ pub fn on_drag_end(
             piece.effects = piece.original_effects.clone();
         }
 
-        recalculate_score(&mut state, &drag_piece_query);
+        // Score recalculation is now done by a dedicated system
     }
 }
 

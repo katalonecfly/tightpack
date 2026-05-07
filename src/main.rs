@@ -50,6 +50,7 @@ fn main() {
                 systems::ui::update_effect_previews,
                 systems::ui::update_tooltip,
                 systems::interaction::handle_rotation,
+                systems::scoring::recalculate_score_system,
             )
                 .run_if(in_state(AppState::Sandbox)),
         )
@@ -71,7 +72,7 @@ fn main() {
                 systems::ui::update_effect_previews,
                 systems::ui::update_tooltip,
                 systems::interaction::handle_rotation,
-                // confirm is now handled by an observer, not a system
+                systems::scoring::recalculate_score_system,
             )
                 .run_if(in_state(AppState::Draft)),
         )

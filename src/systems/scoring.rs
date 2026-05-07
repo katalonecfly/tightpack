@@ -4,10 +4,10 @@ use bevy::prelude::*;
 
 pub fn recalculate_score(
     state: &mut GameState,
-    query: &Query<(&mut Transform, &mut Piece, &Children)>,
+    piece_query: &Query<&Piece>,
 ) {
     let mut total = 0;
-    for (_, piece, _) in query.iter() {
+    for piece in piece_query.iter() {
         if let Some(pos) = piece.placed_at {
             total += piece.points;
 
@@ -46,4 +46,11 @@ pub fn check_condition(cond: &EffectCondition, target: Option<IVec2>, state: &Ga
         }
         EffectCondition::NoColorOnBoard(c) => !state.board_cells.values().any(|color| color == c),
     }
+}
+
+pub fn recalculate_score_system(
+    mut state: ResMut<GameState>,
+    piece_query: Query<&Piece>,
+) {
+    recalculate_score(&mut state, &piece_query);
 }
