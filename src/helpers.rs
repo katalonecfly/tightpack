@@ -23,6 +23,10 @@ pub fn is_in_bounds(grid: IVec2) -> bool {
 
 pub const SCORE_FONT_SIZE: f32 = 30.0;
 pub const SCORE_Y_OFFSET: f32 = 30.0;
+pub const STASH_LABEL_FONT_SIZE: f32 = 24.0;
+pub const CONFIRM_BUTTON_WIDTH: f32 = 120.0;
+pub const CONFIRM_BUTTON_HEIGHT: f32 = 50.0;
+pub const CONFIRM_BUTTON_FONT_SIZE: f32 = 28.0;
 
 pub fn score_text_world_pos(text: &str, font_size: f32) -> Vec3 {
     let board_left = grid_to_world(IVec2::ZERO).x - TILE_SIZE / 2.0;

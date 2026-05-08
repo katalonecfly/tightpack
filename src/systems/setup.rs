@@ -69,7 +69,7 @@ pub fn setup_sandbox(mut commands: Commands) {
         commands.spawn((
             Text2d::new(format!("x{}", count)),
             TextFont {
-                font_size: 24.0,
+                font_size: STASH_LABEL_FONT_SIZE,
                 ..default()
             },
             Transform::from_translation(pos + Vec3::new(-45.0, 35.0, 2.0)),
@@ -101,11 +101,10 @@ pub fn setup_draft(mut commands: Commands) {
     let board_top =
         grid_to_world(IVec2::new(0, BOARD_SIZE.y - 1)).y + TILE_SIZE / 2.0;
     let score_y = board_top + SCORE_Y_OFFSET;
-    let button_width = 120.0;
-    let button_height = 50.0;
+    let button_width = CONFIRM_BUTTON_WIDTH;
+    let button_height = CONFIRM_BUTTON_HEIGHT;
     let button_x = board_right - button_width / 2.0;
     let button_pos = Vec3::new(button_x, score_y, 0.0);
-
     commands
         .spawn((
             Sprite::from_color(
@@ -120,7 +119,7 @@ pub fn setup_draft(mut commands: Commands) {
         .with_child((
             Text2d::new("Confirm"),
             TextFont {
-                font_size: 28.0,
+                font_size: CONFIRM_BUTTON_FONT_SIZE,
                 ..default()
             },
             TextColor(Color::WHITE),

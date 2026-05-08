@@ -68,7 +68,7 @@ pub fn refresh_draft_stash(commands: &mut Commands, library: &PieceLibrary) {
         commands.spawn((
             Text2d::new("x1"),
             TextFont {
-                font_size: 20.0,
+                font_size: STASH_LABEL_FONT_SIZE,
                 ..default()
             },
             Transform::from_translation(label_pos),
