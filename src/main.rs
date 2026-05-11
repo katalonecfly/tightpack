@@ -42,18 +42,19 @@ fn main() {
         .add_systems(OnExit(AppState::Menu), cleanup_system)
         // Sandbox
         .add_systems(OnEnter(AppState::Sandbox), systems::setup::setup_sandbox)
-        .add_systems(
-            Update,
-            (
-                systems::ui::update_score_ui,
-                systems::ui::update_stash_labels,
-                systems::ui::update_effect_previews,
-                systems::ui::update_tooltip,
-                systems::interaction::handle_rotation,
-                systems::scoring::recalculate_score_system,
-            )
-                .run_if(in_state(AppState::Sandbox)),
-        )
+.add_systems(Update,
+    (
+        systems::ui::update_score_ui,
+        systems::ui::update_stash_labels,
+        systems::ui::update_effect_previews,
+        systems::ui::update_tooltip,
+        systems::interaction::handle_rotation,
+        systems::scoring::recalculate_score_system,
+        systems::inventory::scroll_inventory,
+        systems::inventory::apply_inventory_scroll,
+    )
+        .run_if(in_state(AppState::Sandbox)),
+)
         .add_systems(OnExit(AppState::Sandbox), cleanup_system)
         // Draft
         .add_systems(

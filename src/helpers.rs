@@ -3,7 +3,7 @@ use bevy::prelude::*;
 pub const TILE_SIZE: f32 = 40.0;
 pub const BOARD_SIZE: IVec2 = IVec2::new(8, 8);
 pub const BOARD_OFFSET: Vec3 = Vec3::new(-200.0, 0.0, 0.0);
-pub const INVENTORY_OFFSET: Vec3 = Vec3::new(200.0, 0.0, 0.0);
+//pub const INVENTORY_OFFSET: Vec3 = Vec3::new(200.0, 0.0, 0.0);
 
 pub fn grid_to_world(grid: IVec2) -> Vec3 {
     BOARD_OFFSET + Vec3::new(grid.x as f32 * TILE_SIZE, grid.y as f32 * TILE_SIZE, 0.0)
@@ -36,3 +36,11 @@ pub fn score_text_world_pos(text: &str, font_size: f32) -> Vec3 {
     Vec3::new(board_left + half_width, score_y, 0.0)
 }
 
+// After the existing constants, add:
+// New constants (already may be there)
+//pub const STASH_ORIGIN_X: f32 = 200.0;
+//pub const STASH_ORIGIN_Y: f32 = 280.0;
+pub const STASH_LEFT_X: f32 = 160.0;          // world x of stash left edge
+pub const STASH_WIDTH: f32 = 200.0;
+pub const STASH_VISIBLE_HEIGHT: f32 = 360.0;
+pub const STASH_SCROLL_SPEED: f32 = 20.0;     // slow down

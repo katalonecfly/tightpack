@@ -47,9 +47,15 @@ pub struct ScoreText;
 pub struct Dragging;
 #[derive(Component)]
 pub struct GhostTile;
+#[derive(Component)]
+pub struct StashPosition {
+    pub desired_world_y: f32,   // world y where the entity should appear when scroll=0
+}
 
 #[derive(Component)]
 pub struct DraftPiece;
 
 #[derive(Component)]
 pub struct LockedPiece;
+
+

@@ -6,6 +6,8 @@ use crate::resources::PieceLibrary;
 use crate::systems::draft::DraftConfirmButton;
 use bevy::prelude::*;
 use std::collections::HashMap;
+use crate::resources::{InventoryScroll, StashContentHeight, StashScreenRect};
+use crate::components::StashPosition;
 
 fn spawn_common(commands: &mut Commands) -> Vec<RawPieceConfig> {
     commands.spawn((Camera2d, Cleanup));
@@ -47,8 +49,26 @@ fn spawn_common(commands: &mut Commands) -> Vec<RawPieceConfig> {
 }
 
 // ─── S A N D B O X ────────────────────────────────────
-pub fn setup_sandbox(mut commands: Commands) {
+pub fn setup_sandbox(mut commands: Commands, windows: Query<&Window>) {
     let pieces = spawn_common(&mut commands);
+    let window = windows.single().expect("Primary window missing");
+
+    // World‑space stash area (right side, aligned with board top)
+    let stash_left = STASH_LEFT_X;
+    let stash_width = STASH_WIDTH;
+    let stash_visible_height = STASH_VISIBLE_HEIGHT;
+
+    let board_top = grid_to_world(IVec2::new(0, BOARD_SIZE.y - 1)).y + TILE_SIZE / 2.0;
+    let stash_top = board_top;
+
+    let screen_x = (window.width() / 2.0) + stash_left;
+    let screen_y = (window.height() / 2.0) - stash_top;
+    commands.insert_resource(StashScreenRect {
+        x: screen_x,
+        y: screen_y,
+        width: stash_width,
+        height: stash_visible_height,
+    });
 
     let color_map: HashMap<String, LinearRgba> = [
         ("RED".into(), Color::srgb_u8(216, 46, 63).to_linear()),
@@ -58,26 +78,30 @@ pub fn setup_sandbox(mut commands: Commands) {
     ]
     .into();
 
-    // Pieces (vertical stash)
+    let mut current_y_offset = 0.0f32;
+
     for (type_id, raw) in pieces.iter().enumerate() {
         let piece_color = *color_map.get(&raw.color).unwrap_or(&LinearRgba::WHITE);
         let baked = bake_effects(raw, &color_map);
-        let top_y = (BOARD_SIZE.y - 1) as f32 * TILE_SIZE;
-        let pos = INVENTORY_OFFSET + Vec3::new(0.0, top_y - (type_id as f32 * 100.0), 1.0);
-        let count = 10;
 
-        commands.spawn((
-            Text2d::new(format!("x{}", count)),
-            TextFont {
-                font_size: STASH_LABEL_FONT_SIZE,
-                ..default()
-            },
-            Transform::from_translation(pos + Vec3::new(-45.0, 35.0, 2.0)),
-            StashLabel(type_id),
-            Cleanup,
-        ));
-        for _ in 0..count {
-            spawn_draggable_piece(
+        let min_x = raw.shape.iter().map(|o| o.x).min().unwrap_or(0);
+        let max_x = raw.shape.iter().map(|o| o.x).max().unwrap_or(0);
+        let min_y = raw.shape.iter().map(|o| o.y).min().unwrap_or(0);
+        let max_y = raw.shape.iter().map(|o| o.y).max().unwrap_or(0);
+        let piece_height = (max_y - min_y + 1) as f32 * TILE_SIZE;
+
+        let stash_center_x = stash_left + stash_width / 2.0;
+        let piece_x = stash_center_x - ((min_x + max_x) as f32) / 2.0 * TILE_SIZE;
+
+        // Vertical position of the topmost copy
+        let top_offset = max_y as f32 * TILE_SIZE + TILE_SIZE / 2.0;
+        let base_y = stash_top - current_y_offset - top_offset;
+
+        let copy_count = 10;
+        for copy_idx in 0..copy_count {
+            // All copies at same x,y; tiny z increment avoids z‑fighting
+            let pos = Vec3::new(piece_x, base_y, 1.0 + copy_idx as f32 * 0.001);
+            let entity = spawn_draggable_piece(
                 &mut commands,
                 type_id,
                 raw.shape.clone(),
@@ -87,8 +111,31 @@ pub fn setup_sandbox(mut commands: Commands) {
                 pos,
                 false,
             );
+            commands
+                .entity(entity)
+                .insert(StashPosition { desired_world_y: base_y });
         }
+
+        // Label above the topmost copy
+        let label_y = base_y + max_y as f32 * TILE_SIZE + TILE_SIZE / 2.0 + 10.0;
+        commands.spawn((
+            Text2d::new(format!("x{}", copy_count)),
+            TextFont {
+                font_size: STASH_LABEL_FONT_SIZE,
+                ..default()
+            },
+            Transform::from_translation(Vec3::new(piece_x, label_y, 2.0)),
+            StashLabel(type_id),
+            StashPosition { desired_world_y: label_y },
+            Cleanup,
+        ));
+
+        // Advance for next piece type (only one visible row height)
+        current_y_offset += piece_height + TILE_SIZE;
     }
+
+    commands.insert_resource(InventoryScroll::default());
+    commands.insert_resource(StashContentHeight(current_y_offset));
 }
 
 // ─── D R A F T   S E T U P ─────────────────────────────

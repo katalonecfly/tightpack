@@ -57,5 +57,62 @@
                 ),
             ],
         ),
+        (
+            shape: [(0, 0)],
+            color: "RED",
+            points: 1,
+            effects: [],
+        ),
+        (
+            shape: [(0, 0)],
+            color: "GREEN",
+            points: 1,
+            effects: [],
+        ),
+        (
+            shape: [(0, 0)],
+            color: "BLUE",
+            points: 1,
+            effects: [],
+        ),
+        (
+            shape: [(0, 0), (1, 0)],
+            color: "BLUE",
+            points: 3,
+            effects: [
+                (
+                    condition: MatchesColor("RED"),
+                    points: 1,
+                    offsets: [(0, 1), (1, 1), (0, -1), (1, -1), (-1, 0), (2, 0)],
+                    description: "Gain 1 point(s) for each target RED cell.",
+                ),
+            ],
+        ),
+        (
+            shape: [(0, 0), (1, 0), (0,1)],
+            color: "RED",
+            points: 5,
+            effects: [
+                (
+                    condition: IsEmpty,
+                    points: 1,
+                    offsets: [(1, 1)],
+                    description: "Gain 1 point(s) for each target empty cell.",
+                ),
+            ],
+        ),
+        (
+            shape: [(0, 0), (1, 0), (2, 0), (3, 0)],
+            color: "GREEN",
+            points: 9,
+            effects: [
+                (
+                    condition: IsEmpty,
+                    points: 1,
+                    offsets: [(4, 0), (5, 0), (6, 0), (7, 0)],
+                    description: "Gain 1 point(s) for each target empty cell.",
+                ),
+            ],
+        ),
     ]
 )

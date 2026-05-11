@@ -15,3 +15,19 @@ pub struct GameState {
 pub struct TooltipState {
     pub entity: Option<Entity>,
 }
+
+#[derive(Resource, Default)]
+pub struct InventoryScroll {
+    pub offset: f32,    // positive = scroll down (pieces move up)
+}
+
+#[derive(Resource, Default)]
+pub struct StashContentHeight(pub f32);
+
+#[derive(Resource, Default)]
+pub struct StashScreenRect {
+    pub x: f32,
+    pub y: f32,
+    pub width: f32,
+    pub height: f32,
+}
