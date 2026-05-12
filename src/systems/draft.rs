@@ -86,7 +86,9 @@ pub fn refresh_draft_stash(commands: &mut Commands, library: &PieceLibrary) {
             raw.points,
             effects,
             pos,
-            true,
+            true,  // draft_mode
+            true,  // interactive
+            BoardSide::Single, 
         );
 
         // Advance next_left: piece width + gap

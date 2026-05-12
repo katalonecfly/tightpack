@@ -3,7 +3,6 @@ use crate::helpers::*;
 use crate::resources::GameState;
 use bevy::prelude::*;
 
-// ── Helper: find the piece entity from any child or the piece itself ──
 fn get_piece_entity(
     target: Entity,
     piece_query: &Query<(), With<Piece>>,
@@ -18,7 +17,6 @@ fn get_piece_entity(
     }
 }
 
-// ── Drag start (lock check) ──
 pub fn on_drag_start(
     on: On<Pointer<DragStart>>,
     mut commands: Commands,
@@ -27,16 +25,18 @@ pub fn on_drag_start(
     mut drag_piece_query: Query<(&mut Transform, &mut Piece, &Children)>,
     locked_query: Query<(), With<LockedPiece>>,
     mut state: ResMut<GameState>,
+    opponent_query: Query<(), With<OpponentPiece>>,
 ) {
     let target = on.event_target();
     let Some(piece_entity) = get_piece_entity(target, &piece_query, &child_of_query) else {
         return;
     };
-
+    if opponent_query.contains(piece_entity) {
+        return;
+    }
     if locked_query.contains(piece_entity) {
         return;
     }
-
     if let Ok((mut transform, mut piece, _)) = drag_piece_query.get_mut(piece_entity) {
         commands.entity(piece_entity).insert(Dragging);
         transform.translation.z = 10.0;
@@ -45,12 +45,10 @@ pub fn on_drag_start(
                 state.board_cells.remove(&(old_pos + *offset));
             }
             piece.placed_at = None;
-            // Score recalculation is now done by a dedicated system
         }
     }
 }
 
-// ── Drag (lock check added) ──
 pub fn on_drag(
     on: On<Pointer<Drag>>,
     piece_query: Query<(), With<Piece>>,
@@ -60,26 +58,26 @@ pub fn on_drag(
     mut commands: Commands,
     state: Res<GameState>,
     ghost_query: Query<Entity, With<GhostTile>>,
+    opponent_query: Query<(), With<OpponentPiece>>,
 ) {
     let target = on.event_target();
     let Some(piece_entity) = get_piece_entity(target, &piece_query, &child_of_query) else {
         return;
     };
-
-    // Ignore locked pieces
+    if opponent_query.contains(piece_entity) {
+        return;
+    }
     if locked_query.contains(piece_entity) {
         return;
     }
-
     if let Ok((mut transform, piece)) = drag_piece_query.get_mut(piece_entity) {
         transform.translation.x += on.delta.x;
         transform.translation.y -= on.delta.y;
 
-        // Ghost logic
         for entity in &ghost_query {
             commands.entity(entity).despawn();
         }
-        let grid_pos = world_to_grid(transform.translation);
+        let grid_pos = world_to_grid_for_side(transform.translation, piece.board_side);
         let mut can_place = true;
         for offset in &piece.shape {
             let tile_pos = grid_pos + *offset;
@@ -93,7 +91,9 @@ pub fn on_drag(
             for offset in &piece.shape {
                 commands.spawn((
                     Sprite::from_color(ghost_color, Vec2::splat(TILE_SIZE - 2.0)),
-                    Transform::from_translation(grid_to_world(grid_pos + *offset).with_z(1.0)),
+                    Transform::from_translation(
+                        grid_to_world_for_side(grid_pos + *offset, piece.board_side).with_z(1.0),
+                    ),
                     GhostTile,
                 ));
             }
@@ -101,7 +101,6 @@ pub fn on_drag(
     }
 }
 
-// ── Drag end (lock check added) ──
 pub fn on_drag_end(
     on: On<Pointer<DragEnd>>,
     mut commands: Commands,
@@ -113,6 +112,7 @@ pub fn on_drag_end(
     piece_entities: Query<Entity, With<Piece>>,
     mut state: ResMut<GameState>,
     ghost_query: Query<Entity, With<GhostTile>>,
+    opponent_query: Query<(), With<OpponentPiece>>,
 ) {
     for entity in &ghost_query {
         commands.entity(entity).despawn();
@@ -122,14 +122,16 @@ pub fn on_drag_end(
     let Some(piece_entity) = get_piece_entity(target, &piece_query, &child_of_query) else {
         return;
     };
-
+    if opponent_query.contains(piece_entity) {
+        return;
+    }
     if locked_query.contains(piece_entity) {
         return;
     }
 
     commands.entity(piece_entity).remove::<Dragging>();
     if let Ok((mut transform, mut piece, _children)) = drag_piece_query.get_mut(piece_entity) {
-        let grid_pos = world_to_grid(transform.translation);
+        let grid_pos = world_to_grid_for_side(transform.translation, piece.board_side);
         let mut can_place = true;
         for offset in &piece.shape {
             let cell = grid_pos + *offset;
@@ -145,7 +147,7 @@ pub fn on_drag_end(
         }
 
         if can_place {
-            transform.translation = grid_to_world(grid_pos).with_z(1.0);
+            transform.translation = grid_to_world_for_side(grid_pos, piece.board_side).with_z(1.0);
             piece.placed_at = Some(grid_pos);
             for offset in &piece.shape {
                 state.board_cells.insert(grid_pos + *offset, piece.color);
@@ -187,16 +189,16 @@ pub fn on_drag_end(
             piece.shape = piece.original_shape.clone();
             piece.effects = piece.original_effects.clone();
         }
-
-        // Score recalculation is now done by a dedicated system
     }
 }
 
-// ── Rotation ──
 pub fn handle_rotation(
     keyboard: Res<ButtonInput<KeyCode>>,
     mouse: Res<ButtonInput<MouseButton>>,
-    mut piece_query: Query<(Entity, &mut Transform, &mut Piece, &Children), With<Dragging>>,
+    mut piece_query: Query<
+        (Entity, &mut Transform, &mut Piece, &Children),
+        (With<Dragging>, Without<OpponentPiece>),
+    >,
     mut preview_query: Query<&mut EffectPreview>,
 ) {
     if keyboard.just_pressed(KeyCode::KeyR) || mouse.just_pressed(MouseButton::Right) {
@@ -224,7 +226,6 @@ pub fn handle_rotation(
     }
 }
 
-// ── Hover propagation from children to parent ──
 pub fn on_child_hover_in(
     trigger: On<Pointer<Over>>,
     mut commands: Commands,

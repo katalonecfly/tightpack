@@ -15,6 +15,7 @@ enum AppState {
     Menu,
     Sandbox,
     Draft,
+    Duel,
 }
 
 #[derive(Component)]
@@ -78,5 +79,20 @@ fn main() {
                 .run_if(in_state(AppState::Draft)),
         )
         .add_systems(OnExit(AppState::Draft), cleanup_system)
+        // After Draft section:
+        .add_systems(OnEnter(AppState::Duel), systems::duel::setup_duel)
+        .add_systems(
+            Update,
+            (
+                systems::ui::update_duel_score_ui,
+                systems::ui::update_stash_labels,
+                systems::ui::update_duel_effect_previews,
+                systems::ui::update_tooltip,
+                systems::interaction::handle_rotation,
+                systems::scoring::recalculate_duel_score_system,
+            )
+                .run_if(in_state(AppState::Duel)),
+        )
+        .add_systems(OnExit(AppState::Duel), cleanup_system)
         .run();
 }

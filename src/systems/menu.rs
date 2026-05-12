@@ -75,7 +75,8 @@ pub fn menu_interaction(
             match label.as_str() {
                 "Sandbox" => next_state.set(AppState::Sandbox),
                 "Draft" => next_state.set(AppState::Draft),
-                _ => {} // Duel, Puzzles still do nothing
+                "Duel" => next_state.set(AppState::Duel),
+                _ => {} // Puzzles still do nothing
             }
         }
     }

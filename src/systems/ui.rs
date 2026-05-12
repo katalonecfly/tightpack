@@ -1,19 +1,29 @@
 use crate::components::*;
 use crate::helpers::TILE_SIZE;
-use crate::resources::{GameState, TooltipState};
+use crate::resources::{GameState, DuelState, TooltipState};
 use crate::systems::scoring::check_condition;
 use bevy::prelude::*;
 use bevy::window::Window;
-use crate::helpers::{score_text_world_pos, SCORE_FONT_SIZE};
+use crate::helpers::{score_text_world_pos, score_text_world_pos_for_side, SCORE_FONT_SIZE};
 
 pub fn update_stash_labels(
-    mut label_query: Query<(&mut Text2d, &StashLabel)>,
-    piece_query: Query<(&Piece, &Transform)>,
+    mut label_query: Query<(
+        &mut Text2d, &StashLabel, Option<&PlayerPiece>, Option<&OpponentPiece>,
+    )>,
+    piece_query_with_side: Query<(&Piece, &Transform, Option<&PlayerPiece>, Option<&OpponentPiece>)>,
 ) {
-    for (mut text, label) in &mut label_query {
-        let count = piece_query
+    for (mut text, label, label_has_player, label_has_opponent) in &mut label_query {
+        let count = piece_query_with_side
             .iter()
-            .filter(|(p, t)| p.type_id == label.0 && p.placed_at.is_none() && t.translation.z < 5.0)
+            .filter(|(p, t, piece_player, piece_opponent)| {
+                p.type_id == label.0
+                    && p.placed_at.is_none()
+                    && t.translation.z < 5.0
+                    // If label is marked for a side, only count pieces of that side.
+                    && (label_has_player.is_some() && piece_player.is_some()
+                        || label_has_opponent.is_some() && piece_opponent.is_some()
+                        || (label_has_player.is_none() && label_has_opponent.is_none()))
+            })
             .count();
         text.0 = format!("x{}", count);
     }
@@ -32,6 +42,62 @@ pub fn update_score_ui(
     }
 }
 
+pub fn update_duel_score_ui(
+    duel_state: Res<DuelState>,
+    mut player_query: Query<(&mut Text2d, &mut Transform), (With<PlayerScoreText>, Without<OpponentScoreText>)>,
+    mut opponent_query: Query<(&mut Text2d, &mut Transform), (With<OpponentScoreText>, Without<PlayerScoreText>)>,
+) {
+    if duel_state.is_changed() {
+        for (mut text, mut transform) in &mut player_query {
+            let score_str = format!("Player: {}", duel_state.player.score);
+            text.0 = score_str.clone();
+            transform.translation = score_text_world_pos_for_side(&score_str, SCORE_FONT_SIZE, BoardSide::Left);
+        }
+        for (mut text, mut transform) in &mut opponent_query {
+            let score_str = format!("Opponent: {}", duel_state.opponent.score);
+            text.0 = score_str.clone();
+            transform.translation = score_text_world_pos_for_side(&score_str, SCORE_FONT_SIZE, BoardSide::Right);
+        }
+    }
+}
+
+pub fn update_duel_effect_previews(
+    duel_state: Res<DuelState>,
+    piece_query: Query<(&Piece, &Children, Has<Hovered>)>,
+    mut preview_query: Query<(&mut Visibility, &mut Sprite, &EffectPreview)>,
+) {
+    for (piece, children, is_hovered) in &piece_query {
+        for &child in children {
+            if let Ok((mut visibility, mut sprite, preview)) = preview_query.get_mut(child) {
+                if is_hovered {
+                    *visibility = Visibility::Visible;
+                    let mut active = false;
+                    let board_cells = match piece.board_side {
+                        BoardSide::Left => &duel_state.player.board_cells,
+                        BoardSide::Right => &duel_state.opponent.board_cells,
+                        _ => continue,
+                    };
+                    if let Some(grid_pos) = piece.placed_at {
+                        let target_cell = grid_pos + preview.offset;
+                        if crate::helpers::is_in_bounds(target_cell) {
+                            active = check_condition(&preview.condition, Some(target_cell), board_cells);
+                        }
+                    }
+                    if active {
+                        sprite.color = Color::srgb(1.0, 1.0, 0.0).into();
+                        sprite.custom_size = Some(Vec2::splat(12.0));
+                    } else {
+                        sprite.color = Color::srgba(1.0, 1.0, 0.0, 0.4).into();
+                        sprite.custom_size = Some(Vec2::splat(8.0));
+                    }
+                } else {
+                    *visibility = Visibility::Hidden;
+                }
+            }
+        }
+    }
+}
+
 pub fn update_effect_previews(
     state: Res<GameState>,
     piece_query: Query<(&Piece, &Children, Has<Hovered>)>,
@@ -43,14 +109,12 @@ pub fn update_effect_previews(
                 if is_hovered {
                     *visibility = Visibility::Visible;
                     let mut active = false;
-
                     if let Some(grid_pos) = piece.placed_at {
                         let target_cell = grid_pos + preview.offset;
                         if crate::helpers::is_in_bounds(target_cell) {
-                            active = check_condition(&preview.condition, Some(target_cell), &state);
+                            active = check_condition(&preview.condition, Some(target_cell), &state.board_cells);
                         }
                     }
-
                     if active {
                         sprite.color = Color::srgb(1.0, 1.0, 0.0).into();
                         sprite.custom_size = Some(Vec2::splat(12.0));
@@ -103,7 +167,6 @@ pub fn update_tooltip(
                 if let Ok(window) = windows.single() {
                     if let Some(ndc) = camera.world_to_ndc(cam_transform, right_center.extend(0.0))
                     {
-                        // Convert NDC (-1..1) to screen coordinates (origin at top-left)
                         let screen_x = (ndc.x + 1.0) * 0.5 * window.width();
                         let screen_y = (1.0 - ndc.y) * 0.5 * window.height();
 

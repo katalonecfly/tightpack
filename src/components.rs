@@ -11,6 +11,7 @@ pub struct Piece {
     pub original_effects: Vec<GameEffect>,
     pub original_pos: Vec3,
     pub placed_at: Option<IVec2>,
+    pub board_side: BoardSide,
 }
 
 #[derive(Component)]
@@ -58,4 +59,20 @@ pub struct DraftPiece;
 #[derive(Component)]
 pub struct LockedPiece;
 
+#[derive(Component)]
+pub struct PlayerPiece;
 
+#[derive(Component)]
+pub struct OpponentPiece;
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum BoardSide {
+    Left,
+    Right,
+    Single,   // Used for non‑duel modes
+}
+
+#[derive(Component)]
+pub struct PlayerScoreText;
+#[derive(Component)]
+pub struct OpponentScoreText;

@@ -31,3 +31,17 @@ pub struct StashScreenRect {
     pub width: f32,
     pub height: f32,
 }
+
+#[derive(Resource)]
+pub struct DuelState {
+    pub player: crate::resources::GameState,
+    pub opponent: crate::resources::GameState,
+}
+impl Default for DuelState {
+    fn default() -> Self {
+        Self {
+            player: GameState::default(),
+            opponent: GameState::default(),
+        }
+    }
+}

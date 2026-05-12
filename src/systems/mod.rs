@@ -6,3 +6,4 @@ pub mod setup;
 pub mod ui;
 pub mod visuals;
 pub mod inventory;
+pub mod duel;

@@ -3,7 +3,7 @@ use crate::components::*;
 use crate::config::*;
 use crate::helpers::*;
 use crate::resources::PieceLibrary;
-use crate::systems::draft::DraftConfirmButton;
+use crate::systems::draft::DraftConfirmButton; // <-- added import
 use bevy::prelude::*;
 use std::collections::HashMap;
 use crate::resources::{InventoryScroll, StashContentHeight, StashScreenRect};
@@ -19,7 +19,6 @@ fn spawn_common(commands: &mut Commands) -> Vec<RawPieceConfig> {
     let pieces = lib.pieces.clone();
     commands.insert_resource(PieceLibrary(lib.pieces));
 
-    // Board
     let board_root = commands.spawn((Transform::default(), Cleanup)).id();
     for x in 0..BOARD_SIZE.x {
         for y in 0..BOARD_SIZE.y {
@@ -33,7 +32,6 @@ fn spawn_common(commands: &mut Commands) -> Vec<RawPieceConfig> {
         }
     }
 
-    // Score text
     commands.spawn((
         Text2d::new("Score: 0"),
         TextFont {
@@ -48,7 +46,6 @@ fn spawn_common(commands: &mut Commands) -> Vec<RawPieceConfig> {
     pieces
 }
 
-// ─── S A N D B O X ────────────────────────────────────
 pub fn setup_sandbox(mut commands: Commands, windows: Query<&Window>) {
     let pieces = spawn_common(&mut commands);
     let window = windows.single().expect("Primary window missing");
@@ -62,7 +59,6 @@ pub fn setup_sandbox(mut commands: Commands, windows: Query<&Window>) {
     let stash_bottom = stash_top - stash_visible_height;
     let stash_right = stash_left + stash_width;
 
-    // Screen‑space rectangle for mouse‑wheel detection
     let screen_x = (window.width() / 2.0) + stash_left;
     let screen_y = (window.height() / 2.0) - stash_top;
     commands.insert_resource(StashScreenRect {
@@ -72,35 +68,29 @@ pub fn setup_sandbox(mut commands: Commands, windows: Query<&Window>) {
         height: stash_visible_height,
     });
 
-    // ── Stash outline (perimeter) ────────────────────
     let outline_color = Color::srgba(0.4, 0.4, 0.4, 0.6);
     let thickness = 2.0;
     commands
         .spawn((Transform::default(), Visibility::default(), Cleanup))
         .with_children(|parent| {
-            // Left edge
             parent.spawn((
                 Sprite::from_color(outline_color, Vec2::new(thickness, stash_visible_height)),
                 Transform::from_xyz(stash_left, (stash_top + stash_bottom) / 2.0, 0.5),
             ));
-            // Right edge
             parent.spawn((
                 Sprite::from_color(outline_color, Vec2::new(thickness, stash_visible_height)),
                 Transform::from_xyz(stash_right, (stash_top + stash_bottom) / 2.0, 0.5),
             ));
-            // Top edge
             parent.spawn((
                 Sprite::from_color(outline_color, Vec2::new(stash_width, thickness)),
                 Transform::from_xyz((stash_left + stash_right) / 2.0, stash_top, 0.5),
             ));
-            // Bottom edge
             parent.spawn((
                 Sprite::from_color(outline_color, Vec2::new(stash_width, thickness)),
                 Transform::from_xyz((stash_left + stash_right) / 2.0, stash_bottom, 0.5),
             ));
         });
 
-    // ── Pieces & labels ──────────────────────────────
     let color_map: HashMap<String, LinearRgba> = [
         ("RED".into(), Color::srgb_u8(216, 46, 63).to_linear()),
         ("BLUE".into(), Color::srgb_u8(53, 129, 216).to_linear()),
@@ -109,7 +99,6 @@ pub fn setup_sandbox(mut commands: Commands, windows: Query<&Window>) {
     ].into();
 
     let mut current_y_offset = 0.0f32;
-
     for (type_id, raw) in pieces.iter().enumerate() {
         let piece_color = *color_map.get(&raw.color).unwrap_or(&LinearRgba::WHITE);
         let baked = bake_effects(raw, &color_map);
@@ -137,7 +126,9 @@ pub fn setup_sandbox(mut commands: Commands, windows: Query<&Window>) {
                 raw.points,
                 baked.clone(),
                 pos,
-                false,
+                false,      // draft_mode
+                true,       // interactive
+                BoardSide::Single,  // board_side
             );
             commands
                 .entity(entity)
@@ -164,11 +155,9 @@ pub fn setup_sandbox(mut commands: Commands, windows: Query<&Window>) {
     commands.insert_resource(StashContentHeight(current_y_offset));
 }
 
-// ─── D R A F T   S E T U P ─────────────────────────────
 pub fn setup_draft(mut commands: Commands) {
     let _pieces = spawn_common(&mut commands);
-    
-    // Confirm button (world-space sprite)
+
     let board_right =
         grid_to_world(IVec2::new(BOARD_SIZE.x - 1, BOARD_SIZE.y - 1)).x + TILE_SIZE / 2.0;
     let board_top =
@@ -198,10 +187,9 @@ pub fn setup_draft(mut commands: Commands) {
             TextColor(Color::WHITE),
             Transform::default(),
         ))
-        .observe(super::draft::on_confirm_click);
+        .observe(crate::systems::draft::on_confirm_click);
 }
 
-// ─── H E L P E R S ─────────────────────────────────────
 pub fn bake_effects(
     raw: &RawPieceConfig,
     color_map: &HashMap<String, LinearRgba>,
@@ -241,11 +229,12 @@ pub fn spawn_draggable_piece(
     effects: Vec<GameEffect>,
     pos: Vec3,
     draft_mode: bool,
+    interactive: bool,
+    board_side: BoardSide,   // <-- new parameter
 ) -> Entity {
     let mut entity = commands.spawn((
         Transform::from_translation(pos),
         Visibility::default(),
-        Pickable::default(),
         Piece {
             type_id,
             shape: shape.clone(),
@@ -256,64 +245,72 @@ pub fn spawn_draggable_piece(
             original_effects: effects.clone(),
             original_pos: pos,
             placed_at: None,
+            board_side,   // use parameter
         },
         Cleanup,
     ));
     if draft_mode {
         entity.insert(DraftPiece);
     }
-    let parent = entity
-        .observe(crate::systems::interaction::on_drag_start)
-        .observe(crate::systems::interaction::on_drag)
-        .observe(crate::systems::interaction::on_drag_end)
-        .observe(crate::systems::interaction::on_hover_in)
-        .observe(crate::systems::interaction::on_hover_out)
-        .id();
 
+    if interactive {
+        entity.insert(Pickable::default());
+        entity
+            .observe(crate::systems::interaction::on_drag_start)
+            .observe(crate::systems::interaction::on_drag)
+            .observe(crate::systems::interaction::on_drag_end)
+            .observe(crate::systems::interaction::on_hover_in)
+            .observe(crate::systems::interaction::on_hover_out);
+    }
+
+    let parent = entity.id();
     crate::systems::visuals::refresh_piece_visuals(commands, parent, &shape, color);
 
-    use crate::systems::interaction;
-
     for offset in shape {
-        let child = commands
-            .spawn((
-                Sprite::from_color(color, Vec2::splat(TILE_SIZE - 4.0)),
-                Transform::from_translation(offset.as_vec2().extend(0.0) * TILE_SIZE),
-                Pickable::default(),
-            ))
-            .observe(interaction::on_child_hover_in)
-            .observe(interaction::on_child_hover_out)
-            .observe(interaction::on_drag_start)
-            .observe(interaction::on_drag)
-            .observe(interaction::on_drag_end)
-            .id();
-        commands.entity(parent).add_child(child);
+        let mut child = commands.spawn((
+            Sprite::from_color(color, Vec2::splat(TILE_SIZE - 4.0)),
+            Transform::from_translation(offset.as_vec2().extend(0.0) * TILE_SIZE),
+        ));
+        if interactive {
+            child.insert(Pickable::default());
+            child
+                .observe(crate::systems::interaction::on_child_hover_in)
+                .observe(crate::systems::interaction::on_child_hover_out)
+                .observe(crate::systems::interaction::on_drag_start)
+                .observe(crate::systems::interaction::on_drag)
+                .observe(crate::systems::interaction::on_drag_end);
+        }
+        let child_id = child.id();
+        commands.entity(parent).add_child(child_id);
     }
 
     for effect in effects {
         if let Some(offsets) = effect.offsets {
             for offset in offsets {
-                let preview = commands
-                    .spawn((
-                        Sprite {
-                            color: Color::srgb(1.0, 1.0, 0.0).into(),
-                            custom_size: Some(Vec2::splat(12.0)),
-                            ..default()
-                        },
-                        Transform::from_translation(offset.as_vec2().extend(5.0) * TILE_SIZE),
-                        Visibility::Hidden,
-                        EffectPreview {
-                            offset,
-                            condition: effect.condition.clone(),
-                        },
-                    ))
-                    .observe(interaction::on_child_hover_in)
-                    .observe(interaction::on_child_hover_out)
-                    .observe(interaction::on_drag_start)
-                    .observe(interaction::on_drag)
-                    .observe(interaction::on_drag_end)
-                    .id();
-                commands.entity(parent).add_child(preview);
+                let mut preview = commands.spawn((
+                    Sprite {
+                        color: Color::srgb(1.0, 1.0, 0.0).into(),
+                        custom_size: Some(Vec2::splat(12.0)),
+                        ..default()
+                    },
+                    Transform::from_translation(offset.as_vec2().extend(5.0) * TILE_SIZE),
+                    Visibility::Hidden,
+                    EffectPreview {
+                        offset,
+                        condition: effect.condition.clone(),
+                    },
+                ));
+                if interactive {
+                    preview.insert(Pickable::default());
+                    preview
+                        .observe(crate::systems::interaction::on_child_hover_in)
+                        .observe(crate::systems::interaction::on_child_hover_out)
+                        .observe(crate::systems::interaction::on_drag_start)
+                        .observe(crate::systems::interaction::on_drag)
+                        .observe(crate::systems::interaction::on_drag_end);
+                }
+                let preview_id = preview.id();
+                commands.entity(parent).add_child(preview_id);
             }
         }
     }
