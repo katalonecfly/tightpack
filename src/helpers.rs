@@ -43,4 +43,4 @@ pub fn score_text_world_pos(text: &str, font_size: f32) -> Vec3 {
 pub const STASH_LEFT_X: f32 = 160.0;          // world x of stash left edge
 pub const STASH_WIDTH: f32 = 200.0;
 pub const STASH_VISIBLE_HEIGHT: f32 = 360.0;
-pub const STASH_SCROLL_SPEED: f32 = 20.0;     // slow down
+pub const STASH_SCROLL_SPEED: f32 = 1.0;     // slow down

@@ -53,14 +53,16 @@ pub fn setup_sandbox(mut commands: Commands, windows: Query<&Window>) {
     let pieces = spawn_common(&mut commands);
     let window = windows.single().expect("Primary window missing");
 
-    // World‑space stash area (right side, aligned with board top)
     let stash_left = STASH_LEFT_X;
     let stash_width = STASH_WIDTH;
     let stash_visible_height = STASH_VISIBLE_HEIGHT;
 
     let board_top = grid_to_world(IVec2::new(0, BOARD_SIZE.y - 1)).y + TILE_SIZE / 2.0;
     let stash_top = board_top;
+    let stash_bottom = stash_top - stash_visible_height;
+    let stash_right = stash_left + stash_width;
 
+    // Screen‑space rectangle for mouse‑wheel detection
     let screen_x = (window.width() / 2.0) + stash_left;
     let screen_y = (window.height() / 2.0) - stash_top;
     commands.insert_resource(StashScreenRect {
@@ -70,13 +72,41 @@ pub fn setup_sandbox(mut commands: Commands, windows: Query<&Window>) {
         height: stash_visible_height,
     });
 
+    // ── Stash outline (perimeter) ────────────────────
+    let outline_color = Color::srgba(0.4, 0.4, 0.4, 0.6);
+    let thickness = 2.0;
+    commands
+        .spawn((Transform::default(), Visibility::default(), Cleanup))
+        .with_children(|parent| {
+            // Left edge
+            parent.spawn((
+                Sprite::from_color(outline_color, Vec2::new(thickness, stash_visible_height)),
+                Transform::from_xyz(stash_left, (stash_top + stash_bottom) / 2.0, 0.5),
+            ));
+            // Right edge
+            parent.spawn((
+                Sprite::from_color(outline_color, Vec2::new(thickness, stash_visible_height)),
+                Transform::from_xyz(stash_right, (stash_top + stash_bottom) / 2.0, 0.5),
+            ));
+            // Top edge
+            parent.spawn((
+                Sprite::from_color(outline_color, Vec2::new(stash_width, thickness)),
+                Transform::from_xyz((stash_left + stash_right) / 2.0, stash_top, 0.5),
+            ));
+            // Bottom edge
+            parent.spawn((
+                Sprite::from_color(outline_color, Vec2::new(stash_width, thickness)),
+                Transform::from_xyz((stash_left + stash_right) / 2.0, stash_bottom, 0.5),
+            ));
+        });
+
+    // ── Pieces & labels ──────────────────────────────
     let color_map: HashMap<String, LinearRgba> = [
         ("RED".into(), Color::srgb_u8(216, 46, 63).to_linear()),
         ("BLUE".into(), Color::srgb_u8(53, 129, 216).to_linear()),
         ("GREEN".into(), Color::srgb_u8(40, 204, 45).to_linear()),
         ("YELLOW".into(), Color::srgb_u8(255, 225, 53).to_linear()),
-    ]
-    .into();
+    ].into();
 
     let mut current_y_offset = 0.0f32;
 
@@ -93,13 +123,11 @@ pub fn setup_sandbox(mut commands: Commands, windows: Query<&Window>) {
         let stash_center_x = stash_left + stash_width / 2.0;
         let piece_x = stash_center_x - ((min_x + max_x) as f32) / 2.0 * TILE_SIZE;
 
-        // Vertical position of the topmost copy
         let top_offset = max_y as f32 * TILE_SIZE + TILE_SIZE / 2.0;
         let base_y = stash_top - current_y_offset - top_offset;
 
         let copy_count = 10;
         for copy_idx in 0..copy_count {
-            // All copies at same x,y; tiny z increment avoids z‑fighting
             let pos = Vec3::new(piece_x, base_y, 1.0 + copy_idx as f32 * 0.001);
             let entity = spawn_draggable_piece(
                 &mut commands,
@@ -116,7 +144,6 @@ pub fn setup_sandbox(mut commands: Commands, windows: Query<&Window>) {
                 .insert(StashPosition { desired_world_y: base_y });
         }
 
-        // Label above the topmost copy
         let label_y = base_y + max_y as f32 * TILE_SIZE + TILE_SIZE / 2.0 + 10.0;
         commands.spawn((
             Text2d::new(format!("x{}", copy_count)),
@@ -130,7 +157,6 @@ pub fn setup_sandbox(mut commands: Commands, windows: Query<&Window>) {
             Cleanup,
         ));
 
-        // Advance for next piece type (only one visible row height)
         current_y_offset += piece_height + TILE_SIZE;
     }
 
