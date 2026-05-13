@@ -7,3 +7,4 @@ pub mod ui;
 pub mod visuals;
 pub mod inventory;
 pub mod duel;
+pub mod ai;

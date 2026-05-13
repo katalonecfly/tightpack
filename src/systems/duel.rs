@@ -115,10 +115,12 @@ pub fn on_confirm_click_duel(
     mut duel_state: ResMut<DuelState>,
     player_pieces: Query<&Piece, With<PlayerPiece>>,
     opponent_pieces: Query<&Piece, With<OpponentPiece>>,
+    opponent_draft_pieces: Query<(Entity, &Piece), (With<DraftPiece>, With<OpponentPiece>)>,
     player_labels: Query<Entity, (With<StashLabel>, With<PlayerPiece>)>,
     opponent_labels: Query<Entity, (With<StashLabel>, With<OpponentPiece>)>,
 ) {
-    // Process player side: lock placed piece, despawn rest
+    info!("Confirm clicked. Opponent draft count: {}", opponent_draft_pieces.iter().count());
+    // Process player side
     for entity in &player_drafts {
         if let Ok(piece) = player_pieces.get(entity) {
             if piece.placed_at.is_some() {
@@ -137,12 +139,61 @@ pub fn on_confirm_click_duel(
         commands.entity(label).despawn();
     }
 
-    // Process opponent side: despawn all pieces (stub)
+    // AI placement
+    // Collect opponent draft pieces data for AI, then despawn them all
+    let draft_data: Vec<(Entity, Piece)> = opponent_draft_pieces
+        .iter()
+        .map(|(e, p)| (e, p.clone()))
+        .collect();
     for entity in &opponent_drafts {
         commands.entity(entity).despawn();
     }
     for label in &opponent_labels {
         commands.entity(label).despawn();
+    }
+
+    // AI placement
+    if let Some(placement) = crate::systems::ai::first_free_placement(
+        &draft_data.iter().map(|(e, p)| (*e, p)).collect::<Vec<_>>(),
+        &duel_state.opponent,
+    ) {
+        // Spawn a new locked piece on opponent's board
+        let world_pos = grid_to_world_for_side(placement.origin, BoardSide::Right);
+        let entity = crate::systems::setup::spawn_draggable_piece(
+            &mut commands,
+            0, // type_id not important for opponent
+            placement.shape.clone(),
+            placement.color,
+            placement.raw_config.points,
+            placement.effects.clone(),
+            world_pos.with_z(1.0),
+            false, // draft_mode
+            false, // interactive
+            BoardSide::Right,
+        );
+        commands.entity(entity).insert(LockedPiece);
+        commands.entity(entity).insert(OpponentPiece);
+        // Insert a fresh Piece component with placed_at set
+        let placed_piece = Piece {
+            type_id: 0,
+            shape: placement.shape.clone(),
+            original_shape: placement.shape.clone(),
+            color: placement.color,
+            points: placement.raw_config.points,
+            effects: placement.effects.clone(),
+            original_effects: placement.effects.clone(),
+            original_pos: world_pos.with_z(1.0),
+            placed_at: Some(placement.origin),
+            board_side: BoardSide::Right,
+        };
+        commands.entity(entity).insert(placed_piece);
+        // Update opponent board cells
+        for offset in &placement.shape {
+            duel_state.opponent.board_cells.insert(
+                placement.origin + *offset,
+                placement.color,
+            );
+        }
     }
 
     // Update scores
