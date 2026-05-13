@@ -27,6 +27,16 @@ fn cleanup_system(mut commands: Commands, query: Query<Entity, With<Cleanup>>) {
     }
 }
 
+fn handle_escape(
+    keys: Res<ButtonInput<KeyCode>>,
+    current_state: Res<State<AppState>>,
+    mut next_state: ResMut<NextState<AppState>>,
+) {
+    if keys.just_pressed(KeyCode::Escape) && *current_state.get() != AppState::Menu {
+        next_state.set(AppState::Menu);
+    }
+}
+
 fn main() {
     App::new()
         .add_plugins((DefaultPlugins, MeshPickingPlugin))
@@ -43,19 +53,19 @@ fn main() {
         .add_systems(OnExit(AppState::Menu), cleanup_system)
         // Sandbox
         .add_systems(OnEnter(AppState::Sandbox), systems::setup::setup_sandbox)
-.add_systems(Update,
-    (
-        systems::ui::update_score_ui,
-        systems::ui::update_stash_labels,
-        systems::ui::update_effect_previews,
-        systems::ui::update_tooltip,
-        systems::interaction::handle_rotation,
-        systems::scoring::recalculate_score_system,
-        systems::inventory::scroll_inventory,
-        systems::inventory::apply_inventory_scroll,
-    )
-        .run_if(in_state(AppState::Sandbox)),
-)
+        .add_systems(Update,
+            (
+                systems::ui::update_score_ui,
+                systems::ui::update_stash_labels,
+                systems::ui::update_effect_previews,
+                systems::ui::update_tooltip,
+                systems::interaction::handle_rotation,
+                systems::scoring::recalculate_score_system,
+                systems::inventory::scroll_inventory,
+                systems::inventory::apply_inventory_scroll,
+            )
+                .run_if(in_state(AppState::Sandbox)),
+        )
         .add_systems(OnExit(AppState::Sandbox), cleanup_system)
         // Draft
         .add_systems(
@@ -79,7 +89,7 @@ fn main() {
                 .run_if(in_state(AppState::Draft)),
         )
         .add_systems(OnExit(AppState::Draft), cleanup_system)
-        // After Draft section:
+        // Duel:
         .add_systems(OnEnter(AppState::Duel), systems::duel::setup_duel)
         .add_systems(
             Update,
@@ -94,5 +104,6 @@ fn main() {
                 .run_if(in_state(AppState::Duel)),
         )
         .add_systems(OnExit(AppState::Duel), cleanup_system)
+        .add_systems(Update, handle_escape)
         .run();
 }
