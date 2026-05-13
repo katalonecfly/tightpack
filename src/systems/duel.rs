@@ -55,7 +55,8 @@ fn spawn_side_pieces(
 
         let piece_left = next_left;
         let parent_x = piece_left - (min_x as f32) * TILE_SIZE;
-        let parent_y = -TILE_SIZE - (max_y as f32 + 1.0) * TILE_SIZE; // below board
+        // dynamic y below board
+        let parent_y = stash_y_below_board(max_y);
         let pos = Vec3::new(parent_x, parent_y, 1.0);
 
         let entity = crate::systems::setup::spawn_draggable_piece(
@@ -68,13 +69,11 @@ fn spawn_side_pieces(
             pos,
             false,   // draft_mode
             interactive,
-            side,    // board_side
+            side,
         );
 
-        // Add DraftPiece to both sides so they are cleaned up each turn
         commands.entity(entity).insert(DraftPiece);
 
-        // Side marker
         match side {
             BoardSide::Left => {
                 commands.entity(entity).insert(PlayerPiece);
@@ -85,8 +84,7 @@ fn spawn_side_pieces(
             _ => unreachable!(),
         }
 
-        // Label (world space, unparented)
-        let label_y = parent_y + max_y as f32 * TILE_SIZE + TILE_SIZE / 2.0 + 10.0;
+        let label_y = parent_y + (max_y as f32) * TILE_SIZE + TILE_SIZE / 2.0 + 10.0;
         let label_entity = commands.spawn((
             Text2d::new("x1"),
             TextFont {
@@ -221,11 +219,8 @@ fn spawn_board(commands: &mut Commands, side: BoardSide) {
 }
 
 fn spawn_confirm_button(commands: &mut Commands, side: BoardSide) {
-    let board_right =
-        grid_to_world_for_side(IVec2::new(BOARD_SIZE.x - 1, BOARD_SIZE.y - 1), side).x
-            + TILE_SIZE / 2.0;
-    let board_top =
-        grid_to_world_for_side(IVec2::new(0, BOARD_SIZE.y - 1), side).y + TILE_SIZE / 2.0;
+    let board_right = board_right_edge(side);
+    let board_top = board_top_edge();
     let score_y = board_top + SCORE_Y_OFFSET;
     let button_pos = Vec3::new(
         board_right - CONFIRM_BUTTON_WIDTH / 2.0,

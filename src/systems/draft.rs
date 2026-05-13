@@ -28,7 +28,6 @@ pub fn refresh_draft_stash(commands: &mut Commands, library: &PieceLibrary) {
     let mut rng = rand::rng();
     let all_pieces = &library.0;
 
-    // Pick 3 distinct pieces
     let mut available: Vec<&RawPieceConfig> = all_pieces.iter().collect();
     let mut chosen = Vec::with_capacity(3);
     for _ in 0..3 {
@@ -40,20 +39,17 @@ pub fn refresh_draft_stash(commands: &mut Commands, library: &PieceLibrary) {
     let mut next_left = board_left;
 
     for (i, raw) in chosen.iter().enumerate() {
-        // Calculate shape bounds
         let min_x = raw.shape.iter().map(|o| o.x).min().unwrap_or(0);
         let max_x = raw.shape.iter().map(|o| o.x).max().unwrap_or(0);
         let max_y = raw.shape.iter().map(|o| o.y).max().unwrap_or(0);
         let width = (max_x - min_x + 1) as f32 * TILE_SIZE;
 
-        // World position of the piece's leftmost tile
         let piece_left = next_left;
-        // Parent's world position: shift left by min_x tiles so that the leftmost tile lands at piece_left
         let parent_x = piece_left - (min_x as f32) * TILE_SIZE;
-        // Parent's world y: top of piece = -TILE_SIZE (board bottom is y=0, gap of TILE_SIZE)
-        let parent_y = -TILE_SIZE - (max_y as f32 + 1.0) * TILE_SIZE;
+        // Use dynamic Y below board
+        let parent_y = crate::helpers::stash_y_below_board(max_y);
         let pos = Vec3::new(parent_x, parent_y, 1.0);
-        // Label position: above the piece's top
+
         let label_y = parent_y + (max_y as f32) * TILE_SIZE + TILE_SIZE / 2.0 + 10.0;
         let label_pos = Vec3::new(parent_x, label_y, 2.0);
 
@@ -64,7 +60,6 @@ pub fn refresh_draft_stash(commands: &mut Commands, library: &PieceLibrary) {
         let color = *color_map.get(&raw.color).unwrap_or(&LinearRgba::WHITE);
         let effects = crate::systems::setup::bake_effects(raw, &color_map);
 
-        // Label (world space, unparented)
         commands.spawn((
             Text2d::new("x1"),
             TextFont {
@@ -77,7 +72,6 @@ pub fn refresh_draft_stash(commands: &mut Commands, library: &PieceLibrary) {
             Cleanup,
         ));
 
-        // Spawn draggable piece at calculated position
         crate::systems::setup::spawn_draggable_piece(
             commands,
             type_id,
@@ -86,12 +80,11 @@ pub fn refresh_draft_stash(commands: &mut Commands, library: &PieceLibrary) {
             raw.points,
             effects,
             pos,
-            true,  // draft_mode
-            true,  // interactive
-            BoardSide::Single, 
+            true,                    // draft_mode
+            true,                    // interactive
+            BoardSide::Single,
         );
 
-        // Advance next_left: piece width + gap
         next_left = piece_left + width + TILE_SIZE;
     }
 }

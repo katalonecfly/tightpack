@@ -8,6 +8,7 @@ use bevy::prelude::*;
 use std::collections::HashMap;
 use crate::resources::{InventoryScroll, StashContentHeight, StashScreenRect};
 use crate::components::StashPosition;
+use crate::helpers::BOARD_TOP_Y;
 
 fn spawn_common(commands: &mut Commands) -> Vec<RawPieceConfig> {
     commands.spawn((Camera2d, Cleanup));
@@ -50,15 +51,16 @@ pub fn setup_sandbox(mut commands: Commands, windows: Query<&Window>) {
     let pieces = spawn_common(&mut commands);
     let window = windows.single().expect("Primary window missing");
 
-    let stash_left = STASH_LEFT_X;
+    let stash_left = stash_left_x();
     let stash_width = STASH_WIDTH;
     let stash_visible_height = STASH_VISIBLE_HEIGHT;
 
-    let board_top = grid_to_world(IVec2::new(0, BOARD_SIZE.y - 1)).y + TILE_SIZE / 2.0;
-    let stash_top = board_top;
+    let board_top_y = BOARD_TOP_Y + TILE_SIZE / 2.0;
+    let stash_top = board_top_y;
     let stash_bottom = stash_top - stash_visible_height;
     let stash_right = stash_left + stash_width;
 
+    // Screen‑space rectangle for mouse‑wheel detection
     let screen_x = (window.width() / 2.0) + stash_left;
     let screen_y = (window.height() / 2.0) - stash_top;
     commands.insert_resource(StashScreenRect {
@@ -68,6 +70,7 @@ pub fn setup_sandbox(mut commands: Commands, windows: Query<&Window>) {
         height: stash_visible_height,
     });
 
+    // Stash outline (perimeter)
     let outline_color = Color::srgba(0.4, 0.4, 0.4, 0.6);
     let thickness = 2.0;
     commands
@@ -91,6 +94,7 @@ pub fn setup_sandbox(mut commands: Commands, windows: Query<&Window>) {
             ));
         });
 
+    // Pieces and labels (unchanged except using stash_left)
     let color_map: HashMap<String, LinearRgba> = [
         ("RED".into(), Color::srgb_u8(216, 46, 63).to_linear()),
         ("BLUE".into(), Color::srgb_u8(53, 129, 216).to_linear()),
@@ -128,7 +132,7 @@ pub fn setup_sandbox(mut commands: Commands, windows: Query<&Window>) {
                 pos,
                 false,      // draft_mode
                 true,       // interactive
-                BoardSide::Single,  // board_side
+                BoardSide::Single,
             );
             commands
                 .entity(entity)
@@ -158,20 +162,19 @@ pub fn setup_sandbox(mut commands: Commands, windows: Query<&Window>) {
 pub fn setup_draft(mut commands: Commands) {
     let _pieces = spawn_common(&mut commands);
 
-    let board_right =
-        grid_to_world(IVec2::new(BOARD_SIZE.x - 1, BOARD_SIZE.y - 1)).x + TILE_SIZE / 2.0;
-    let board_top =
-        grid_to_world(IVec2::new(0, BOARD_SIZE.y - 1)).y + TILE_SIZE / 2.0;
+    let board_right = board_right_edge(BoardSide::Single);
+    let board_top = board_top_edge();
     let score_y = board_top + SCORE_Y_OFFSET;
-    let button_width = CONFIRM_BUTTON_WIDTH;
-    let button_height = CONFIRM_BUTTON_HEIGHT;
-    let button_x = board_right - button_width / 2.0;
-    let button_pos = Vec3::new(button_x, score_y, 0.0);
+    let button_pos = Vec3::new(
+        board_right - CONFIRM_BUTTON_WIDTH / 2.0,
+        score_y,
+        0.0,
+    );
     commands
         .spawn((
             Sprite::from_color(
                 Color::srgb(0.3, 0.8, 0.3),
-                Vec2::new(button_width, button_height),
+                Vec2::new(CONFIRM_BUTTON_WIDTH, CONFIRM_BUTTON_HEIGHT),
             ),
             Transform::from_translation(button_pos),
             Pickable::default(),
