@@ -43,13 +43,28 @@ pub fn check_condition(
 ) -> bool {
     match cond {
         EffectCondition::MatchesColor(c) => {
-            target.map_or(false, |cell| board_cells.get(&cell) == Some(c))
+            target.map_or(false, |cell| {
+                board_cells.get(&cell).map_or(false, |board_color| {
+                    linear_rgba_near(board_color, c)
+                })
+            })
         }
         EffectCondition::IsEmpty => {
             target.map_or(false, |cell| !board_cells.contains_key(&cell))
         }
-        EffectCondition::NoColorOnBoard(c) => !board_cells.values().any(|color| color == c),
+        EffectCondition::NoColorOnBoard(c) => {
+            !board_cells.values().any(|board_color| linear_rgba_near(board_color, c))
+        }
     }
+}
+
+// Helper: compare two LinearRgba colours with a small epsilon
+fn linear_rgba_near(a: &LinearRgba, b: &LinearRgba) -> bool {
+    let eps = 0.001;
+    (a.red - b.red).abs() < eps
+        && (a.green - b.green).abs() < eps
+        && (a.blue - b.blue).abs() < eps
+        && (a.alpha - b.alpha).abs() < eps
 }
 
 pub fn recalculate_score_system(mut state: ResMut<GameState>, piece_query: Query<&Piece>) {
