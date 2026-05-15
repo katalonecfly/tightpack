@@ -3,7 +3,6 @@ use crate::config::RawPieceConfig;
 use crate::helpers::*;
 use crate::resources::GameState;
 use bevy::prelude::*;
-use std::collections::HashMap;
 
 /// Data needed to place a piece chosen by the AI.
 pub struct AIPlacement {
@@ -31,7 +30,7 @@ pub fn first_free_placement(
             for y in 0..BOARD_SIZE.y {
                 for x in 0..BOARD_SIZE.x {
                     let origin = IVec2::new(x, y);
-                    if can_place(&shape, origin, &opponent_state.board_cells) {
+                    if can_place(&shape, origin, opponent_state) {
                         return Some(AIPlacement {
                             raw_config: RawPieceConfig {
                                 shape: shape.clone(),
@@ -52,13 +51,10 @@ pub fn first_free_placement(
     None
 }
 
-fn can_place(shape: &[IVec2], origin: IVec2, board_cells: &HashMap<IVec2, LinearRgba>) -> bool {
+fn can_place(shape: &[IVec2], origin: IVec2, state: &GameState) -> bool {
     for offset in shape {
         let cell = origin + *offset;
-        if cell.x < 0 || cell.x >= BOARD_SIZE.x
-            || cell.y < 0 || cell.y >= BOARD_SIZE.y
-            || board_cells.contains_key(&cell)
-        {
+        if !crate::helpers::is_cell_available(cell, &state.board_cells, &state.disabled_cells) {
             return false;
         }
     }

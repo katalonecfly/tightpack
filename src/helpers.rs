@@ -1,5 +1,6 @@
 use crate::components::BoardSide;
 use bevy::prelude::*;
+use std::collections::{HashMap, HashSet};
 
 pub const TILE_SIZE: f32 = 40.0;
 pub const BOARD_SIZE: IVec2 = IVec2::new(10, 10);   // change freely
@@ -70,6 +71,14 @@ pub fn world_to_grid(world: Vec3) -> IVec2 {
 
 pub fn is_in_bounds(grid: IVec2) -> bool {
     grid.x >= 0 && grid.x < BOARD_SIZE.x && grid.y >= 0 && grid.y < BOARD_SIZE.y
+}
+
+pub fn is_cell_available(
+    grid: IVec2,
+    board_cells: &HashMap<IVec2, LinearRgba>,
+    disabled_cells: &HashSet<IVec2>,
+) -> bool {
+    is_in_bounds(grid) && !board_cells.contains_key(&grid) && !disabled_cells.contains(&grid)
 }
 
 /// World position of the score text, based on the board's top edge.

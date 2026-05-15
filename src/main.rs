@@ -100,6 +100,7 @@ fn main() {
                 systems::ui::update_tooltip,
                 systems::interaction::handle_rotation,
                 systems::scoring::recalculate_duel_score_system,
+                systems::duel::handle_destroy_input,
             )
                 .run_if(in_state(AppState::Duel)),
         )
