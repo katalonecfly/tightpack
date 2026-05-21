@@ -25,6 +25,7 @@
             shape: [(0, 0), (1, 0), (2, 0), (3, 0)],
             color: "RED",
             points: 10,
+            piece_type: dynamic,
             effects: [
                 (
                     condition: MatchesColor("BLUE"),
@@ -38,6 +39,7 @@
             shape: [(0, 0), (1, 0), (2, 0), (3, 0)],
             color: "BLUE",
             points: 10,
+            piece_type: dynamic,
             effects: [
                 (
                     condition: IsEmpty,
@@ -51,6 +53,7 @@
             shape: [(0, 0), (1, 0), (2, 0), (3, 0)],
             color: "GREEN",
             points: 10,
+            piece_type: dynamic,
             effects: [
                 (
                     condition: MatchesColor("RED"),
@@ -66,6 +69,7 @@
             shape: [(0, 0), (1, 0), (0, 1), (1, 1)],
             color: "RED",
             points: 10,
+            piece_type: dynamic,
             effects: [
                 (
                     condition: IsEmpty,
@@ -79,6 +83,7 @@
             shape: [(0, 0), (1, 0), (0, 1), (1, 1)],
             color: "BLUE",
             points: 10,
+            piece_type: dynamic,
             effects: [
                 (
                     condition: MatchesColor("GREEN"),
@@ -92,6 +97,7 @@
             shape: [(0, 0), (1, 0), (0, 1), (1, 1)],
             color: "GREEN",
             points: 10,
+            piece_type: dynamic,
             effects: [
                 (
                     condition: MatchesColor("RED"),
@@ -107,6 +113,7 @@
             shape: [(0, 0), (1, 0), (2, 0), (1, 1)],
             color: "RED",
             points: 10,
+            piece_type: dynamic,
             effects: [
                 (
                     condition: MatchesColor("GREEN"),
@@ -120,6 +127,7 @@
             shape: [(0, 0), (1, 0), (2, 0), (1, 1)],
             color: "BLUE",
             points: 10,
+            piece_type: dynamic,
             effects: [
                 (
                     condition: IsEmpty,
@@ -133,11 +141,12 @@
             shape: [(0, 0), (1, 0), (2, 0), (1, 1)],
             color: "GREEN",
             points: 10,
+            piece_type: dynamic,
             effects: [
                 (
                     condition: MatchesColor("BLUE"),
                     points: 3,
-                    offsets: [(1, 2), (3, 0)],   // (2,0) replaced by (3,0)
+                    offsets: [(1, 2), (3, 0)],
                     description: "Gain 3 point(s) for each target BLUE cell.",
                 ),
             ],
@@ -148,6 +157,7 @@
             shape: [(0, 0), (1, 0), (2, 0), (0, 1)],
             color: "RED",
             points: 10,
+            piece_type: dynamic,
             effects: [
                 (
                     condition: MatchesColor("BLUE"),
@@ -161,6 +171,7 @@
             shape: [(0, 0), (1, 0), (2, 0), (0, 1)],
             color: "BLUE",
             points: 10,
+            piece_type: dynamic,
             effects: [
                 (
                     condition: MatchesColor("RED"),
@@ -174,6 +185,7 @@
             shape: [(0, 0), (1, 0), (2, 0), (0, 1)],
             color: "GREEN",
             points: 10,
+            piece_type: dynamic,
             effects: [
                 (
                     condition: IsEmpty,
@@ -189,6 +201,7 @@
             shape: [(1, 0), (2, 0), (0, 1), (1, 1)],
             color: "RED",
             points: 10,
+            piece_type: dynamic,
             effects: [
                 (
                     condition: MatchesColor("GREEN"),
@@ -202,6 +215,7 @@
             shape: [(1, 0), (2, 0), (0, 1), (1, 1)],
             color: "BLUE",
             points: 10,
+            piece_type: dynamic,
             effects: [
                 (
                     condition: IsEmpty,
@@ -215,12 +229,19 @@
             shape: [(1, 0), (2, 0), (0, 1), (1, 1)],
             color: "GREEN",
             points: 10,
+            piece_type: dynamic,
             effects: [
                 (
                     condition: MatchesColor("RED"),
                     points: 3,
                     offsets: [(0, -1), (1, -1), (2, 1), (-1, 1)],
                     description: "Gain 3 point(s) for each target RED cell.",
+                ),
+                (
+                    condition: MatchesColor("BLUE"),
+                    points: 3,
+                    offsets: [(0, -1), (1, -1), (2, 1), (-1, 1)],
+                    description: "Gain 3 point(s) for each target BLUE cell.",
                 ),
             ],
         ),

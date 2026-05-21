@@ -34,9 +34,10 @@ pub fn first_free_placement(
                         return Some(AIPlacement {
                             raw_config: RawPieceConfig {
                                 shape: shape.clone(),
-                                color: "".into(),   // will be filled from piece color
+                                color: "".into(),
                                 points: piece.points,
-                                effects: vec![],    // we'll pass effects directly
+                                effects: vec![],
+                                piece_type: crate::config::PieceType::Static, // ← added
                             },
                             origin,
                             shape,

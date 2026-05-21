@@ -11,7 +11,28 @@ pub struct RawPieceConfig {
     pub shape: Vec<IVec2>,
     pub color: String,
     pub points: i32,
+    #[serde(default)]
     pub effects: Vec<RawGameEffect>,
+    #[serde(default = "default_piece_type")]
+    pub piece_type: PieceType,
+}
+
+fn default_piece_type() -> PieceType {
+    PieceType::Static
+}
+
+#[derive(Deserialize, Clone, PartialEq)]
+pub enum PieceType {
+    #[serde(rename = "static")]
+    Static,
+    #[serde(rename = "dynamic")]
+    Dynamic,
+}
+
+impl Default for PieceType {
+    fn default() -> Self {
+        PieceType::Static
+    }
 }
 
 #[derive(Deserialize, Clone)]

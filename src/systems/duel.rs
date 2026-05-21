@@ -45,8 +45,7 @@ fn spawn_side_pieces(
 
     for (i, raw) in raw_pieces.iter().enumerate() {
         let color = *color_map.get(&raw.color).unwrap_or(&LinearRgba::WHITE);
-        let effects = crate::systems::setup::bake_effects(raw, color_map);
-        let type_id = i;
+        let effects = crate::systems::setup::randomize_effects(raw, color_map);let type_id = i;
 
         let min_x = raw.shape.iter().map(|o| o.x).min().unwrap_or(0);
         let max_x = raw.shape.iter().map(|o| o.x).max().unwrap_or(0);

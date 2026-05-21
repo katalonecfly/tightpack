@@ -1,3 +1,5 @@
+use rand::prelude::*;
+use rand::seq::SliceRandom;
 use crate::Cleanup;
 use crate::components::*;
 use crate::config::*;
@@ -105,8 +107,7 @@ pub fn setup_sandbox(mut commands: Commands, windows: Query<&Window>) {
     let mut current_y_offset = 0.0f32;
     for (type_id, raw) in pieces.iter().enumerate() {
         let piece_color = *color_map.get(&raw.color).unwrap_or(&LinearRgba::WHITE);
-        let baked = bake_effects(raw, &color_map);
-
+        
         let min_x = raw.shape.iter().map(|o| o.x).min().unwrap_or(0);
         let max_x = raw.shape.iter().map(|o| o.x).max().unwrap_or(0);
         let min_y = raw.shape.iter().map(|o| o.y).min().unwrap_or(0);
@@ -121,6 +122,7 @@ pub fn setup_sandbox(mut commands: Commands, windows: Query<&Window>) {
 
         let copy_count = 10;
         for copy_idx in 0..copy_count {
+            let final_effects = randomize_effects(raw, &color_map);
             let pos = Vec3::new(piece_x, base_y, 1.0 + copy_idx as f32 * 0.001);
             let entity = spawn_draggable_piece(
                 &mut commands,
@@ -128,10 +130,10 @@ pub fn setup_sandbox(mut commands: Commands, windows: Query<&Window>) {
                 raw.shape.clone(),
                 piece_color,
                 raw.points,
-                baked.clone(),
+                final_effects,
                 pos,
-                false,      // draft_mode
-                true,       // interactive
+                false,
+                true,
                 BoardSide::Single,
             );
             commands
@@ -221,6 +223,58 @@ pub fn bake_effects(
             }
         })
         .collect()
+}
+
+/// For a dynamic piece: randomly choose one effect and a non‑empty subset of its offsets.
+/// For a static piece: return all effects unchanged.
+pub fn randomize_effects(
+    raw: &RawPieceConfig,
+    color_map: &HashMap<String, LinearRgba>,
+) -> Vec<GameEffect> {
+    if raw.piece_type == PieceType::Static {
+        return bake_effects(raw, color_map);
+    }
+
+    // Dynamic piece: must have at least one effect, otherwise return empty
+    if raw.effects.is_empty() {
+        return Vec::new();
+    }
+
+    let mut rng = rand::rng();
+    let chosen_raw = match raw.effects.choose(&mut rng) {
+        Some(e) => e,
+        None => return Vec::new(), // fallback to no effects
+    };
+
+    // Build the GameEffect for the chosen raw effect
+    let condition = match &chosen_raw.condition {
+        RawEffectCondition::IsEmpty => EffectCondition::IsEmpty,
+        RawEffectCondition::MatchesColor(name) => {
+            EffectCondition::MatchesColor(*color_map.get(name).unwrap_or(&LinearRgba::WHITE))
+        }
+        RawEffectCondition::NoColorOnBoard(name) => {
+            EffectCondition::NoColorOnBoard(*color_map.get(name).unwrap_or(&LinearRgba::WHITE))
+        }
+    };
+
+    // Choose a non‑empty subset of offsets
+    let chosen_offsets = if chosen_raw.offsets.is_empty() {
+        None
+    } else {
+        let mut offsets = chosen_raw.offsets.clone();
+        // Randomly select k = 1 .. len(offsets)
+        let k = rng.random_range(1..=offsets.len());
+        offsets.shuffle(&mut rng);
+        offsets.truncate(k);
+        Some(offsets)
+    };
+
+    vec![GameEffect {
+        condition,
+        points: chosen_raw.points,
+        offsets: chosen_offsets,
+        description: chosen_raw.description.clone(),
+    }]
 }
 
 pub fn spawn_draggable_piece(
