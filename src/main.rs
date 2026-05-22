@@ -6,9 +6,8 @@ mod systems;
 
 use bevy::picking::prelude::*;
 use bevy::prelude::*;
-use resources::{GameState, PieceLibrary, TooltipState};
+use resources::{GameState, PieceLibrary, TooltipState, DuelState};
 use systems::menu;
-use config::EffectDescriptions;
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default, States)]
 enum AppState {
@@ -46,6 +45,14 @@ fn load_effects_descriptions(mut commands: Commands) {
     commands.insert_resource(descs);
 }
 
+fn reset_game_state(mut state: ResMut<GameState>) {
+    *state = GameState::default();
+}
+
+fn reset_duel_state(mut duel_state: ResMut<DuelState>) {
+    *duel_state = DuelState::default();
+}
+
 fn main() {
     App::new()
         .add_plugins((DefaultPlugins, MeshPickingPlugin))
@@ -76,7 +83,7 @@ fn main() {
             )
                 .run_if(in_state(AppState::Sandbox)),
         )
-        .add_systems(OnExit(AppState::Sandbox), cleanup_system)
+        .add_systems(OnExit(AppState::Sandbox), (cleanup_system, reset_game_state))
         // Draft
         .add_systems(
             OnEnter(AppState::Draft),
@@ -98,7 +105,7 @@ fn main() {
             )
                 .run_if(in_state(AppState::Draft)),
         )
-        .add_systems(OnExit(AppState::Draft), cleanup_system)
+        .add_systems(OnExit(AppState::Draft), (cleanup_system, reset_game_state))
         // Duel:
         .add_systems(OnEnter(AppState::Duel), systems::duel::setup_duel)
         .add_systems(
@@ -114,7 +121,7 @@ fn main() {
             )
                 .run_if(in_state(AppState::Duel)),
         )
-        .add_systems(OnExit(AppState::Duel), cleanup_system)
+        .add_systems(OnExit(AppState::Duel), (cleanup_system, reset_duel_state))
         .add_systems(Update, handle_escape)
         .run();
 }
