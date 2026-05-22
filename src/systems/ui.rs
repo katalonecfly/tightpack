@@ -5,6 +5,35 @@ use crate::systems::scoring::check_condition;
 use bevy::prelude::*;
 use bevy::window::Window;
 use crate::helpers::{score_text_world_pos, score_text_world_pos_for_side, SCORE_FONT_SIZE};
+use crate::config::EffectDescriptions;
+use crate::systems::scoring::linear_rgba_near;
+
+fn color_name_from_rgba(rgba: &LinearRgba) -> &'static str {
+    let red = Color::srgb_u8(216, 46, 63).to_linear();
+    let blue = Color::srgb_u8(53, 129, 216).to_linear();
+    let green = Color::srgb_u8(40, 204, 45).to_linear();
+    if linear_rgba_near(rgba, &red) {
+        "RED"
+    } else if linear_rgba_near(rgba, &blue) {
+        "BLUE"
+    } else if linear_rgba_near(rgba, &green) {
+        "GREEN"
+    } else {
+        "UNKNOWN"
+    }
+}
+
+fn get_effect_description(cond: &EffectCondition, descs: &EffectDescriptions) -> String {
+    let key = match cond {
+        EffectCondition::MatchesColor(c) => format!("MatchesColor({})", color_name_from_rgba(c)),
+        EffectCondition::IsEmpty => "IsEmpty".to_string(),
+        EffectCondition::NoColorOnBoard(c) => format!("NoColorOnBoard({})", color_name_from_rgba(c)),
+    };
+    descs.descriptions
+        .get(&key)
+        .cloned()
+        .unwrap_or_else(|| format!("Unknown effect: {}", key))
+}
 
 pub fn update_stash_labels(
     mut label_query: Query<(
@@ -136,6 +165,7 @@ pub fn update_tooltip(
     piece_query: Query<(&Piece, &Transform, Has<Hovered>, Has<Dragging>)>,
     camera_query: Query<(&Camera, &GlobalTransform)>,
     windows: Query<&Window>,
+    effect_descs: Res<EffectDescriptions>,  // <-- new parameter
 ) {
     let hovered_piece = piece_query
         .iter()
@@ -165,8 +195,7 @@ pub fn update_tooltip(
 
             if let Ok((camera, cam_transform)) = camera_query.single() {
                 if let Ok(window) = windows.single() {
-                    if let Some(ndc) = camera.world_to_ndc(cam_transform, right_center.extend(0.0))
-                    {
+                    if let Some(ndc) = camera.world_to_ndc(cam_transform, right_center.extend(0.0)) {
                         let screen_x = (ndc.x + 1.0) * 0.5 * window.width();
                         let screen_y = (1.0 - ndc.y) * 0.5 * window.height();
 
@@ -175,7 +204,15 @@ pub fn update_tooltip(
                             text.push_str("\n\nEffects:");
                             for effect in &piece.effects {
                                 text.push_str("\n- ");
-                                text.push_str(&effect.description);
+                                let desc_template = get_effect_description(&effect.condition, &effect_descs);
+                                let desc = desc_template
+                                    .replace("{points}", &effect.points.to_string())
+                                    .replace("{color}", match &effect.condition {
+                                        EffectCondition::MatchesColor(c) => color_name_from_rgba(c),
+                                        EffectCondition::IsEmpty => "empty",
+                                        EffectCondition::NoColorOnBoard(c) => color_name_from_rgba(c),
+                                    });
+                                text.push_str(&desc);
                             }
                         }
 

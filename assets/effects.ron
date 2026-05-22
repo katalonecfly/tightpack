@@ -1,0 +1,8 @@
+(
+    descriptions: {
+        "IsEmpty": "Gain {points} point(s) for each empty target cell.",
+        "MatchesColor(RED)": "Gain {points} point(s) for each RED target cell.",
+        "MatchesColor(BLUE)": "Gain {points} point(s) for each BLUE target cell.",
+        "MatchesColor(GREEN)": "Gain {points} point(s) for each GREEN target cell.",
+    }
+)

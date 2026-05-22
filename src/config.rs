@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use serde::Deserialize;
+use std::collections::HashMap;
 
 #[derive(Deserialize, Clone)]
 pub struct RawPieceLibrary {
@@ -41,7 +42,6 @@ pub struct RawGameEffect {
     pub points: i32,
     #[serde(default)]
     pub offsets: Vec<IVec2>,
-    pub description: String,
 }
 
 #[derive(Deserialize, Clone)]
@@ -49,4 +49,9 @@ pub enum RawEffectCondition {
     MatchesColor(String),
     IsEmpty,
     NoColorOnBoard(String),
+}
+
+#[derive(Resource, Deserialize, Clone, Default)]
+pub struct EffectDescriptions {
+    pub descriptions: HashMap<String, String>,
 }

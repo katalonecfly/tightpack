@@ -59,7 +59,7 @@ pub fn check_condition(
 }
 
 // Helper: compare two LinearRgba colours with a small epsilon
-fn linear_rgba_near(a: &LinearRgba, b: &LinearRgba) -> bool {
+pub fn linear_rgba_near(a: &LinearRgba, b: &LinearRgba) -> bool {
     let eps = 0.001;
     (a.red - b.red).abs() < eps
         && (a.green - b.green).abs() < eps

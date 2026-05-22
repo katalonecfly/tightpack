@@ -219,7 +219,6 @@ pub fn bake_effects(
                 } else {
                     Some(re.offsets.clone())
                 },
-                description: re.description.clone(),
             }
         })
         .collect()
@@ -270,7 +269,6 @@ pub fn randomize_piece_properties(
         condition,
         points: chosen_raw.points,
         offsets: chosen_offsets,
-        description: chosen_raw.description.clone(),
     }];
 
     let color = random_color(color_map);

@@ -8,6 +8,7 @@ use bevy::picking::prelude::*;
 use bevy::prelude::*;
 use resources::{GameState, PieceLibrary, TooltipState};
 use systems::menu;
+use config::EffectDescriptions;
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default, States)]
 enum AppState {
@@ -37,6 +38,14 @@ fn handle_escape(
     }
 }
 
+fn load_effects_descriptions(mut commands: Commands) {
+    let file_content = std::fs::read_to_string("assets/effects.ron")
+        .expect("Missing assets/effects.ron");
+    let descs: config::EffectDescriptions = ron::from_str(&file_content)
+        .expect("Failed to parse effects.ron");
+    commands.insert_resource(descs);
+}
+
 fn main() {
     App::new()
         .add_plugins((DefaultPlugins, MeshPickingPlugin))
@@ -44,6 +53,7 @@ fn main() {
         .init_resource::<TooltipState>()
         .init_resource::<PieceLibrary>()
         .init_state::<AppState>()
+        .add_systems(Startup, load_effects_descriptions)
         // Menu
         .add_systems(OnEnter(AppState::Menu), menu::setup_menu)
         .add_systems(
