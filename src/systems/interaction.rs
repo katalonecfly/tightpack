@@ -22,22 +22,38 @@ pub fn on_drag_start(
     mut commands: Commands,
     piece_query: Query<(), With<Piece>>,
     child_of_query: Query<&ChildOf>,
-    mut drag_piece_query: Query<(&mut Transform, &mut Piece, &Children)>,
     locked_query: Query<(), With<LockedPiece>>,
     mut state: ResMut<GameState>,
     opponent_query: Query<(), With<OpponentPiece>>,
+    mut param_set: ParamSet<(
+        Query<(&mut Transform, &mut Piece, &Children), Without<LockedPiece>>,
+        Query<(Entity, &mut Piece, &mut Transform), (With<DraftPiece>, Without<LockedPiece>)>,
+    )>,
 ) {
     let target = on.event_target();
-    let Some(piece_entity) = get_piece_entity(target, &piece_query, &child_of_query) else {
-        return;
-    };
-    if opponent_query.contains(piece_entity) {
-        return;
+    let Some(piece_entity) = get_piece_entity(target, &piece_query, &child_of_query) else { return; };
+    if opponent_query.contains(piece_entity) { return; }
+    if locked_query.contains(piece_entity) { return; }
+
+    // Unplace any other draft piece that is currently on board
+    for (other_entity, mut other_piece, mut other_transform) in param_set.p1().iter_mut() {
+        if other_entity != piece_entity && other_piece.placed_at.is_some() {
+            if let Some(old_pos) = other_piece.placed_at {
+                for offset in &other_piece.shape {
+                    state.board_cells.remove(&(old_pos + *offset));
+                }
+                other_piece.placed_at = None;
+            }
+            other_transform.translation = other_piece.original_pos;
+            other_transform.translation.z = 1.0;
+            other_transform.rotation = Quat::IDENTITY;
+            other_piece.shape = other_piece.original_shape.clone();
+            other_piece.effects = other_piece.original_effects.clone();
+        }
     }
-    if locked_query.contains(piece_entity) {
-        return;
-    }
-    if let Ok((mut transform, mut piece, _)) = drag_piece_query.get_mut(piece_entity) {
+
+    // Handle the dragged piece
+    if let Ok((mut transform, mut piece, _)) = param_set.p0().get_mut(piece_entity) {
         commands.entity(piece_entity).insert(Dragging);
         transform.translation.z = 10.0;
         if let Some(old_pos) = piece.placed_at {
