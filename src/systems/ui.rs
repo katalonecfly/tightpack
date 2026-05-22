@@ -7,6 +7,7 @@ use bevy::window::Window;
 use crate::helpers::{score_text_world_pos, score_text_world_pos_for_side, SCORE_FONT_SIZE};
 use crate::config::EffectDescriptions;
 use crate::systems::scoring::linear_rgba_near;
+use crate::Cleanup;
 
 fn color_name_from_rgba(rgba: &LinearRgba) -> &'static str {
     let red = Color::srgb_u8(216, 46, 63).to_linear();
@@ -245,6 +246,7 @@ pub fn update_tooltip(
                                     BorderColor::all(Color::WHITE),
                                     GlobalZIndex(20),
                                     Text::new(text),
+                                    Cleanup,
                                 ))
                                 .id();
                             tooltip_state.entity = Some(entity);

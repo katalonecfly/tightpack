@@ -53,6 +53,10 @@ fn reset_duel_state(mut duel_state: ResMut<DuelState>) {
     *duel_state = DuelState::default();
 }
 
+fn reset_tooltip_state(mut tooltip: ResMut<TooltipState>) {
+    *tooltip = TooltipState::default();
+}
+
 fn main() {
     App::new()
         .add_plugins((DefaultPlugins, MeshPickingPlugin))
@@ -83,7 +87,7 @@ fn main() {
             )
                 .run_if(in_state(AppState::Sandbox)),
         )
-        .add_systems(OnExit(AppState::Sandbox), (cleanup_system, reset_game_state))
+        .add_systems(OnExit(AppState::Sandbox), (cleanup_system, reset_game_state, reset_tooltip_state))
         // Draft
         .add_systems(
             OnEnter(AppState::Draft),
@@ -105,7 +109,7 @@ fn main() {
             )
                 .run_if(in_state(AppState::Draft)),
         )
-        .add_systems(OnExit(AppState::Draft), (cleanup_system, reset_game_state))
+        .add_systems(OnExit(AppState::Draft), (cleanup_system, reset_game_state, reset_tooltip_state))
         // Duel:
         .add_systems(OnEnter(AppState::Duel), systems::duel::setup_duel)
         .add_systems(
@@ -121,7 +125,7 @@ fn main() {
             )
                 .run_if(in_state(AppState::Duel)),
         )
-        .add_systems(OnExit(AppState::Duel), (cleanup_system, reset_duel_state))
+        .add_systems(OnExit(AppState::Duel), (cleanup_system, reset_duel_state, reset_tooltip_state))
         .add_systems(Update, handle_escape)
         .run();
 }
