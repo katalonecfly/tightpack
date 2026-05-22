@@ -12,6 +12,8 @@ use crate::resources::{InventoryScroll, StashContentHeight, StashScreenRect};
 use crate::components::StashPosition;
 use crate::helpers::BOARD_TOP_Y;
 
+const AVAILABLE_COLORS: &[&str] = &["RED", "BLUE", "GREEN"];
+
 fn spawn_common(commands: &mut Commands) -> Vec<RawPieceConfig> {
     commands.spawn((Camera2d, Cleanup));
 
@@ -106,8 +108,6 @@ pub fn setup_sandbox(mut commands: Commands, windows: Query<&Window>) {
 
     let mut current_y_offset = 0.0f32;
     for (type_id, raw) in pieces.iter().enumerate() {
-        let piece_color = *color_map.get(&raw.color).unwrap_or(&LinearRgba::WHITE);
-        
         let min_x = raw.shape.iter().map(|o| o.x).min().unwrap_or(0);
         let max_x = raw.shape.iter().map(|o| o.x).max().unwrap_or(0);
         let min_y = raw.shape.iter().map(|o| o.y).min().unwrap_or(0);
@@ -122,20 +122,20 @@ pub fn setup_sandbox(mut commands: Commands, windows: Query<&Window>) {
 
         let copy_count = 10;
         for copy_idx in 0..copy_count {
-            let final_effects = randomize_effects(raw, &color_map);
-            let pos = Vec3::new(piece_x, base_y, 1.0 + copy_idx as f32 * 0.001);
-            let entity = spawn_draggable_piece(
-                &mut commands,
-                type_id,
-                raw.shape.clone(),
-                piece_color,
-                raw.points,
-                final_effects,
-                pos,
-                false,
-                true,
-                BoardSide::Single,
-            );
+        let (color, effects) = randomize_piece_properties(raw, &color_map);
+        let pos = Vec3::new(piece_x, base_y, 1.0 + copy_idx as f32 * 0.001);
+        let entity = spawn_draggable_piece(
+            &mut commands,
+            type_id,
+            raw.shape.clone(),
+            color,
+            raw.points,
+            effects,
+            pos,
+            false,
+            true,
+            BoardSide::Single,
+        );
             commands
                 .entity(entity)
                 .insert(StashPosition { desired_world_y: base_y });
@@ -225,28 +225,27 @@ pub fn bake_effects(
         .collect()
 }
 
-/// For a dynamic piece: randomly choose one effect and a non‑empty subset of its offsets.
-/// For a static piece: return all effects unchanged.
-pub fn randomize_effects(
+/// For a dynamic piece: randomly choose a color and one effect + non‑empty offset subset.
+/// For a static piece: use the color from the RON and all effects/offsets.
+pub fn randomize_piece_properties(
     raw: &RawPieceConfig,
     color_map: &HashMap<String, LinearRgba>,
-) -> Vec<GameEffect> {
+) -> (LinearRgba, Vec<GameEffect>) {
     if raw.piece_type == PieceType::Static {
-        return bake_effects(raw, color_map);
+        let color = *color_map.get(&raw.color).unwrap_or(&LinearRgba::WHITE);
+        let effects = bake_effects(raw, color_map);
+        return (color, effects);
     }
 
-    // Dynamic piece: must have at least one effect, otherwise return empty
+    // Dynamic piece: must have at least one effect, otherwise fallback
     if raw.effects.is_empty() {
-        return Vec::new();
+        let color = random_color(color_map);
+        return (color, Vec::new());
     }
 
     let mut rng = rand::rng();
-    let chosen_raw = match raw.effects.choose(&mut rng) {
-        Some(e) => e,
-        None => return Vec::new(), // fallback to no effects
-    };
+    let chosen_raw = raw.effects.choose(&mut rng).unwrap();
 
-    // Build the GameEffect for the chosen raw effect
     let condition = match &chosen_raw.condition {
         RawEffectCondition::IsEmpty => EffectCondition::IsEmpty,
         RawEffectCondition::MatchesColor(name) => {
@@ -257,24 +256,32 @@ pub fn randomize_effects(
         }
     };
 
-    // Choose a non‑empty subset of offsets
     let chosen_offsets = if chosen_raw.offsets.is_empty() {
         None
     } else {
         let mut offsets = chosen_raw.offsets.clone();
-        // Randomly select k = 1 .. len(offsets)
         let k = rng.random_range(1..=offsets.len());
         offsets.shuffle(&mut rng);
         offsets.truncate(k);
         Some(offsets)
     };
 
-    vec![GameEffect {
+    let effects = vec![GameEffect {
         condition,
         points: chosen_raw.points,
         offsets: chosen_offsets,
         description: chosen_raw.description.clone(),
-    }]
+    }];
+
+    let color = random_color(color_map);
+    (color, effects)
+}
+
+/// Pick a random color from the available list.
+pub fn random_color(color_map: &HashMap<String, LinearRgba>) -> LinearRgba {
+    let mut rng = rand::rng();
+    let color_name = AVAILABLE_COLORS.choose(&mut rng).unwrap();
+    *color_map.get(*color_name).unwrap_or(&LinearRgba::WHITE)
 }
 
 pub fn spawn_draggable_piece(

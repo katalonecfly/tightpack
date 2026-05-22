@@ -57,9 +57,7 @@ pub fn refresh_draft_stash(commands: &mut Commands, library: &PieceLibrary) {
             .iter()
             .position(|p| std::ptr::eq(p, *raw))
             .unwrap_or(i);
-        let color = *color_map.get(&raw.color).unwrap_or(&LinearRgba::WHITE);
-        let effects = crate::systems::setup::randomize_effects(raw, &color_map);
-        commands.spawn((
+        let (color, effects) = crate::systems::setup::randomize_piece_properties(raw, &color_map);          commands.spawn((
             Text2d::new("x1"),
             TextFont {
                 font_size: STASH_LABEL_FONT_SIZE,

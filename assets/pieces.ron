@@ -197,6 +197,7 @@
         ),
 
         // ── Size 4: S‑Tetromino (skew) · 10 points ──
+        /*
         (
             shape: [(1, 0), (2, 0), (0, 1), (1, 1)],
             color: "RED",
@@ -224,10 +225,10 @@
                     description: "Gain 3 point(s) for each target empty cell.",
                 ),
             ],
-        ),
+        ),*/
         (
             shape: [(1, 0), (2, 0), (0, 1), (1, 1)],
-            color: "GREEN",
+            color: "IGNORED",
             points: 10,
             piece_type: dynamic,
             effects: [
