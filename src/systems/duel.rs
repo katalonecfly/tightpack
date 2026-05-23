@@ -16,7 +16,6 @@ pub fn generate_duel_stash(commands: &mut Commands, library: &PieceLibrary) {
         ("RED".to_string(), Color::srgb_u8(216, 46, 63).to_linear()),
         ("BLUE".to_string(), Color::srgb_u8(53, 129, 216).to_linear()),
         ("GREEN".to_string(), Color::srgb_u8(40, 204, 45).to_linear()),
-        ("YELLOW".to_string(), Color::srgb_u8(255, 225, 53).to_linear()),
     ].into();
 
     let all_pieces = &library.0;
@@ -29,22 +28,28 @@ pub fn generate_duel_stash(commands: &mut Commands, library: &PieceLibrary) {
         chosen.push(available.remove(idx));
     }
 
-    spawn_side_pieces(commands, &chosen, &color_map, BoardSide::Left, true);
-    spawn_side_pieces(commands, &chosen, &color_map, BoardSide::Right, false);
+    // Pre‑randomise properties for each chosen piece (once per piece, shared between sides)
+    let mut piece_data = Vec::new();
+    for raw in &chosen {
+        let (color, effects) = crate::systems::setup::randomize_piece_properties(raw, &color_map);
+        piece_data.push((*raw, color, effects));
+    }
+
+    // Spawn for both sides using the same data
+    spawn_side_pieces(commands, &piece_data, BoardSide::Left, true);
+    spawn_side_pieces(commands, &piece_data, BoardSide::Right, false);
 }
 
 fn spawn_side_pieces(
     commands: &mut Commands,
-    raw_pieces: &[&RawPieceConfig],
-    color_map: &HashMap<String, LinearRgba>,
+    piece_data: &[(&RawPieceConfig, LinearRgba, Vec<GameEffect>)],
     side: BoardSide,
     interactive: bool,
 ) {
     let board_left = grid_to_world_for_side(IVec2::ZERO, side).x;
     let mut next_left = board_left;
 
-    for (i, raw) in raw_pieces.iter().enumerate() {
-        let (color, effects) = crate::systems::setup::randomize_piece_properties(raw, color_map);
+    for (i, (raw, color, effects)) in piece_data.iter().enumerate() {
         let type_id = i;
         let min_x = raw.shape.iter().map(|o| o.x).min().unwrap_or(0);
         let max_x = raw.shape.iter().map(|o| o.x).max().unwrap_or(0);
@@ -56,24 +61,22 @@ fn spawn_side_pieces(
         let parent_y = stash_y_below_board(max_y);
         let pos = Vec3::new(parent_x, parent_y, 1.0);
 
-        // Spawn without observers; we'll add the correct ones if interactive
         let entity = crate::systems::setup::spawn_draggable_piece(
             commands,
             type_id,
             raw.shape.clone(),
-            color,
+            *color,
             raw.points,
-            effects,
+            effects.clone(),
             pos,
-            false,         // draft_mode
-            false,         // interactive – will handle manually
+            false,      // draft_mode
+            false,      // interactive – will be set manually
             side,
         );
 
         commands.entity(entity).insert(DraftPiece);
 
         if interactive {
-            // Player side: add pickable and Duel-specific observers
             commands.entity(entity).insert(Pickable::default());
             commands.entity(entity)
                 .observe(on_drag_start_duel)
