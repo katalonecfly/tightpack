@@ -212,18 +212,26 @@ pub fn handle_rotation(
     keyboard: Res<ButtonInput<KeyCode>>,
     mouse: Res<ButtonInput<MouseButton>>,
     mut piece_query: Query<
-        (Entity, &mut Transform, &mut Piece, &Children),
+        (&mut Transform, &mut Piece, &Children),
         (With<Dragging>, Without<OpponentPiece>),
     >,
     mut preview_query: Query<&mut EffectPreview>,
+    mut commands: Commands,
+    ghost_query: Query<Entity, With<GhostTile>>,
+    state: Res<GameState>,
 ) {
     if keyboard.just_pressed(KeyCode::KeyR) || mouse.just_pressed(MouseButton::Right) {
-        for (_, mut transform, mut piece, children) in &mut piece_query {
+        for (mut transform, mut piece, children) in piece_query.iter_mut() {
+            // Rotate the piece transform
             transform.rotate_z(-std::f32::consts::FRAC_PI_2);
+
+            // Rotate the piece's shape
             for offset in &mut piece.shape {
                 let old = *offset;
                 *offset = IVec2::new(old.y, -old.x);
             }
+
+            // Rotate effect offsets (if any)
             for effect in &mut piece.effects {
                 if let Some(offsets) = &mut effect.offsets {
                     for offset in offsets {
@@ -232,10 +240,41 @@ pub fn handle_rotation(
                     }
                 }
             }
+
+            // Update EffectPreview child transforms (rotate the preview visuals)
             for &child in children {
                 if let Ok(mut preview) = preview_query.get_mut(child) {
                     let old = preview.offset;
                     preview.offset = IVec2::new(old.y, -old.x);
+                }
+            }
+
+            // --- Refresh ghost tiles after rotation ---
+            // Remove all existing ghosts
+            for entity in ghost_query.iter() {
+                commands.entity(entity).despawn();
+            }
+
+            // Compute new ghost positions based on rotated shape and current world position
+            let grid_pos = world_to_grid_for_side(transform.translation, piece.board_side);
+            let mut can_place = true;
+            for offset in &piece.shape {
+                let tile = grid_pos + *offset;
+                if !is_cell_available(tile, &state.board_cells, &state.disabled_cells) {
+                    can_place = false;
+                    break;
+                }
+            }
+            if can_place {
+                let ghost_color = LinearRgba::WHITE.with_alpha(0.3);
+                for offset in &piece.shape {
+                    commands.spawn((
+                        Sprite::from_color(ghost_color, Vec2::splat(TILE_SIZE - 2.0)),
+                        Transform::from_translation(
+                            grid_to_world_for_side(grid_pos + *offset, piece.board_side).with_z(1.0),
+                        ),
+                        GhostTile,
+                    ));
                 }
             }
         }
