@@ -93,13 +93,14 @@ pub fn update_duel_score_ui(
 
 pub fn update_duel_effect_previews(
     duel_state: Res<DuelState>,
-    piece_query: Query<(&Piece, &Children, Has<Hovered>)>,
+    piece_query: Query<(&Piece, &Children, Has<Hovered>, Has<Dragging>)>,  // added Dragging
     mut preview_query: Query<(&mut Visibility, &mut Sprite, &EffectPreview)>,
 ) {
-    for (piece, children, is_hovered) in &piece_query {
+    for (piece, children, is_hovered, is_dragging) in &piece_query {
+        let show = is_hovered || is_dragging;
         for &child in children {
             if let Ok((mut visibility, mut sprite, preview)) = preview_query.get_mut(child) {
-                if is_hovered {
+                if show {
                     *visibility = Visibility::Visible;
                     let mut active = false;
                     let board_cells = match piece.board_side {
@@ -130,13 +131,14 @@ pub fn update_duel_effect_previews(
 
 pub fn update_effect_previews(
     state: Res<GameState>,
-    piece_query: Query<(&Piece, &Children, Has<Hovered>)>,
+    piece_query: Query<(&Piece, &Children, Has<Hovered>, Has<Dragging>)>,  // added Dragging
     mut preview_query: Query<(&mut Visibility, &mut Sprite, &EffectPreview)>,
 ) {
-    for (piece, children, is_hovered) in &piece_query {
+    for (piece, children, is_hovered, is_dragging) in &piece_query {
+        let show = is_hovered || is_dragging;  // show if hovered OR being dragged
         for &child in children {
             if let Ok((mut visibility, mut sprite, preview)) = preview_query.get_mut(child) {
-                if is_hovered {
+                if show {
                     *visibility = Visibility::Visible;
                     let mut active = false;
                     if let Some(grid_pos) = piece.placed_at {
