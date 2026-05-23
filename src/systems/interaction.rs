@@ -45,8 +45,8 @@ pub fn on_drag_start(
                 other_piece.placed_at = None;
             }
             other_transform.translation = other_piece.original_pos;
-            other_transform.translation.z = 1.0;
-            other_transform.rotation = Quat::IDENTITY;
+            other_transform.translation.z = other_piece.original_pos.z;  // enforce exact Z
+            other_transform.rotation = Quat::IDENTITY;           
             other_piece.shape = other_piece.original_shape.clone();
             other_piece.effects = other_piece.original_effects.clone();
         }
@@ -200,8 +200,8 @@ pub fn on_drag_end(
             }
         } else {
             transform.translation = piece.original_pos;
-            transform.translation.z = 1.0;
-            transform.rotation = Quat::IDENTITY;
+            transform.translation.z = piece.original_pos.z;  // enforce exact Z
+            transform.rotation = Quat::IDENTITY;            
             piece.shape = piece.original_shape.clone();
             piece.effects = piece.original_effects.clone();
         }

@@ -134,8 +134,8 @@ fn on_drag_start_duel(
                 other_piece.placed_at = None;
             }
             other_transform.translation = other_piece.original_pos;
-            other_transform.translation.z = 1.0;
-            other_transform.rotation = Quat::IDENTITY;
+            other_transform.translation.z = other_piece.original_pos.z;
+            other_transform.rotation = Quat::IDENTITY;            
             other_piece.shape = other_piece.original_shape.clone();
             other_piece.effects = other_piece.original_effects.clone();
         }
@@ -250,9 +250,8 @@ fn on_drag_end_duel(
             }
         } else {
             transform.translation = piece.original_pos;
-            transform.translation.z = 1.0;
-            transform.rotation = Quat::IDENTITY;
-            piece.shape = piece.original_shape.clone();
+            transform.translation.z = piece.original_pos.z;
+            transform.rotation = Quat::IDENTITY;            
             piece.effects = piece.original_effects.clone();
         }
     }
