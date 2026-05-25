@@ -58,6 +58,35 @@ pub fn check_condition(
     }
 }
 
+pub fn compute_piece_contribution(
+    piece: &Piece,
+    board_cells: &HashMap<IVec2, LinearRgba>,
+) -> i32 {
+    let mut total = piece.points;
+    if let Some(pos) = piece.placed_at {
+        for effect in &piece.effects {
+            match &effect.offsets {
+                Some(offsets) => {
+                    for offset in offsets {
+                        let target_cell = pos + *offset;
+                        if crate::helpers::is_in_bounds(target_cell) {
+                            if check_condition(&effect.condition, Some(target_cell), board_cells) {
+                                total += effect.points;
+                            }
+                        }
+                    }
+                }
+                None => {
+                    if check_condition(&effect.condition, Some(pos), board_cells) {
+                        total += effect.points;
+                    }
+                }
+            }
+        }
+    }
+    total
+}
+
 // Helper: compare two LinearRgba colours with a small epsilon
 pub fn linear_rgba_near(a: &LinearRgba, b: &LinearRgba) -> bool {
     let eps = 0.001;

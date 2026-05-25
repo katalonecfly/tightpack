@@ -82,6 +82,7 @@ fn main() {
                 systems::ui::update_tooltip,
                 systems::interaction::handle_rotation,
                 systems::scoring::recalculate_score_system,
+                systems::ui::update_contributions_system,   // <-- added
                 systems::inventory::scroll_inventory,
                 systems::inventory::apply_inventory_scroll,
             )
@@ -106,6 +107,7 @@ fn main() {
                 systems::ui::update_tooltip,
                 systems::interaction::handle_rotation,
                 systems::scoring::recalculate_score_system,
+                systems::ui::update_contributions_system,   // <-- added
             )
                 .run_if(in_state(AppState::Draft)),
         )
@@ -121,6 +123,7 @@ fn main() {
                 systems::ui::update_tooltip,
                 systems::interaction::handle_rotation,
                 systems::scoring::recalculate_duel_score_system,
+                systems::ui::update_duel_contributions_system,   // <-- added
                 systems::duel::handle_destroy_input,
             )
                 .run_if(in_state(AppState::Duel)),

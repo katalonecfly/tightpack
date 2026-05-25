@@ -75,3 +75,6 @@ pub enum BoardSide {
 pub struct PlayerScoreText;
 #[derive(Component)]
 pub struct OpponentScoreText;
+
+#[derive(Component)]
+pub struct ContributionDisplay(pub Entity);
