@@ -124,6 +124,9 @@ pub fn setup_sandbox(mut commands: Commands, windows: Query<&Window>) {
         for copy_idx in 0..copy_count {
         let (color, effects) = randomize_piece_properties(raw, &color_map);
         let pos = Vec3::new(piece_x, base_y, 1.0 + copy_idx as f32 * 0.001);
+        // Inside setup_sandbox, around line 100
+        // In setup_sandbox (around line 100)
+        // Inside setup_sandbox, around line 100
         let entity = spawn_draggable_piece(
             &mut commands,
             type_id,
@@ -132,8 +135,9 @@ pub fn setup_sandbox(mut commands: Commands, windows: Query<&Window>) {
             raw.points,
             effects,
             pos,
-            false,
-            true,
+            false,     // draft_mode
+            true,      // interactive
+            true,      // hoverable   <-- added
             BoardSide::Single,
         );
             commands
@@ -282,6 +286,14 @@ pub fn random_color(color_map: &HashMap<String, LinearRgba>) -> LinearRgba {
     *color_map.get(*color_name).unwrap_or(&LinearRgba::WHITE)
 }
 
+// In systems/setup.rs
+
+// In systems/setup.rs
+
+// In systems/setup.rs
+
+// In systems/setup.rs
+
 pub fn spawn_draggable_piece(
     commands: &mut Commands,
     type_id: usize,
@@ -292,89 +304,107 @@ pub fn spawn_draggable_piece(
     pos: Vec3,
     draft_mode: bool,
     interactive: bool,
-    board_side: BoardSide,   // <-- new parameter
+    hoverable: bool,
+    board_side: BoardSide,
 ) -> Entity {
-    let mut entity = commands.spawn((
-        Transform::from_translation(pos),
-        Visibility::default(),
-        Piece {
-            type_id,
-            shape: shape.clone(),
-            original_shape: shape.clone(),
-            color,
-            points,
-            effects: effects.clone(),
-            original_effects: effects.clone(),
-            original_pos: pos,
-            placed_at: None,
-            board_side,   // use parameter
-        },
-        Cleanup,
-    ));
+    let entity = commands
+        .spawn((
+            Transform::from_translation(pos),
+            Visibility::default(),
+            Piece {
+                type_id,
+                shape: shape.clone(),
+                original_shape: shape.clone(),
+                color,
+                points,
+                effects: effects.clone(),
+                original_effects: effects.clone(),
+                original_pos: pos,
+                placed_at: None,
+                board_side,
+            },
+            Cleanup,
+        ))
+        .id();
+
     if draft_mode {
-        entity.insert(DraftPiece);
+        commands.entity(entity).insert(DraftPiece);
     }
 
-    if interactive {
-        entity.insert(Pickable::default());
-        entity
-            .observe(crate::systems::interaction::on_drag_start)
-            .observe(crate::systems::interaction::on_drag)
-            .observe(crate::systems::interaction::on_drag_end)
+    // Attach observers to parent
+    if hoverable {
+        commands
+            .entity(entity)
+            .insert(Pickable::default())
             .observe(crate::systems::interaction::on_hover_in)
             .observe(crate::systems::interaction::on_hover_out);
     }
-
-    let parent = entity.id();
-    crate::systems::visuals::refresh_piece_visuals(commands, parent, &shape, color);
-
-    for offset in shape {
-        let mut child = commands.spawn((
-            Sprite::from_color(color, Vec2::splat(TILE_SIZE - 4.0)),
-            Transform::from_translation(offset.as_vec2().extend(0.0) * TILE_SIZE),
-        ));
-        if interactive {
-            child.insert(Pickable::default());
-            child
-                .observe(crate::systems::interaction::on_child_hover_in)
-                .observe(crate::systems::interaction::on_child_hover_out)
-                .observe(crate::systems::interaction::on_drag_start)
-                .observe(crate::systems::interaction::on_drag)
-                .observe(crate::systems::interaction::on_drag_end);
-        }
-        let child_id = child.id();
-        commands.entity(parent).add_child(child_id);
+    if interactive {
+        commands
+            .entity(entity)
+            .observe(crate::systems::interaction::on_drag_start)
+            .observe(crate::systems::interaction::on_drag)
+            .observe(crate::systems::interaction::on_drag_end);
     }
 
-    for effect in effects {
-        if let Some(offsets) = effect.offsets {
-            for offset in offsets {
-                let mut preview = commands.spawn((
-                    Sprite {
-                        color: Color::srgb(1.0, 1.0, 0.0).into(),
-                        custom_size: Some(Vec2::splat(12.0)),
-                        ..default()
-                    },
-                    Transform::from_translation(offset.as_vec2().extend(5.0) * TILE_SIZE),
-                    Visibility::Hidden,
-                    EffectPreview {
-                        offset,
-                        condition: effect.condition.clone(),
-                    },
-                ));
-                if interactive {
-                    preview.insert(Pickable::default());
-                    preview
-                        .observe(crate::systems::interaction::on_child_hover_in)
-                        .observe(crate::systems::interaction::on_child_hover_out)
-                        .observe(crate::systems::interaction::on_drag_start)
-                        .observe(crate::systems::interaction::on_drag)
-                        .observe(crate::systems::interaction::on_drag_end);
-                }
-                let preview_id = preview.id();
-                commands.entity(parent).add_child(preview_id);
+    // Draw the full visual appearance (bridges, perimeters)
+    crate::systems::visuals::refresh_piece_visuals(commands, entity, &shape, color);
+
+    // Add interactive children (small tile sprites and effect previews)
+    commands.entity(entity).with_children(|parent| {
+        // Small tile sprites (these are the hitboxes for dragging/hovering)
+        for offset in &shape {
+            let mut child = parent.spawn((
+                Sprite::from_color(color, Vec2::splat(TILE_SIZE - 4.0)),
+                Transform::from_translation(offset.as_vec2().extend(0.0) * TILE_SIZE),
+            ));
+            if hoverable {
+                child.insert(Pickable::default());
+                child
+                    .observe(crate::systems::interaction::on_child_hover_in)
+                    .observe(crate::systems::interaction::on_child_hover_out);
+            }
+            if interactive {
+                child
+                    .observe(crate::systems::interaction::on_drag_start)
+                    .observe(crate::systems::interaction::on_drag)
+                    .observe(crate::systems::interaction::on_drag_end);
             }
         }
-    }
-    parent
+
+        // Effect preview sprites
+        for effect in &effects {
+            if let Some(offsets) = &effect.offsets {
+                for offset in offsets {
+                    let mut preview = parent.spawn((
+                        Sprite {
+                            color: Color::srgb(1.0, 1.0, 0.0).into(),
+                            custom_size: Some(Vec2::splat(12.0)),
+                            ..default()
+                        },
+                        Transform::from_translation(offset.as_vec2().extend(5.0) * TILE_SIZE),
+                        Visibility::Hidden,
+                        EffectPreview {
+                            offset: *offset,
+                            condition: effect.condition.clone(),
+                        },
+                    ));
+                    if hoverable {
+                        preview.insert(Pickable::default());
+                        preview
+                            .observe(crate::systems::interaction::on_child_hover_in)
+                            .observe(crate::systems::interaction::on_child_hover_out);
+                    }
+                    if interactive {
+                        preview
+                            .observe(crate::systems::interaction::on_drag_start)
+                            .observe(crate::systems::interaction::on_drag)
+                            .observe(crate::systems::interaction::on_drag_end);
+                    }
+                }
+            }
+        }
+    });
+
+    entity
 }

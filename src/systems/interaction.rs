@@ -91,7 +91,7 @@ pub fn on_drag(
         transform.translation.y -= on.delta.y;
 
         for entity in &ghost_query {
-            commands.entity(entity).despawn();
+            let _ = commands.entity(entity).try_despawn();
         }
         let grid_pos = world_to_grid_for_side(transform.translation, piece.board_side);
         let mut can_place = true;
@@ -131,7 +131,7 @@ pub fn on_drag_end(
     opponent_query: Query<(), With<OpponentPiece>>,
 ) {
     for entity in &ghost_query {
-        commands.entity(entity).despawn();
+        let _ = commands.entity(entity).try_despawn();
     }
 
     let target = on.event_target();
@@ -252,7 +252,7 @@ pub fn handle_rotation(
             // --- Refresh ghost tiles after rotation ---
             // Remove all existing ghosts
             for entity in ghost_query.iter() {
-                commands.entity(entity).despawn();
+                let _ = commands.entity(entity).try_despawn();
             }
 
             // Compute new ghost positions based on rotated shape and current world position

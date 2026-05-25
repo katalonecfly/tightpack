@@ -9,6 +9,9 @@ use bevy::prelude::*;
 use rand::RngExt;
 use std::collections::{HashMap, HashSet};
 
+#[derive(Component)]
+struct DragOffset(Vec2);
+
 // ── Stash generation ──────────────────────────────
 
 pub fn generate_duel_stash(commands: &mut Commands, library: &PieceLibrary) {
@@ -61,6 +64,9 @@ fn spawn_side_pieces(
         let parent_y = stash_y_below_board(max_y);
         let pos = Vec3::new(parent_x, parent_y, 1.0);
 
+        // Inside spawn_side_pieces
+        // In systems/duel.rs, inside spawn_side_pieces
+
         let entity = crate::systems::setup::spawn_draggable_piece(
             commands,
             type_id,
@@ -70,9 +76,21 @@ fn spawn_side_pieces(
             effects.clone(),
             pos,
             false,      // draft_mode
-            false,      // interactive – will be set manually
+            false,      // interactive
+            true,       // hoverable   ← this is the missing argument
             side,
         );
+        if interactive {
+            // Player side: add duel‑specific drag observers
+            commands.entity(entity)
+                .observe(on_drag_start_duel)
+                .observe(on_drag_duel)
+                .observe(on_drag_end_duel);
+            commands.entity(entity).insert(PlayerPiece);
+        } else {
+            // Opponent side: no drag, only hover (already added by spawn_draggable_piece)
+            commands.entity(entity).insert(OpponentPiece);
+        }
 
         commands.entity(entity).insert(DraftPiece);
 
@@ -117,6 +135,8 @@ fn on_drag_start_duel(
     child_of_query: Query<&ChildOf>,
     locked_query: Query<(), With<LockedPiece>>,
     mut duel_state: ResMut<DuelState>,
+    windows: Query<&Window>,
+    cameras: Query<(&Camera, &GlobalTransform)>,
     mut param_set: ParamSet<(
         Query<(&mut Transform, &mut Piece, &Children), (Without<LockedPiece>, With<PlayerPiece>)>,
         Query<(Entity, &mut Piece, &mut Transform), (With<PlayerPiece>, With<DraftPiece>, Without<LockedPiece>)>,
@@ -154,6 +174,16 @@ fn on_drag_start_duel(
             }
             piece.placed_at = None;
         }
+
+        // Compute drag offset: cursor world position minus piece position
+        let Ok(window) = windows.single() else { return; };
+        let Ok((camera, cam_transform)) = cameras.single() else { return; };
+        if let Some(cursor_pos) = window.cursor_position() {
+            if let Ok(world_pos) = camera.viewport_to_world(cam_transform, cursor_pos) {
+                let offset = world_pos.origin.truncate() - transform.translation.truncate();
+                commands.entity(piece_entity).insert(DragOffset(offset));
+            }
+        }
     }
 }
 
@@ -161,23 +191,39 @@ fn on_drag_duel(
     on: On<Pointer<Drag>>,
     piece_query: Query<(), With<Piece>>,
     child_of_query: Query<&ChildOf>,
-    mut drag_piece_query: Query<(&mut Transform, &Piece)>,
+    mut drag_piece_query: Query<(&mut Transform, &Piece, Option<&mut DragOffset>)>,
     locked_query: Query<(), With<LockedPiece>>,
     mut commands: Commands,
     duel_state: Res<DuelState>,
     ghost_query: Query<Entity, With<GhostTile>>,
+    windows: Query<&Window>,
+    cameras: Query<(&Camera, &GlobalTransform)>,
 ) {
     if duel_state.turn != DuelTurn::Place { return; }
     let target = on.event_target();
     let Some(piece_entity) = get_piece_entity(target, &piece_query, &child_of_query) else { return; };
     if locked_query.contains(piece_entity) { return; }
 
-    if let Ok((mut transform, piece)) = drag_piece_query.get_mut(piece_entity) {
-        transform.translation.x += on.delta.x;
-        transform.translation.y -= on.delta.y;
+    if let Ok((mut transform, piece, drag_offset_opt)) = drag_piece_query.get_mut(piece_entity) {
+        if let Some(drag_offset) = drag_offset_opt {
+            let Ok(window) = windows.single() else { return; };
+            let Ok((camera, cam_transform)) = cameras.single() else { return; };
+            if let Some(cursor_pos) = window.cursor_position() {
+                if let Ok(world_pos) = camera.viewport_to_world(cam_transform, cursor_pos) {
+                    let new_pos = world_pos.origin.truncate() - drag_offset.0;
+                    transform.translation.x = new_pos.x;
+                    transform.translation.y = new_pos.y;
+                }
+            }
+        } else {
+            // Fallback (should not happen)
+            transform.translation.x += on.delta.x;
+            transform.translation.y -= on.delta.y;
+        }
 
-        for entity in &ghost_query { commands.entity(entity).despawn(); }
-        let grid_pos = world_to_grid_for_side(transform.translation, BoardSide::Left);
+        // Update ghosts
+        for entity in &ghost_query { let _ = commands.entity(entity).try_despawn(); }
+        let grid_pos = world_to_grid_for_side(transform.translation, piece.board_side);
         let mut can_place = true;
         for offset in &piece.shape {
             let tile = grid_pos + *offset;
@@ -191,7 +237,7 @@ fn on_drag_duel(
             for offset in &piece.shape {
                 commands.spawn((
                     Sprite::from_color(ghost_color, Vec2::splat(TILE_SIZE - 2.0)),
-                    Transform::from_translation(grid_to_world_for_side(grid_pos + *offset, BoardSide::Left).with_z(1.0)),
+                    Transform::from_translation(grid_to_world_for_side(grid_pos + *offset, piece.board_side).with_z(1.0)),
                     GhostTile,
                 ));
             }
@@ -211,14 +257,20 @@ fn on_drag_end_duel(
     mut duel_state: ResMut<DuelState>,
     ghost_query: Query<Entity, With<GhostTile>>,
 ) {
-    for entity in &ghost_query { commands.entity(entity).despawn(); }
+    for entity in &ghost_query { let _ = commands.entity(entity).try_despawn(); }
     let target = on.event_target();
     let Some(piece_entity) = get_piece_entity(target, &piece_query, &child_of_query) else { return; };
     if locked_query.contains(piece_entity) { return; }
 
     commands.entity(piece_entity).remove::<Dragging>();
-    if let Ok((mut transform, mut piece, _)) = drag_piece_query.get_mut(piece_entity) {
-        let grid_pos = world_to_grid_for_side(transform.translation, BoardSide::Left);
+    commands.entity(piece_entity).remove::<DragOffset>(); // clean up
+
+    if let Ok((mut transform, mut piece, _children)) = drag_piece_query.get_mut(piece_entity) {
+        if piece.placed_at.is_some() {
+            return;
+        }
+
+        let grid_pos = world_to_grid_for_side(transform.translation, piece.board_side);
         let mut can_place = true;
         for offset in &piece.shape {
             let cell = grid_pos + *offset;
@@ -228,12 +280,12 @@ fn on_drag_end_duel(
             }
         }
         if can_place {
-            transform.translation = grid_to_world_for_side(grid_pos, BoardSide::Left).with_z(1.0);
+            transform.translation = grid_to_world_for_side(grid_pos, piece.board_side).with_z(1.0);
             piece.placed_at = Some(grid_pos);
+            // Do NOT update original_pos
             for offset in &piece.shape {
                 duel_state.player.board_cells.insert(grid_pos + *offset, piece.color);
             }
-            // draft reset logic
             if draft_check.contains(piece_entity) {
                 for other in &piece_entities {
                     if other != piece_entity && draft_check.contains(other) && drag_piece_query.get(other).map_or(false, |(_, p, _)| p.placed_at.is_some()) {
@@ -254,7 +306,8 @@ fn on_drag_end_duel(
         } else {
             transform.translation = piece.original_pos;
             transform.translation.z = piece.original_pos.z;
-            transform.rotation = Quat::IDENTITY;            
+            transform.rotation = Quat::IDENTITY;
+            piece.shape = piece.original_shape.clone();
             piece.effects = piece.original_effects.clone();
         }
     }
@@ -354,9 +407,17 @@ pub fn on_confirm_click_duel(
             ) {
                 let world_pos = grid_to_world_for_side(placement.origin, BoardSide::Right);
                 let entity = crate::systems::setup::spawn_draggable_piece(
-                    &mut commands, 0, placement.shape.clone(), placement.color,
-                    placement.raw_config.points, placement.effects.clone(),
-                    world_pos.with_z(1.0), false, false, BoardSide::Right,
+                    &mut commands, 
+                    0, 
+                    placement.shape.clone(), 
+                    placement.color,
+                    placement.raw_config.points, 
+                    placement.effects.clone(),
+                    world_pos.with_z(1.0), 
+                    false,   // draft_mode
+                    false,   // interactive
+                    true,    // hoverable   ← added
+                    BoardSide::Right,
                 );
                 commands.entity(entity).insert(LockedPiece).insert(OpponentPiece);
                 let placed = Piece {

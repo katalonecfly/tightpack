@@ -69,6 +69,8 @@ pub fn refresh_draft_stash(commands: &mut Commands, library: &PieceLibrary) {
             Cleanup,
         ));
 
+        // In refresh_draft_stash (systems/draft.rs)
+        // Inside refresh_draft_stash
         crate::systems::setup::spawn_draggable_piece(
             commands,
             type_id,
@@ -77,8 +79,9 @@ pub fn refresh_draft_stash(commands: &mut Commands, library: &PieceLibrary) {
             raw.points,
             effects,
             pos,
-            true,                    // draft_mode
-            true,                    // interactive
+            true,      // draft_mode
+            true,      // interactive
+            true,      // hoverable   <-- added
             BoardSide::Single,
         );
 

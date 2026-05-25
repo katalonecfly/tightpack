@@ -120,10 +120,10 @@ fn main() {
                 systems::ui::update_duel_score_ui,
                 systems::ui::update_stash_labels,
                 systems::ui::update_duel_effect_previews,
-                systems::ui::update_tooltip,
+                systems::ui::update_duel_tooltip,    // <-- changed
                 systems::interaction::handle_rotation,
                 systems::scoring::recalculate_duel_score_system,
-                systems::ui::update_duel_contributions_system,   // <-- added
+                systems::ui::update_duel_contributions_system,
                 systems::duel::handle_destroy_input,
             )
                 .run_if(in_state(AppState::Duel)),

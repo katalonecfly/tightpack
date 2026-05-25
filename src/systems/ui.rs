@@ -344,3 +344,109 @@ pub fn update_duel_contributions_system(
         }
     }
 }
+
+// In systems/ui.rs
+
+pub fn update_duel_tooltip(
+    mut commands: Commands,
+    mut tooltip_state: ResMut<TooltipState>,
+    piece_query: Query<(&Piece, &Transform, Has<Hovered>, Has<Dragging>)>,
+    camera_query: Query<(&Camera, &GlobalTransform)>,
+    windows: Query<&Window>,
+    effect_descs: Res<EffectDescriptions>,
+) {
+    let hovered_piece = piece_query
+        .iter()
+        .find(|(_, _, hovered, dragging)| *hovered && !*dragging);
+
+    match hovered_piece {
+        Some((piece, transform, _, _)) => {
+            // Compute bounding box for tooltip positioning (same as update_tooltip)
+            let mut min_x = f32::MAX;
+            let mut max_x = f32::MIN;
+            let mut min_y = f32::MAX;
+            let mut max_y = f32::MIN;
+
+            for offset in &piece.shape {
+                let local = Vec3::new(
+                    offset.x as f32 * TILE_SIZE,
+                    offset.y as f32 * TILE_SIZE,
+                    0.0,
+                );
+                let world = transform.transform_point(local);
+                min_x = min_x.min(world.x);
+                max_x = max_x.max(world.x);
+                min_y = min_y.min(world.y);
+                max_y = max_y.max(world.y);
+            }
+
+            let right_center = Vec2::new(max_x + TILE_SIZE, (min_y + max_y) / 2.0);
+
+            if let Ok((camera, cam_transform)) = camera_query.single() {
+                if let Ok(window) = windows.single() {
+                    if let Some(ndc) = camera.world_to_ndc(cam_transform, right_center.extend(0.0)) {
+                        let screen_x = (ndc.x + 1.0) * 0.5 * window.width();
+                        let screen_y = (1.0 - ndc.y) * 0.5 * window.height();
+
+                        let mut text = format!("Gain {} points.", piece.points);
+                        if !piece.effects.is_empty() {
+                            text.push_str("\n\nEffects:");
+                            for effect in &piece.effects {
+                                text.push_str("\n- ");
+                                let desc_template = get_effect_description(&effect.condition, &effect_descs);
+                                let desc = desc_template
+                                    .replace("{points}", &effect.points.to_string())
+                                    .replace("{color}", match &effect.condition {
+                                        EffectCondition::MatchesColor(c) => color_name_from_rgba(c),
+                                        EffectCondition::IsEmpty => "empty",
+                                        EffectCondition::NoColorOnBoard(c) => color_name_from_rgba(c),
+                                    });
+                                text.push_str(&desc);
+                            }
+                        }
+
+                        if let Some(entity) = tooltip_state.entity {
+                            commands.entity(entity).insert((
+                                Node {
+                                    position_type: PositionType::Absolute,
+                                    left: Val::Px(screen_x + 12.0),
+                                    top: Val::Px(screen_y),
+                                    max_width: Val::Px(250.0),
+                                    padding: UiRect::all(Val::Px(10.0)),
+                                    border: UiRect::all(Val::Px(1.0)),
+                                    ..default()
+                                },
+                                Text::new(text),
+                            ));
+                        } else {
+                            let entity = commands
+                                .spawn((
+                                    Node {
+                                        position_type: PositionType::Absolute,
+                                        left: Val::Px(screen_x + 12.0),
+                                        top: Val::Px(screen_y),
+                                        max_width: Val::Px(250.0),
+                                        padding: UiRect::all(Val::Px(10.0)),
+                                        border: UiRect::all(Val::Px(1.0)),
+                                        ..default()
+                                    },
+                                    BackgroundColor(Color::srgba(0.1, 0.1, 0.1, 0.9)),
+                                    BorderColor::all(Color::WHITE),
+                                    GlobalZIndex(20),
+                                    Text::new(text),
+                                    Cleanup,
+                                ))
+                                .id();
+                            tooltip_state.entity = Some(entity);
+                        }
+                    }
+                }
+            }
+        }
+        None => {
+            if let Some(entity) = tooltip_state.entity.take() {
+                commands.entity(entity).despawn();
+            }
+        }
+    }
+}
