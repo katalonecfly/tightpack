@@ -41,6 +41,26 @@ pub fn setup_settings(
             SettingsRoot,
         ))
         .with_children(|root| {
+            // Apply button - now at the top
+            root.spawn((
+                Button,
+                Node {
+                    width: Val::Px(200.0),
+                    height: Val::Px(50.0),
+                    justify_content: JustifyContent::Center,
+                    align_items: AlignItems::Center,
+                    margin: UiRect::bottom(Val::Px(30.0)), // space below button
+                    ..default()
+                },
+                BackgroundColor(Color::srgb(0.2, 0.7, 0.2)),
+            ))
+            .with_child((
+                Text::new("Apply"),
+                TextFont { font_size: 24.0, ..default() },
+                TextColor(Color::WHITE),
+            ))
+            .observe(apply_settings);
+
             // General section
             root.spawn((
                 Node {
@@ -203,26 +223,6 @@ pub fn setup_settings(
                     TextColor(Color::srgb(0.5, 0.5, 0.5)),
                 ));
             });
-
-            // Apply button
-            root.spawn((
-                Button,
-                Node {
-                    width: Val::Px(200.0),
-                    height: Val::Px(50.0),
-                    justify_content: JustifyContent::Center,
-                    align_items: AlignItems::Center,
-                    margin: UiRect::top(Val::Px(30.0)),
-                    ..default()
-                },
-                BackgroundColor(Color::srgb(0.2, 0.7, 0.2)),
-            ))
-            .with_child((
-                Text::new("Apply"),
-                TextFont { font_size: 24.0, ..default() },
-                TextColor(Color::WHITE),
-            ))
-            .observe(apply_settings);
         });
 }
 
