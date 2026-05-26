@@ -6,7 +6,7 @@ mod systems;
 
 use bevy::picking::prelude::*;
 use bevy::prelude::*;
-use resources::{DuelState, GameState, PieceLibrary, TooltipState};
+use resources::{DuelState, GameState, PieceLibrary, TooltipState, GameSettings};
 use systems::menu;
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default, States)]
@@ -16,6 +16,7 @@ enum AppState {
     Sandbox,
     Draft,
     Duel,
+    Settings,
 }
 
 #[derive(Component)]
@@ -63,6 +64,7 @@ fn main() {
         .init_resource::<GameState>()
         .init_resource::<TooltipState>()
         .init_resource::<PieceLibrary>()
+                .insert_resource(GameSettings::default())
         .init_state::<AppState>()
         .add_systems(Startup, load_effects_descriptions)
         // Menu
@@ -140,5 +142,8 @@ fn main() {
             (cleanup_system, reset_duel_state, reset_tooltip_state),
         )
         .add_systems(Update, handle_escape)
+        .add_systems(OnEnter(AppState::Settings), systems::settings::setup_settings)
+        .add_systems(OnExit(AppState::Settings), cleanup_system)
+
         .run();
 }

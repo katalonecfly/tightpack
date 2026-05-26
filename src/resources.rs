@@ -68,3 +68,16 @@ impl Default for DuelState {
         }
     }
 }
+
+#[derive(Resource)]
+pub struct GameSettings {
+    pub duel_blocking_enabled: bool,
+}
+
+impl Default for GameSettings {
+    fn default() -> Self {
+        Self {
+            duel_blocking_enabled: true,
+        }
+    }
+}

@@ -8,6 +8,7 @@ use bevy::picking::prelude::*;
 use bevy::prelude::*;
 use rand::RngExt;
 use std::collections::{HashMap, HashSet};
+use crate::resources::GameSettings;
 
 #[derive(Component)]
 struct DragOffset(Vec2);
@@ -632,7 +633,7 @@ fn spawn_disabled_visual(
 
 // ── Setup ──
 
-pub fn setup_duel(mut commands: Commands) {
+pub fn setup_duel(mut commands: Commands, settings: Res<GameSettings>) {
     commands.spawn((Camera2d, Cleanup));
 
     let file_content = std::fs::read_to_string("assets/pieces.ron").expect("Missing pieces.ron");
@@ -677,12 +678,17 @@ pub fn setup_duel(mut commands: Commands) {
 
     spawn_confirm_button(&mut commands, BoardSide::Left);
 
-    // Start with Destroy mode (or Basic)
+    let duel_mode = if settings.duel_blocking_enabled {
+        DuelMode::Destroy
+    } else {
+        DuelMode::Basic
+    };
     commands.insert_resource(DuelState {
-        mode: DuelMode::Destroy, // change here to Basic for testing
+        mode: duel_mode,
         ..default()
     });
     generate_duel_stash(&mut commands, &PieceLibrary(pieces));
+
 }
 
 fn spawn_board(commands: &mut Commands, side: BoardSide) {

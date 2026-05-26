@@ -8,3 +8,4 @@ pub mod scoring;
 pub mod setup;
 pub mod ui;
 pub mod visuals;
+pub mod settings;
