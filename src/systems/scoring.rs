@@ -1,7 +1,7 @@
 use crate::components::*;
-use crate::resources::{GameState, DuelState};
-use bevy::prelude::*;
+use crate::resources::{DuelState, GameState};
 use bevy::ecs::query::QueryFilter;
+use bevy::prelude::*;
 use std::collections::HashMap;
 
 pub fn recalculate_score<F: QueryFilter>(
@@ -18,7 +18,11 @@ pub fn recalculate_score<F: QueryFilter>(
                         for offset in offsets {
                             let target_cell = pos + *offset;
                             if crate::helpers::is_in_bounds(target_cell) {
-                                if check_condition(&effect.condition, Some(target_cell), board_cells) {
+                                if check_condition(
+                                    &effect.condition,
+                                    Some(target_cell),
+                                    board_cells,
+                                ) {
                                     total += effect.points;
                                 }
                             }
@@ -42,26 +46,19 @@ pub fn check_condition(
     board_cells: &HashMap<IVec2, LinearRgba>,
 ) -> bool {
     match cond {
-        EffectCondition::MatchesColor(c) => {
-            target.map_or(false, |cell| {
-                board_cells.get(&cell).map_or(false, |board_color| {
-                    linear_rgba_near(board_color, c)
-                })
-            })
-        }
-        EffectCondition::IsEmpty => {
-            target.map_or(false, |cell| !board_cells.contains_key(&cell))
-        }
-        EffectCondition::NoColorOnBoard(c) => {
-            !board_cells.values().any(|board_color| linear_rgba_near(board_color, c))
-        }
+        EffectCondition::MatchesColor(c) => target.map_or(false, |cell| {
+            board_cells
+                .get(&cell)
+                .map_or(false, |board_color| linear_rgba_near(board_color, c))
+        }),
+        EffectCondition::IsEmpty => target.map_or(false, |cell| !board_cells.contains_key(&cell)),
+        EffectCondition::NoColorOnBoard(c) => !board_cells
+            .values()
+            .any(|board_color| linear_rgba_near(board_color, c)),
     }
 }
 
-pub fn compute_piece_contribution(
-    piece: &Piece,
-    board_cells: &HashMap<IVec2, LinearRgba>,
-) -> i32 {
+pub fn compute_piece_contribution(piece: &Piece, board_cells: &HashMap<IVec2, LinearRgba>) -> i32 {
     let mut total = piece.points;
     if let Some(pos) = piece.placed_at {
         for effect in &piece.effects {
@@ -106,5 +103,6 @@ pub fn recalculate_duel_score_system(
     opponent_pieces: Query<&Piece, With<OpponentPiece>>,
 ) {
     duel_state.player.score = recalculate_score(&duel_state.player.board_cells, &player_pieces);
-    duel_state.opponent.score = recalculate_score(&duel_state.opponent.board_cells, &opponent_pieces);
+    duel_state.opponent.score =
+        recalculate_score(&duel_state.opponent.board_cells, &opponent_pieces);
 }

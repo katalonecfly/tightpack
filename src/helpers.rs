@@ -3,13 +3,13 @@ use bevy::prelude::*;
 use std::collections::{HashMap, HashSet};
 
 pub const TILE_SIZE: f32 = 40.0;
-pub const BOARD_SIZE: IVec2 = IVec2::new(10, 10);   // change freely
+pub const BOARD_SIZE: IVec2 = IVec2::new(10, 10); // change freely
 
 // Layout constants
-const SINGLE_BOARD_LEFT_X: f32 = -250.0;   // center of cell (0,0) for single board
-const DUEL_GAP: f32 = 60.0;                // horizontal gap between duel boards
-pub const BOARD_TOP_Y: f32 = 280.0;        // world Y of the **top row cell center**
-const STASH_GAP: f32 = 60.0;              // gap between board and stash in Sandbox
+const SINGLE_BOARD_LEFT_X: f32 = -250.0; // center of cell (0,0) for single board
+const DUEL_GAP: f32 = 60.0; // horizontal gap between duel boards
+pub const BOARD_TOP_Y: f32 = 280.0; // world Y of the **top row cell center**
+const STASH_GAP: f32 = 60.0; // gap between board and stash in Sandbox
 
 pub const SCORE_FONT_SIZE: f32 = 30.0;
 pub const SCORE_Y_OFFSET: f32 = 30.0;
@@ -106,7 +106,7 @@ pub fn stash_y_below_board(max_y_offset: i32) -> f32 {
     // bottom edge of the lowest board tile
     let board_bottom = bottom_cell_center_y - TILE_SIZE / 2.0;
     // gap between board bottom and the top edge of the piece
-    let gap = TILE_SIZE * 1.0;   // generous gap
+    let gap = TILE_SIZE * 1.0; // generous gap
     // parent y must place the piece's top tile (at max_y_offset) so that its top edge is at board_bottom - gap
     board_bottom - gap - max_y_offset as f32 * TILE_SIZE - TILE_SIZE / 2.0
 }

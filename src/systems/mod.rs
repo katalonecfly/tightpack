@@ -1,10 +1,10 @@
+pub mod ai;
 pub mod draft;
+pub mod duel;
 pub mod interaction;
+pub mod inventory;
 pub mod menu;
 pub mod scoring;
 pub mod setup;
 pub mod ui;
 pub mod visuals;
-pub mod inventory;
-pub mod duel;
-pub mod ai;

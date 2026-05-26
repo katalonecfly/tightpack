@@ -31,9 +31,15 @@ pub fn on_drag_start(
     )>,
 ) {
     let target = on.event_target();
-    let Some(piece_entity) = get_piece_entity(target, &piece_query, &child_of_query) else { return; };
-    if opponent_query.contains(piece_entity) { return; }
-    if locked_query.contains(piece_entity) { return; }
+    let Some(piece_entity) = get_piece_entity(target, &piece_query, &child_of_query) else {
+        return;
+    };
+    if opponent_query.contains(piece_entity) {
+        return;
+    }
+    if locked_query.contains(piece_entity) {
+        return;
+    }
 
     // Unplace any other draft piece that is currently on board
     for (other_entity, mut other_piece, mut other_transform) in param_set.p1().iter_mut() {
@@ -45,8 +51,8 @@ pub fn on_drag_start(
                 other_piece.placed_at = None;
             }
             other_transform.translation = other_piece.original_pos;
-            other_transform.translation.z = other_piece.original_pos.z;  // enforce exact Z
-            other_transform.rotation = Quat::IDENTITY;           
+            other_transform.translation.z = other_piece.original_pos.z; // enforce exact Z
+            other_transform.rotation = Quat::IDENTITY;
             other_piece.shape = other_piece.original_shape.clone();
             other_piece.effects = other_piece.original_effects.clone();
         }
@@ -200,8 +206,8 @@ pub fn on_drag_end(
             }
         } else {
             transform.translation = piece.original_pos;
-            transform.translation.z = piece.original_pos.z;  // enforce exact Z
-            transform.rotation = Quat::IDENTITY;            
+            transform.translation.z = piece.original_pos.z; // enforce exact Z
+            transform.rotation = Quat::IDENTITY;
             piece.shape = piece.original_shape.clone();
             piece.effects = piece.original_effects.clone();
         }
@@ -271,7 +277,8 @@ pub fn handle_rotation(
                     commands.spawn((
                         Sprite::from_color(ghost_color, Vec2::splat(TILE_SIZE - 2.0)),
                         Transform::from_translation(
-                            grid_to_world_for_side(grid_pos + *offset, piece.board_side).with_z(1.0),
+                            grid_to_world_for_side(grid_pos + *offset, piece.board_side)
+                                .with_z(1.0),
                         ),
                         GhostTile,
                     ));

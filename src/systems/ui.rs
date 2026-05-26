@@ -1,14 +1,14 @@
-use crate::components::*;
-use crate::helpers::TILE_SIZE;
-use crate::resources::{GameState, DuelState, TooltipState};
-use crate::systems::scoring::check_condition;
-use bevy::prelude::*;
-use bevy::window::Window;
-use crate::helpers::{score_text_world_pos, score_text_world_pos_for_side, SCORE_FONT_SIZE};
-use crate::config::EffectDescriptions;
-use crate::systems::scoring::linear_rgba_near;
 use crate::Cleanup;
 use crate::components::ContributionDisplay;
+use crate::components::*;
+use crate::config::EffectDescriptions;
+use crate::helpers::TILE_SIZE;
+use crate::helpers::{SCORE_FONT_SIZE, score_text_world_pos, score_text_world_pos_for_side};
+use crate::resources::{DuelState, GameState, TooltipState};
+use crate::systems::scoring::check_condition;
+use crate::systems::scoring::linear_rgba_near;
+use bevy::prelude::*;
+use bevy::window::Window;
 
 fn color_name_from_rgba(rgba: &LinearRgba) -> &'static str {
     let red = Color::srgb_u8(216, 46, 63).to_linear();
@@ -29,9 +29,12 @@ fn get_effect_description(cond: &EffectCondition, descs: &EffectDescriptions) ->
     let key = match cond {
         EffectCondition::MatchesColor(c) => format!("MatchesColor({})", color_name_from_rgba(c)),
         EffectCondition::IsEmpty => "IsEmpty".to_string(),
-        EffectCondition::NoColorOnBoard(c) => format!("NoColorOnBoard({})", color_name_from_rgba(c)),
+        EffectCondition::NoColorOnBoard(c) => {
+            format!("NoColorOnBoard({})", color_name_from_rgba(c))
+        }
     };
-    descs.descriptions
+    descs
+        .descriptions
         .get(&key)
         .cloned()
         .unwrap_or_else(|| format!("Unknown effect: {}", key))
@@ -39,9 +42,17 @@ fn get_effect_description(cond: &EffectCondition, descs: &EffectDescriptions) ->
 
 pub fn update_stash_labels(
     mut label_query: Query<(
-        &mut Text2d, &StashLabel, Option<&PlayerPiece>, Option<&OpponentPiece>,
+        &mut Text2d,
+        &StashLabel,
+        Option<&PlayerPiece>,
+        Option<&OpponentPiece>,
     )>,
-    piece_query_with_side: Query<(&Piece, &Transform, Option<&PlayerPiece>, Option<&OpponentPiece>)>,
+    piece_query_with_side: Query<(
+        &Piece,
+        &Transform,
+        Option<&PlayerPiece>,
+        Option<&OpponentPiece>,
+    )>,
 ) {
     for (mut text, label, label_has_player, label_has_opponent) in &mut label_query {
         let count = piece_query_with_side
@@ -75,26 +86,34 @@ pub fn update_score_ui(
 
 pub fn update_duel_score_ui(
     duel_state: Res<DuelState>,
-    mut player_query: Query<(&mut Text2d, &mut Transform), (With<PlayerScoreText>, Without<OpponentScoreText>)>,
-    mut opponent_query: Query<(&mut Text2d, &mut Transform), (With<OpponentScoreText>, Without<PlayerScoreText>)>,
+    mut player_query: Query<
+        (&mut Text2d, &mut Transform),
+        (With<PlayerScoreText>, Without<OpponentScoreText>),
+    >,
+    mut opponent_query: Query<
+        (&mut Text2d, &mut Transform),
+        (With<OpponentScoreText>, Without<PlayerScoreText>),
+    >,
 ) {
     if duel_state.is_changed() {
         for (mut text, mut transform) in &mut player_query {
             let score_str = format!("Player: {}", duel_state.player.score);
             text.0 = score_str.clone();
-            transform.translation = score_text_world_pos_for_side(&score_str, SCORE_FONT_SIZE, BoardSide::Left);
+            transform.translation =
+                score_text_world_pos_for_side(&score_str, SCORE_FONT_SIZE, BoardSide::Left);
         }
         for (mut text, mut transform) in &mut opponent_query {
             let score_str = format!("Opponent: {}", duel_state.opponent.score);
             text.0 = score_str.clone();
-            transform.translation = score_text_world_pos_for_side(&score_str, SCORE_FONT_SIZE, BoardSide::Right);
+            transform.translation =
+                score_text_world_pos_for_side(&score_str, SCORE_FONT_SIZE, BoardSide::Right);
         }
     }
 }
 
 pub fn update_duel_effect_previews(
     duel_state: Res<DuelState>,
-    piece_query: Query<(&Piece, &Children, Has<Hovered>, Has<Dragging>)>,  // added Dragging
+    piece_query: Query<(&Piece, &Children, Has<Hovered>, Has<Dragging>)>, // added Dragging
     mut preview_query: Query<(&mut Visibility, &mut Sprite, &EffectPreview)>,
 ) {
     for (piece, children, is_hovered, is_dragging) in &piece_query {
@@ -112,7 +131,8 @@ pub fn update_duel_effect_previews(
                     if let Some(grid_pos) = piece.placed_at {
                         let target_cell = grid_pos + preview.offset;
                         if crate::helpers::is_in_bounds(target_cell) {
-                            active = check_condition(&preview.condition, Some(target_cell), board_cells);
+                            active =
+                                check_condition(&preview.condition, Some(target_cell), board_cells);
                         }
                     }
                     if active {
@@ -132,11 +152,11 @@ pub fn update_duel_effect_previews(
 
 pub fn update_effect_previews(
     state: Res<GameState>,
-    piece_query: Query<(&Piece, &Children, Has<Hovered>, Has<Dragging>)>,  // added Dragging
+    piece_query: Query<(&Piece, &Children, Has<Hovered>, Has<Dragging>)>, // added Dragging
     mut preview_query: Query<(&mut Visibility, &mut Sprite, &EffectPreview)>,
 ) {
     for (piece, children, is_hovered, is_dragging) in &piece_query {
-        let show = is_hovered || is_dragging;  // show if hovered OR being dragged
+        let show = is_hovered || is_dragging; // show if hovered OR being dragged
         for &child in children {
             if let Ok((mut visibility, mut sprite, preview)) = preview_query.get_mut(child) {
                 if show {
@@ -145,7 +165,11 @@ pub fn update_effect_previews(
                     if let Some(grid_pos) = piece.placed_at {
                         let target_cell = grid_pos + preview.offset;
                         if crate::helpers::is_in_bounds(target_cell) {
-                            active = check_condition(&preview.condition, Some(target_cell), &state.board_cells);
+                            active = check_condition(
+                                &preview.condition,
+                                Some(target_cell),
+                                &state.board_cells,
+                            );
                         }
                     }
                     if active {
@@ -169,7 +193,7 @@ pub fn update_tooltip(
     piece_query: Query<(&Piece, &Transform, Has<Hovered>, Has<Dragging>)>,
     camera_query: Query<(&Camera, &GlobalTransform)>,
     windows: Query<&Window>,
-    effect_descs: Res<EffectDescriptions>,  // <-- new parameter
+    effect_descs: Res<EffectDescriptions>, // <-- new parameter
 ) {
     let hovered_piece = piece_query
         .iter()
@@ -199,7 +223,8 @@ pub fn update_tooltip(
 
             if let Ok((camera, cam_transform)) = camera_query.single() {
                 if let Ok(window) = windows.single() {
-                    if let Some(ndc) = camera.world_to_ndc(cam_transform, right_center.extend(0.0)) {
+                    if let Some(ndc) = camera.world_to_ndc(cam_transform, right_center.extend(0.0))
+                    {
                         let screen_x = (ndc.x + 1.0) * 0.5 * window.width();
                         let screen_y = (1.0 - ndc.y) * 0.5 * window.height();
 
@@ -208,14 +233,22 @@ pub fn update_tooltip(
                             text.push_str("\n\nEffects:");
                             for effect in &piece.effects {
                                 text.push_str("\n- ");
-                                let desc_template = get_effect_description(&effect.condition, &effect_descs);
+                                let desc_template =
+                                    get_effect_description(&effect.condition, &effect_descs);
                                 let desc = desc_template
                                     .replace("{points}", &effect.points.to_string())
-                                    .replace("{color}", match &effect.condition {
-                                        EffectCondition::MatchesColor(c) => color_name_from_rgba(c),
-                                        EffectCondition::IsEmpty => "empty",
-                                        EffectCondition::NoColorOnBoard(c) => color_name_from_rgba(c),
-                                    });
+                                    .replace(
+                                        "{color}",
+                                        match &effect.condition {
+                                            EffectCondition::MatchesColor(c) => {
+                                                color_name_from_rgba(c)
+                                            }
+                                            EffectCondition::IsEmpty => "empty",
+                                            EffectCondition::NoColorOnBoard(c) => {
+                                                color_name_from_rgba(c)
+                                            }
+                                        },
+                                    );
                                 text.push_str(&desc);
                             }
                         }
@@ -269,11 +302,15 @@ pub fn update_tooltip(
 pub fn update_contributions_system(
     mut commands: Commands,
     state: Res<GameState>,
-    mut piece_query: Query<(Entity, &Piece, Option<&mut ContributionDisplay>), Without<OpponentPiece>>,
+    mut piece_query: Query<
+        (Entity, &Piece, Option<&mut ContributionDisplay>),
+        Without<OpponentPiece>,
+    >,
 ) {
     for (piece_entity, piece, display_opt) in piece_query.iter_mut() {
         if let Some(pos) = piece.placed_at {
-            let contribution = crate::systems::scoring::compute_piece_contribution(piece, &state.board_cells);
+            let contribution =
+                crate::systems::scoring::compute_piece_contribution(piece, &state.board_cells);
             let sign = if contribution >= 0 { "+" } else { "" };
             let text_str = format!("{}{}", sign, contribution);
 
@@ -284,20 +321,31 @@ pub fn update_contributions_system(
 
             if let Some(display) = display_opt {
                 commands.entity(display.0).despawn();
-                commands.entity(piece_entity).remove::<ContributionDisplay>();
+                commands
+                    .entity(piece_entity)
+                    .remove::<ContributionDisplay>();
             }
-            let text_entity = commands.spawn((
-                Text2d::new(text_str),
-                TextFont { font_size: 18.0, ..default() },
-                TextColor(Color::WHITE),
-                Transform::from_translation(text_pos),
-                Cleanup,
-            )).id();
-            commands.entity(piece_entity).insert(ContributionDisplay(text_entity));
+            let text_entity = commands
+                .spawn((
+                    Text2d::new(text_str),
+                    TextFont {
+                        font_size: 18.0,
+                        ..default()
+                    },
+                    TextColor(Color::WHITE),
+                    Transform::from_translation(text_pos),
+                    Cleanup,
+                ))
+                .id();
+            commands
+                .entity(piece_entity)
+                .insert(ContributionDisplay(text_entity));
         } else {
             if let Some(display) = display_opt {
                 commands.entity(display.0).despawn();
-                commands.entity(piece_entity).remove::<ContributionDisplay>();
+                commands
+                    .entity(piece_entity)
+                    .remove::<ContributionDisplay>();
             }
         }
     }
@@ -315,7 +363,8 @@ pub fn update_duel_contributions_system(
             _ => continue,
         };
         if let Some(pos) = piece.placed_at {
-            let contribution = crate::systems::scoring::compute_piece_contribution(piece, board_cells);
+            let contribution =
+                crate::systems::scoring::compute_piece_contribution(piece, board_cells);
             let sign = if contribution >= 0 { "+" } else { "" };
             let text_str = format!("{}{}", sign, contribution);
 
@@ -326,20 +375,31 @@ pub fn update_duel_contributions_system(
 
             if let Some(display) = display_opt {
                 commands.entity(display.0).despawn();
-                commands.entity(piece_entity).remove::<ContributionDisplay>();
+                commands
+                    .entity(piece_entity)
+                    .remove::<ContributionDisplay>();
             }
-            let text_entity = commands.spawn((
-                Text2d::new(text_str),
-                TextFont { font_size: 18.0, ..default() },
-                TextColor(Color::WHITE),
-                Transform::from_translation(text_pos),
-                Cleanup,
-            )).id();
-            commands.entity(piece_entity).insert(ContributionDisplay(text_entity));
+            let text_entity = commands
+                .spawn((
+                    Text2d::new(text_str),
+                    TextFont {
+                        font_size: 18.0,
+                        ..default()
+                    },
+                    TextColor(Color::WHITE),
+                    Transform::from_translation(text_pos),
+                    Cleanup,
+                ))
+                .id();
+            commands
+                .entity(piece_entity)
+                .insert(ContributionDisplay(text_entity));
         } else {
             if let Some(display) = display_opt {
                 commands.entity(display.0).despawn();
-                commands.entity(piece_entity).remove::<ContributionDisplay>();
+                commands
+                    .entity(piece_entity)
+                    .remove::<ContributionDisplay>();
             }
         }
     }
@@ -384,7 +444,8 @@ pub fn update_duel_tooltip(
 
             if let Ok((camera, cam_transform)) = camera_query.single() {
                 if let Ok(window) = windows.single() {
-                    if let Some(ndc) = camera.world_to_ndc(cam_transform, right_center.extend(0.0)) {
+                    if let Some(ndc) = camera.world_to_ndc(cam_transform, right_center.extend(0.0))
+                    {
                         let screen_x = (ndc.x + 1.0) * 0.5 * window.width();
                         let screen_y = (1.0 - ndc.y) * 0.5 * window.height();
 
@@ -393,14 +454,22 @@ pub fn update_duel_tooltip(
                             text.push_str("\n\nEffects:");
                             for effect in &piece.effects {
                                 text.push_str("\n- ");
-                                let desc_template = get_effect_description(&effect.condition, &effect_descs);
+                                let desc_template =
+                                    get_effect_description(&effect.condition, &effect_descs);
                                 let desc = desc_template
                                     .replace("{points}", &effect.points.to_string())
-                                    .replace("{color}", match &effect.condition {
-                                        EffectCondition::MatchesColor(c) => color_name_from_rgba(c),
-                                        EffectCondition::IsEmpty => "empty",
-                                        EffectCondition::NoColorOnBoard(c) => color_name_from_rgba(c),
-                                    });
+                                    .replace(
+                                        "{color}",
+                                        match &effect.condition {
+                                            EffectCondition::MatchesColor(c) => {
+                                                color_name_from_rgba(c)
+                                            }
+                                            EffectCondition::IsEmpty => "empty",
+                                            EffectCondition::NoColorOnBoard(c) => {
+                                                color_name_from_rgba(c)
+                                            }
+                                        },
+                                    );
                                 text.push_str(&desc);
                             }
                         }

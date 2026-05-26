@@ -1,26 +1,24 @@
-use rand::prelude::*;
-use rand::seq::SliceRandom;
 use crate::Cleanup;
+use crate::components::StashPosition;
 use crate::components::*;
 use crate::config::*;
+use crate::helpers::BOARD_TOP_Y;
 use crate::helpers::*;
 use crate::resources::PieceLibrary;
+use crate::resources::{InventoryScroll, StashContentHeight, StashScreenRect};
 use crate::systems::draft::DraftConfirmButton; // <-- added import
 use bevy::prelude::*;
+use rand::prelude::*;
+use rand::seq::SliceRandom;
 use std::collections::HashMap;
-use crate::resources::{InventoryScroll, StashContentHeight, StashScreenRect};
-use crate::components::StashPosition;
-use crate::helpers::BOARD_TOP_Y;
 
 const AVAILABLE_COLORS: &[&str] = &["RED", "BLUE", "GREEN"];
 
 fn spawn_common(commands: &mut Commands) -> Vec<RawPieceConfig> {
     commands.spawn((Camera2d, Cleanup));
 
-    let file_content = std::fs::read_to_string("assets/pieces.ron")
-        .expect("Missing pieces.ron");
-    let lib: RawPieceLibrary = ron::from_str(&file_content)
-        .expect("Failed to parse RON");
+    let file_content = std::fs::read_to_string("assets/pieces.ron").expect("Missing pieces.ron");
+    let lib: RawPieceLibrary = ron::from_str(&file_content).expect("Failed to parse RON");
     let pieces = lib.pieces.clone();
     commands.insert_resource(PieceLibrary(lib.pieces));
 
@@ -104,7 +102,8 @@ pub fn setup_sandbox(mut commands: Commands, windows: Query<&Window>) {
         ("BLUE".into(), Color::srgb_u8(53, 129, 216).to_linear()),
         ("GREEN".into(), Color::srgb_u8(40, 204, 45).to_linear()),
         ("YELLOW".into(), Color::srgb_u8(255, 225, 53).to_linear()),
-    ].into();
+    ]
+    .into();
 
     let mut current_y_offset = 0.0f32;
     for (type_id, raw) in pieces.iter().enumerate() {
@@ -122,27 +121,27 @@ pub fn setup_sandbox(mut commands: Commands, windows: Query<&Window>) {
 
         let copy_count = 10;
         for copy_idx in 0..copy_count {
-        let (color, effects) = randomize_piece_properties(raw, &color_map);
-        let pos = Vec3::new(piece_x, base_y, 1.0 + copy_idx as f32 * 0.001);
-        // Inside setup_sandbox, around line 100
-        // In setup_sandbox (around line 100)
-        // Inside setup_sandbox, around line 100
-        let entity = spawn_draggable_piece(
-            &mut commands,
-            type_id,
-            raw.shape.clone(),
-            color,
-            raw.points,
-            effects,
-            pos,
-            false,     // draft_mode
-            true,      // interactive
-            true,      // hoverable   <-- added
-            BoardSide::Single,
-        );
-            commands
-                .entity(entity)
-                .insert(StashPosition { desired_world_y: base_y });
+            let (color, effects) = randomize_piece_properties(raw, &color_map);
+            let pos = Vec3::new(piece_x, base_y, 1.0 + copy_idx as f32 * 0.001);
+            // Inside setup_sandbox, around line 100
+            // In setup_sandbox (around line 100)
+            // Inside setup_sandbox, around line 100
+            let entity = spawn_draggable_piece(
+                &mut commands,
+                type_id,
+                raw.shape.clone(),
+                color,
+                raw.points,
+                effects,
+                pos,
+                false, // draft_mode
+                true,  // interactive
+                true,  // hoverable   <-- added
+                BoardSide::Single,
+            );
+            commands.entity(entity).insert(StashPosition {
+                desired_world_y: base_y,
+            });
         }
 
         let label_y = base_y + max_y as f32 * TILE_SIZE + TILE_SIZE / 2.0 + 10.0;
@@ -154,7 +153,9 @@ pub fn setup_sandbox(mut commands: Commands, windows: Query<&Window>) {
             },
             Transform::from_translation(Vec3::new(piece_x, label_y, 2.0)),
             StashLabel(type_id),
-            StashPosition { desired_world_y: label_y },
+            StashPosition {
+                desired_world_y: label_y,
+            },
             Cleanup,
         ));
 
@@ -171,11 +172,7 @@ pub fn setup_draft(mut commands: Commands) {
     let board_right = board_right_edge(BoardSide::Single);
     let board_top = board_top_edge();
     let score_y = board_top + SCORE_Y_OFFSET;
-    let button_pos = Vec3::new(
-        board_right - CONFIRM_BUTTON_WIDTH / 2.0,
-        score_y,
-        0.0,
-    );
+    let button_pos = Vec3::new(board_right - CONFIRM_BUTTON_WIDTH / 2.0, score_y, 0.0);
     commands
         .spawn((
             Sprite::from_color(

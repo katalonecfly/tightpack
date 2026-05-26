@@ -6,7 +6,7 @@ mod systems;
 
 use bevy::picking::prelude::*;
 use bevy::prelude::*;
-use resources::{GameState, PieceLibrary, TooltipState, DuelState};
+use resources::{DuelState, GameState, PieceLibrary, TooltipState};
 use systems::menu;
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default, States)]
@@ -38,10 +38,10 @@ fn handle_escape(
 }
 
 fn load_effects_descriptions(mut commands: Commands) {
-    let file_content = std::fs::read_to_string("assets/effects.ron")
-        .expect("Missing assets/effects.ron");
-    let descs: config::EffectDescriptions = ron::from_str(&file_content)
-        .expect("Failed to parse effects.ron");
+    let file_content =
+        std::fs::read_to_string("assets/effects.ron").expect("Missing assets/effects.ron");
+    let descs: config::EffectDescriptions =
+        ron::from_str(&file_content).expect("Failed to parse effects.ron");
     commands.insert_resource(descs);
 }
 
@@ -74,7 +74,8 @@ fn main() {
         .add_systems(OnExit(AppState::Menu), cleanup_system)
         // Sandbox
         .add_systems(OnEnter(AppState::Sandbox), systems::setup::setup_sandbox)
-        .add_systems(Update,
+        .add_systems(
+            Update,
             (
                 systems::ui::update_score_ui,
                 systems::ui::update_stash_labels,
@@ -82,13 +83,16 @@ fn main() {
                 systems::ui::update_tooltip,
                 systems::interaction::handle_rotation,
                 systems::scoring::recalculate_score_system,
-                systems::ui::update_contributions_system,   // <-- added
+                systems::ui::update_contributions_system, // <-- added
                 systems::inventory::scroll_inventory,
                 systems::inventory::apply_inventory_scroll,
             )
                 .run_if(in_state(AppState::Sandbox)),
         )
-        .add_systems(OnExit(AppState::Sandbox), (cleanup_system, reset_game_state, reset_tooltip_state))
+        .add_systems(
+            OnExit(AppState::Sandbox),
+            (cleanup_system, reset_game_state, reset_tooltip_state),
+        )
         // Draft
         .add_systems(
             OnEnter(AppState::Draft),
@@ -107,11 +111,14 @@ fn main() {
                 systems::ui::update_tooltip,
                 systems::interaction::handle_rotation,
                 systems::scoring::recalculate_score_system,
-                systems::ui::update_contributions_system,   // <-- added
+                systems::ui::update_contributions_system, // <-- added
             )
                 .run_if(in_state(AppState::Draft)),
         )
-        .add_systems(OnExit(AppState::Draft), (cleanup_system, reset_game_state, reset_tooltip_state))
+        .add_systems(
+            OnExit(AppState::Draft),
+            (cleanup_system, reset_game_state, reset_tooltip_state),
+        )
         // Duel:
         .add_systems(OnEnter(AppState::Duel), systems::duel::setup_duel)
         .add_systems(
@@ -120,7 +127,7 @@ fn main() {
                 systems::ui::update_duel_score_ui,
                 systems::ui::update_stash_labels,
                 systems::ui::update_duel_effect_previews,
-                systems::ui::update_duel_tooltip,    // <-- changed
+                systems::ui::update_duel_tooltip, // <-- changed
                 systems::interaction::handle_rotation,
                 systems::scoring::recalculate_duel_score_system,
                 systems::ui::update_duel_contributions_system,
@@ -128,7 +135,10 @@ fn main() {
             )
                 .run_if(in_state(AppState::Duel)),
         )
-        .add_systems(OnExit(AppState::Duel), (cleanup_system, reset_duel_state, reset_tooltip_state))
+        .add_systems(
+            OnExit(AppState::Duel),
+            (cleanup_system, reset_duel_state, reset_tooltip_state),
+        )
         .add_systems(Update, handle_escape)
         .run();
 }

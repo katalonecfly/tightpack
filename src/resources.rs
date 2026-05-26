@@ -53,7 +53,7 @@ pub struct DuelState {
     pub mode: DuelMode,
     pub turn: DuelTurn,
     pub pending_disable: Option<IVec2>,
-    pub pending_disable_preview: Option<(Entity, Entity)>, 
+    pub pending_disable_preview: Option<(Entity, Entity)>,
 }
 
 impl Default for DuelState {
