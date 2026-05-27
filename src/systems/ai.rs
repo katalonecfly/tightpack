@@ -4,6 +4,7 @@ use crate::helpers::*;
 use crate::resources::GameState;
 use crate::systems::scoring::check_condition;
 use bevy::prelude::*;
+use std::collections::HashMap;
 
 /// Data needed to place a piece chosen by the AI.
 pub struct AIPlacement {
@@ -52,11 +53,14 @@ pub fn first_free_placement(
     None
 }
 
-/// Greedy placement: choose piece/rotation/position that maximises
-/// immediate points + potential future points (from effects that could be satisfied later).
+/// Greedy placement that also considers other pieces' effects on the board.
+/// Total score = immediate points from placed piece + immediate points from other pieces' effects
+///                + potential future points from placed piece's own effects
+///                - potential points lost from other pieces' effects that get blocked.
 pub fn greedy_placement(
     draft_pieces: &[(Entity, &Piece)],
     opponent_state: &GameState,
+    opponent_placed_pieces: &[&Piece], // all pieces already on opponent's board
 ) -> Option<AIPlacement> {
     let mut best_placement: Option<AIPlacement> = None;
     let mut best_score = -1;
@@ -77,9 +81,53 @@ pub fn greedy_placement(
                         continue;
                     }
 
-                    let mut immediate = piece.points;
-                    let mut potential = 0;
+                    // 1. Immediate points from this piece itself
+                    let mut immediate_self = piece.points;
+                    let mut potential_self = 0;
 
+                    // 2. Interaction with existing pieces
+                    let mut immediate_other = 0;
+                    let mut penalty_other = 0;
+
+                    let occupied_cells: Vec<IVec2> = shape.iter().map(|off| origin + *off).collect();
+
+                    // For each existing opponent piece
+                    for existing in opponent_placed_pieces {
+                        if let Some(ex_origin) = existing.placed_at {
+                            for effect in &existing.effects {
+                                if let Some(offsets) = &effect.offsets {
+                                    for offset in offsets {
+                                        let target = ex_origin + *offset;
+                                        if occupied_cells.contains(&target) {
+                                            // This placement occupies a target cell of an existing effect
+                                            let condition = &effect.condition;
+                                            // Check if the effect would be satisfied by this placement
+                                            let satisfied = match condition {
+                                                EffectCondition::MatchesColor(c) => {
+                                                    // Does the new piece at that cell have the right color?
+                                                    // The new piece has a uniform color.
+                                                    piece.color == *c
+                                                }
+                                                EffectCondition::IsEmpty => false, // placing makes it non-empty
+                                                EffectCondition::NoColorOnBoard(_) => {
+                                                    // This effect is board-wide; not relevant per cell
+                                                    false
+                                                }
+                                            };
+                                            if satisfied {
+                                                immediate_other += effect.points;
+                                            } else {
+                                                // Blocking: the cell could have been used later for this effect
+                                                penalty_other += effect.points;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // 3. Future potential from this piece's own effects (unaffected by others)
                     for effect in &effects {
                         if let Some(offsets) = &effect.offsets {
                             for offset in offsets {
@@ -87,34 +135,22 @@ pub fn greedy_placement(
                                 if !crate::helpers::is_in_bounds(target) {
                                     continue;
                                 }
-                                if check_condition(
+                                if !check_condition(
                                     &effect.condition,
                                     Some(target),
                                     &opponent_state.board_cells,
-                                ) {
-                                    immediate += effect.points;
-                                } else if is_cell_available(
+                                ) && is_cell_available(
                                     target,
                                     &opponent_state.board_cells,
                                     &opponent_state.disabled_cells,
                                 ) {
-                                    potential += effect.points;
+                                    potential_self += effect.points;
                                 }
                             }
-                        } else {
-                            // No offsets → effect applies to the origin cell (piece's own cell)
-                            if check_condition(
-                                &effect.condition,
-                                Some(origin),
-                                &opponent_state.board_cells,
-                            ) {
-                                immediate += effect.points;
-                            }
-                            // No future potential because the cell will be occupied forever
                         }
                     }
 
-                    let total = immediate + potential;
+                    let total = immediate_self + immediate_other + potential_self - penalty_other;
                     if total > best_score {
                         best_score = total;
                         best_placement = Some(AIPlacement {

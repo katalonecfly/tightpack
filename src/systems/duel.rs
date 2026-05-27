@@ -8,7 +8,7 @@ use bevy::picking::prelude::*;
 use bevy::prelude::*;
 use rand::RngExt;
 use std::collections::{HashMap, HashSet};
-
+use crate::systems::ai::{first_free_placement, greedy_placement, greedy_block_cell};
 #[derive(Component)]
 struct DragOffset(Vec2);
 
@@ -463,7 +463,7 @@ pub fn on_confirm_click_duel(
     opponent_pieces: Query<&Piece, With<OpponentPiece>>,
     player_labels: Query<Entity, (With<StashLabel>, With<PlayerPiece>)>,
     opponent_labels: Query<Entity, (With<StashLabel>, With<OpponentPiece>)>,
-    settings: Res<GameSettings>, // <-- added
+    settings: Res<GameSettings>,
 ) {
     match duel_state.turn {
         DuelTurn::Place => {
@@ -486,22 +486,20 @@ pub fn on_confirm_click_duel(
                 commands.entity(label).despawn();
             }
 
-            // AI placement (opponent)
+            // Prepare draft data for opponent
             let draft_data: Vec<(Entity, Piece)> = opponent_drafts
                 .iter()
                 .filter_map(|e| opponent_pieces.get(e).ok().map(|p| (e, p.clone())))
                 .collect();
+            let draft_refs: Vec<(Entity, &Piece)> = draft_data.iter().map(|(e, p)| (*e, p)).collect();
+            let opponent_placed: Vec<&Piece> = opponent_pieces.iter().collect();
+
             let placement = if settings.ai_mode == AIType::Greedy {
-                crate::systems::ai::greedy_placement(
-                    &draft_data.iter().map(|(e, p)| (*e, p)).collect::<Vec<_>>(),
-                    &duel_state.opponent,
-                )
+                greedy_placement(&draft_refs, &duel_state.opponent, &opponent_placed)
             } else {
-                crate::systems::ai::first_free_placement(
-                    &draft_data.iter().map(|(e, p)| (*e, p)).collect::<Vec<_>>(),
-                    &duel_state.opponent,
-                )
+                first_free_placement(&draft_refs, &duel_state.opponent)
             };
+
             if let Some(placement) = placement {
                 let world_pos = grid_to_world_for_side(placement.origin, BoardSide::Right);
                 let entity = crate::systems::setup::spawn_draggable_piece(
@@ -578,7 +576,7 @@ pub fn on_confirm_click_duel(
 
             // AI disables a cell on player's board (greedy or dummy)
             let ai_cell = if settings.ai_mode == AIType::Greedy {
-                crate::systems::ai::greedy_block_cell(&duel_state.player, &player_pieces)
+                greedy_block_cell(&duel_state.player, &player_pieces)
             } else {
                 pick_first_free(&duel_state.player.board_cells, &duel_state.player.disabled_cells)
             };
