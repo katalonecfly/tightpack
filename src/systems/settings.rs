@@ -41,7 +41,7 @@ pub fn setup_settings(
             SettingsRoot,
         ))
         .with_children(|root| {
-            // Apply button - now at the top
+            // Apply button
             root.spawn((
                 Button,
                 Node {
@@ -49,7 +49,7 @@ pub fn setup_settings(
                     height: Val::Px(50.0),
                     justify_content: JustifyContent::Center,
                     align_items: AlignItems::Center,
-                    margin: UiRect::bottom(Val::Px(30.0)), // space below button
+                    margin: UiRect::bottom(Val::Px(30.0)),
                     ..default()
                 },
                 BackgroundColor(Color::srgb(0.2, 0.7, 0.2)),
@@ -61,168 +61,44 @@ pub fn setup_settings(
             ))
             .observe(apply_settings);
 
-            // General section
-            root.spawn((
-                Node {
-                    flex_direction: FlexDirection::Column,
-                    align_items: AlignItems::FlexStart,
-                    row_gap: Val::Px(10.0),
-                    padding: UiRect::all(Val::Px(10.0)),
-                    border: UiRect::all(Val::Px(2.0)),
-                    ..default()
-                },
-                BorderColor::all(Color::WHITE),
-                BackgroundColor(Color::srgb(0.2, 0.2, 0.2)),
-            ))
-            .with_children(|section| {
-                section.spawn((
-                    Text::new("General"),
-                    TextFont { font_size: 30.0, ..default() },
-                    TextColor(Color::WHITE),
-                ));
-                section.spawn((
-                    Text::new("No settings yet."),
-                    TextFont::default(),
-                    TextColor(Color::srgb(0.5, 0.5, 0.5)),
-                ));
-            });
-
-            // Sandbox section
-            root.spawn((
-                Node {
-                    flex_direction: FlexDirection::Column,
-                    align_items: AlignItems::FlexStart,
-                    row_gap: Val::Px(10.0),
-                    padding: UiRect::all(Val::Px(10.0)),
-                    border: UiRect::all(Val::Px(2.0)),
-                    ..default()
-                },
-                BorderColor::all(Color::WHITE),
-                BackgroundColor(Color::srgb(0.2, 0.2, 0.2)),
-            ))
-            .with_children(|section| {
-                section.spawn((
-                    Text::new("Sandbox"),
-                    TextFont { font_size: 30.0, ..default() },
-                    TextColor(Color::WHITE),
-                ));
-                section.spawn((
-                    Text::new("No settings yet."),
-                    TextFont::default(),
-                    TextColor(Color::srgb(0.5, 0.5, 0.5)),
-                ));
-            });
-
-            // Draft section
-            root.spawn((
-                Node {
-                    flex_direction: FlexDirection::Column,
-                    align_items: AlignItems::FlexStart,
-                    row_gap: Val::Px(10.0),
-                    padding: UiRect::all(Val::Px(10.0)),
-                    border: UiRect::all(Val::Px(2.0)),
-                    ..default()
-                },
-                BorderColor::all(Color::WHITE),
-                BackgroundColor(Color::srgb(0.2, 0.2, 0.2)),
-            ))
-            .with_children(|section| {
-                section.spawn((
-                    Text::new("Draft"),
-                    TextFont { font_size: 30.0, ..default() },
-                    TextColor(Color::WHITE),
-                ));
-                section.spawn((
-                    Text::new("No settings yet."),
-                    TextFont::default(),
-                    TextColor(Color::srgb(0.5, 0.5, 0.5)),
-                ));
-            });
-
-            // Duel section
-            root.spawn((
-                Node {
-                    flex_direction: FlexDirection::Column,
-                    align_items: AlignItems::FlexStart,
-                    row_gap: Val::Px(10.0),
-                    padding: UiRect::all(Val::Px(10.0)),
-                    border: UiRect::all(Val::Px(2.0)),
-                    ..default()
-                },
-                BorderColor::all(Color::WHITE),
-                BackgroundColor(Color::srgb(0.2, 0.2, 0.2)),
-            ))
-            .with_children(|section| {
-                section.spawn((
-                    Text::new("Duel"),
-                    TextFont { font_size: 30.0, ..default() },
-                    TextColor(Color::WHITE),
-                ));
-                // Row for checkbox
-                section
-                    .spawn((
+            // Checkbox row
+            root
+                .spawn((
+                    Node {
+                        flex_direction: FlexDirection::Row,
+                        align_items: AlignItems::Center,
+                        column_gap: Val::Px(10.0),
+                        ..default()
+                    },
+                ))
+                .with_children(|row| {
+                    row.spawn((
+                        Button,
                         Node {
-                            flex_direction: FlexDirection::Row,
+                            width: Val::Px(30.0),
+                            height: Val::Px(30.0),
+                            justify_content: JustifyContent::Center,
                             align_items: AlignItems::Center,
-                            column_gap: Val::Px(10.0),
                             ..default()
                         },
+                        BackgroundColor(Color::srgb(0.3, 0.3, 0.3)),
                     ))
-                    .with_children(|row| {
-                        row.spawn((
-                            Button,
-                            Node {
-                                width: Val::Px(30.0),
-                                height: Val::Px(30.0),
-                                justify_content: JustifyContent::Center,
-                                align_items: AlignItems::Center,
-                                ..default()
-                            },
-                            BackgroundColor(Color::srgb(0.3, 0.3, 0.3)),
-                        ))
-                        .with_child((
-                            Text::new(if settings.duel_blocking_enabled { "[x]" } else { "[ ]" }),
-                            TextFont { font_size: 20.0, ..default() },
-                            TextColor(Color::WHITE),
-                        ))
-                        .insert(CheckboxState {
-                            value: settings.duel_blocking_enabled,
-                            setting_key: SettingKey::DuelBlocking,
-                        })
-                        .observe(toggle_checkbox);
-                        row.spawn((
-                            Text::new("Block opponent's cells (Destroy mode)"),
-                            TextFont::default(),
-                            TextColor(Color::WHITE),
-                        ));
-                    });
-            });
-
-            // Puzzles section
-            root.spawn((
-                Node {
-                    flex_direction: FlexDirection::Column,
-                    align_items: AlignItems::FlexStart,
-                    row_gap: Val::Px(10.0),
-                    padding: UiRect::all(Val::Px(10.0)),
-                    border: UiRect::all(Val::Px(2.0)),
-                    ..default()
-                },
-                BorderColor::all(Color::WHITE),
-                BackgroundColor(Color::srgb(0.2, 0.2, 0.2)),
-            ))
-            .with_children(|section| {
-                section.spawn((
-                    Text::new("Puzzles"),
-                    TextFont { font_size: 30.0, ..default() },
-                    TextColor(Color::WHITE),
-                ));
-                section.spawn((
-                    Text::new("No settings yet."),
-                    TextFont::default(),
-                    TextColor(Color::srgb(0.5, 0.5, 0.5)),
-                ));
-            });
+                    .with_child((
+                        Text::new(if settings.duel_blocking_enabled { "[x]" } else { "[ ]" }),
+                        TextFont { font_size: 20.0, ..default() },
+                        TextColor(Color::WHITE),
+                    ))
+                    .insert(CheckboxState {
+                        value: settings.duel_blocking_enabled,
+                        setting_key: SettingKey::DuelBlocking,
+                    })
+                    .observe(toggle_checkbox);
+                    row.spawn((
+                        Text::new("Block opponent's cells (Destroy mode)"),
+                        TextFont::default(),
+                        TextColor(Color::WHITE),
+                    ));
+                });
         });
 }
 
