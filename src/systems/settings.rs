@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 use bevy::picking::prelude::{Click, Pointer};
-use crate::resources::GameSettings;
+use crate::resources::{GameSettings, AIType};
 use crate::Cleanup;
 use crate::AppState;
 
@@ -13,9 +13,16 @@ struct CheckboxState {
     setting_key: SettingKey,
 }
 
+#[derive(Component, Clone)]
+struct RadioState {
+    value: AIType,
+    setting_key: SettingKey,
+}
+
 #[derive(Clone, PartialEq, Eq)]
 enum SettingKey {
     DuelBlocking,
+    AIMode,
 }
 
 pub fn setup_settings(
@@ -61,7 +68,7 @@ pub fn setup_settings(
             ))
             .observe(apply_settings);
 
-            // Checkbox row
+            // Checkbox row (Destroy mode)
             root
                 .spawn((
                     Node {
@@ -99,6 +106,80 @@ pub fn setup_settings(
                         TextColor(Color::WHITE),
                     ));
                 });
+
+            // Radio row (AI mode)
+            root
+                .spawn((
+                    Node {
+                        flex_direction: FlexDirection::Row,
+                        align_items: AlignItems::Center,
+                        column_gap: Val::Px(20.0),
+                        ..default()
+                    },
+                ))
+                .with_children(|row| {
+                    row.spawn((
+                        Text::new("AI Mode:"),
+                        TextFont::default(),
+                        TextColor(Color::WHITE),
+                    ));
+
+                    // Dummy button
+                    let dummy_color = if settings.ai_mode == AIType::Dummy {
+                        Color::srgb(0.4, 0.6, 0.4)
+                    } else {
+                        Color::srgb(0.3, 0.3, 0.3)
+                    };
+                    row.spawn((
+                        Button,
+                        Node {
+                            width: Val::Px(100.0),
+                            height: Val::Px(30.0),
+                            justify_content: JustifyContent::Center,
+                            align_items: AlignItems::Center,
+                            ..default()
+                        },
+                        BackgroundColor(dummy_color),
+                        RadioState {
+                            value: AIType::Dummy,
+                            setting_key: SettingKey::AIMode,
+                        },
+                    ))
+                    .with_child((
+                        Text::new("Dummy"),
+                        TextFont::default(),
+                        TextColor(Color::WHITE),
+                    ))
+                    .observe(radio_click);
+
+                    // Greedy button
+                    let greedy_color = if settings.ai_mode == AIType::Greedy {
+                        Color::srgb(0.4, 0.6, 0.4)
+                    } else {
+                        Color::srgb(0.3, 0.3, 0.3)
+                    };
+                    row.spawn((
+                        Button,
+                        Node {
+                            width: Val::Px(100.0),
+                            height: Val::Px(30.0),
+                            justify_content: JustifyContent::Center,
+                            align_items: AlignItems::Center,
+                            ..default()
+                        },
+                        BackgroundColor(greedy_color),
+                        RadioState {
+                            value: AIType::Greedy,
+                            setting_key: SettingKey::AIMode,
+                        },
+                    ))
+                    .with_child((
+                        Text::new("Greedy"),
+                        TextFont::default(),
+                        TextColor(Color::WHITE),
+                    ))
+                    .observe(radio_click);
+                });
         });
 }
 
@@ -121,9 +202,41 @@ fn toggle_checkbox(
     }
 }
 
+fn radio_click(
+    trigger: On<Pointer<Click>>,
+    mut settings: ResMut<GameSettings>,
+    mut radio_query: Query<(&RadioState, &mut BackgroundColor, &Children), With<Button>>,
+    all_radios: Query<(Entity, &RadioState)>,
+    _text_query: Query<&mut Text>,
+) {
+    let entity = trigger.event_target();
+    let selected_value = if let Ok((state, ..)) = radio_query.get(entity) {
+        state.value
+    } else {
+        return;
+    };
+
+    // Update the global settings immediately
+    settings.ai_mode = selected_value;
+
+    // Update background colors of all radios with the same key
+    for (e, _) in all_radios.iter() {
+        if let Ok((state, mut bg, _)) = radio_query.get_mut(e) {
+            if state.setting_key == SettingKey::AIMode {
+                *bg = if state.value == selected_value {
+                    Color::srgb(0.4, 0.6, 0.4).into()
+                } else {
+                    Color::srgb(0.3, 0.3, 0.3).into()
+                };
+            }
+        }
+    }
+}
+
 fn apply_settings(
     _trigger: On<Pointer<Click>>,
     checkbox_query: Query<&CheckboxState>,
+    radio_query: Query<&RadioState>,
     mut settings: ResMut<GameSettings>,
     mut next_state: ResMut<NextState<AppState>>,
 ) {
@@ -132,6 +245,12 @@ fn apply_settings(
             SettingKey::DuelBlocking => {
                 settings.duel_blocking_enabled = state.value;
             }
+            _ => {}
+        }
+    }
+    for state in radio_query.iter() {
+        if state.setting_key == SettingKey::AIMode {
+            settings.ai_mode = state.value;
         }
     }
     next_state.set(AppState::Menu);

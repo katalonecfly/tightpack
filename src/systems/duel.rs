@@ -2,13 +2,12 @@ use crate::Cleanup;
 use crate::components::*;
 use crate::config::RawPieceConfig;
 use crate::helpers::*;
-use crate::resources::{DuelMode, DuelState, DuelTurn, PieceLibrary};
+use crate::resources::{DuelMode, DuelState, DuelTurn, PieceLibrary, GameSettings, AIType};
 use crate::systems::draft::DraftConfirmButton;
 use bevy::picking::prelude::*;
 use bevy::prelude::*;
 use rand::RngExt;
 use std::collections::{HashMap, HashSet};
-use crate::resources::GameSettings;
 
 #[derive(Component)]
 struct DragOffset(Vec2);
@@ -464,10 +463,11 @@ pub fn on_confirm_click_duel(
     opponent_pieces: Query<&Piece, With<OpponentPiece>>,
     player_labels: Query<Entity, (With<StashLabel>, With<PlayerPiece>)>,
     opponent_labels: Query<Entity, (With<StashLabel>, With<OpponentPiece>)>,
+    settings: Res<GameSettings>, // <-- added
 ) {
     match duel_state.turn {
         DuelTurn::Place => {
-            // Existing placement logic
+            // Lock player's placed pieces and remove unplaced ones
             for entity in &player_drafts {
                 if let Ok(piece) = player_pieces.get(entity) {
                     if piece.placed_at.is_some() {
@@ -486,15 +486,23 @@ pub fn on_confirm_click_duel(
                 commands.entity(label).despawn();
             }
 
-            // AI placement
+            // AI placement (opponent)
             let draft_data: Vec<(Entity, Piece)> = opponent_drafts
                 .iter()
                 .filter_map(|e| opponent_pieces.get(e).ok().map(|p| (e, p.clone())))
                 .collect();
-            if let Some(placement) = crate::systems::ai::first_free_placement(
-                &draft_data.iter().map(|(e, p)| (*e, p)).collect::<Vec<_>>(),
-                &duel_state.opponent,
-            ) {
+            let placement = if settings.ai_mode == AIType::Greedy {
+                crate::systems::ai::greedy_placement(
+                    &draft_data.iter().map(|(e, p)| (*e, p)).collect::<Vec<_>>(),
+                    &duel_state.opponent,
+                )
+            } else {
+                crate::systems::ai::first_free_placement(
+                    &draft_data.iter().map(|(e, p)| (*e, p)).collect::<Vec<_>>(),
+                    &duel_state.opponent,
+                )
+            };
+            if let Some(placement) = placement {
                 let world_pos = grid_to_world_for_side(placement.origin, BoardSide::Right);
                 let entity = crate::systems::setup::spawn_draggable_piece(
                     &mut commands,
@@ -506,7 +514,7 @@ pub fn on_confirm_click_duel(
                     world_pos.with_z(1.0),
                     false, // draft_mode
                     false, // interactive
-                    true,  // hoverable   ← added
+                    true,  // hoverable
                     BoardSide::Right,
                 );
                 commands
@@ -551,7 +559,6 @@ pub fn on_confirm_click_duel(
             );
 
             if duel_state.mode == DuelMode::Destroy {
-                // Switch to destroy turn, do not generate new stash yet
                 duel_state.turn = DuelTurn::Destroy;
                 duel_state.pending_disable = None;
             } else {
@@ -562,23 +569,24 @@ pub fn on_confirm_click_duel(
             // Apply player's disable if any
             if let Some(cell) = duel_state.pending_disable.take() {
                 duel_state.opponent.disabled_cells.insert(cell);
-                // Remove preview cross
                 if let Some((preview1, preview2)) = duel_state.pending_disable_preview.take() {
                     commands.entity(preview1).despawn();
                     commands.entity(preview2).despawn();
                 }
-                // Spawn final large cross
                 spawn_disabled_visual(&mut commands, cell, BoardSide::Right, TILE_SIZE * 0.8, 4.0);
             }
-            // AI disables one cell on player's board
-            let ai_cell = pick_first_free(
-                &duel_state.player.board_cells,
-                &duel_state.player.disabled_cells,
-            );
+
+            // AI disables a cell on player's board (greedy or dummy)
+            let ai_cell = if settings.ai_mode == AIType::Greedy {
+                crate::systems::ai::greedy_block_cell(&duel_state.player, &player_pieces)
+            } else {
+                pick_first_free(&duel_state.player.board_cells, &duel_state.player.disabled_cells)
+            };
             if let Some(cell) = ai_cell {
                 duel_state.player.disabled_cells.insert(cell);
                 spawn_disabled_visual(&mut commands, cell, BoardSide::Left, TILE_SIZE * 0.8, 4.0);
             }
+
             // Switch back to place and generate new stash
             duel_state.turn = DuelTurn::Place;
             duel_state.pending_disable_preview = None;

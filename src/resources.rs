@@ -69,15 +69,24 @@ impl Default for DuelState {
     }
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, Default)]
+pub enum AIType {
+    #[default]
+    Dummy,
+    Greedy,
+}
+
 #[derive(Resource)]
 pub struct GameSettings {
     pub duel_blocking_enabled: bool,
+    pub ai_mode: AIType,
 }
 
 impl Default for GameSettings {
     fn default() -> Self {
         Self {
             duel_blocking_enabled: true,
+            ai_mode: AIType::default(),
         }
     }
 }
