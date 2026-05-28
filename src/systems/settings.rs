@@ -1,8 +1,8 @@
-use bevy::prelude::*;
-use bevy::picking::prelude::{Click, Pointer};
-use crate::resources::{GameSettings, AIType};
-use crate::Cleanup;
 use crate::AppState;
+use crate::Cleanup;
+use crate::resources::{AIType, GameSettings};
+use bevy::picking::prelude::{Click, Pointer};
+use bevy::prelude::*;
 
 #[derive(Component)]
 struct SettingsRoot;
@@ -25,10 +25,7 @@ enum SettingKey {
     AIMode,
 }
 
-pub fn setup_settings(
-    mut commands: Commands,
-    settings: Res<GameSettings>,
-) {
+pub fn setup_settings(mut commands: Commands, settings: Res<GameSettings>) {
     commands.spawn((Camera2d, Cleanup));
 
     commands
@@ -63,21 +60,21 @@ pub fn setup_settings(
             ))
             .with_child((
                 Text::new("Apply"),
-                TextFont { font_size: 24.0, ..default() },
+                TextFont {
+                    font_size: 24.0,
+                    ..default()
+                },
                 TextColor(Color::WHITE),
             ))
             .observe(apply_settings);
 
             // Checkbox row (Destroy mode)
-            root
-                .spawn((
-                    Node {
-                        flex_direction: FlexDirection::Row,
-                        align_items: AlignItems::Center,
-                        column_gap: Val::Px(10.0),
-                        ..default()
-                    },
-                ))
+            root.spawn((Node {
+                flex_direction: FlexDirection::Row,
+                align_items: AlignItems::Center,
+                column_gap: Val::Px(10.0),
+                ..default()
+            },))
                 .with_children(|row| {
                     row.spawn((
                         Button,
@@ -91,8 +88,15 @@ pub fn setup_settings(
                         BackgroundColor(Color::srgb(0.3, 0.3, 0.3)),
                     ))
                     .with_child((
-                        Text::new(if settings.duel_blocking_enabled { "[x]" } else { "[ ]" }),
-                        TextFont { font_size: 20.0, ..default() },
+                        Text::new(if settings.duel_blocking_enabled {
+                            "[x]"
+                        } else {
+                            "[ ]"
+                        }),
+                        TextFont {
+                            font_size: 20.0,
+                            ..default()
+                        },
                         TextColor(Color::WHITE),
                     ))
                     .insert(CheckboxState {
@@ -108,15 +112,12 @@ pub fn setup_settings(
                 });
 
             // Radio row (AI mode)
-            root
-                .spawn((
-                    Node {
-                        flex_direction: FlexDirection::Row,
-                        align_items: AlignItems::Center,
-                        column_gap: Val::Px(20.0),
-                        ..default()
-                    },
-                ))
+            root.spawn((Node {
+                flex_direction: FlexDirection::Row,
+                align_items: AlignItems::Center,
+                column_gap: Val::Px(20.0),
+                ..default()
+            },))
                 .with_children(|row| {
                     row.spawn((
                         Text::new("AI Mode:"),

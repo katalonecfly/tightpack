@@ -89,7 +89,8 @@ pub fn greedy_placement(
                     let mut immediate_other = 0;
                     let mut penalty_other = 0;
 
-                    let occupied_cells: Vec<IVec2> = shape.iter().map(|off| origin + *off).collect();
+                    let occupied_cells: Vec<IVec2> =
+                        shape.iter().map(|off| origin + *off).collect();
 
                     // For each existing opponent piece
                     for existing in opponent_placed_pieces {
@@ -186,7 +187,11 @@ pub fn greedy_block_cell(
     for y in 0..BOARD_SIZE.y {
         for x in 0..BOARD_SIZE.x {
             let cell = IVec2::new(x, y);
-            if !is_cell_available(cell, &player_state.board_cells, &player_state.disabled_cells) {
+            if !is_cell_available(
+                cell,
+                &player_state.board_cells,
+                &player_state.disabled_cells,
+            ) {
                 continue;
             }
 

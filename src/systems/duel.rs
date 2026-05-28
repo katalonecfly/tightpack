@@ -2,13 +2,13 @@ use crate::Cleanup;
 use crate::components::*;
 use crate::config::RawPieceConfig;
 use crate::helpers::*;
-use crate::resources::{DuelMode, DuelState, DuelTurn, PieceLibrary, GameSettings, AIType};
+use crate::resources::{AIType, DuelMode, DuelState, DuelTurn, GameSettings, PieceLibrary};
+use crate::systems::ai::{first_free_placement, greedy_block_cell, greedy_placement};
 use crate::systems::draft::DraftConfirmButton;
 use bevy::picking::prelude::*;
 use bevy::prelude::*;
 use rand::RngExt;
 use std::collections::{HashMap, HashSet};
-use crate::systems::ai::{first_free_placement, greedy_placement, greedy_block_cell};
 #[derive(Component)]
 struct DragOffset(Vec2);
 
@@ -491,7 +491,8 @@ pub fn on_confirm_click_duel(
                 .iter()
                 .filter_map(|e| opponent_pieces.get(e).ok().map(|p| (e, p.clone())))
                 .collect();
-            let draft_refs: Vec<(Entity, &Piece)> = draft_data.iter().map(|(e, p)| (*e, p)).collect();
+            let draft_refs: Vec<(Entity, &Piece)> =
+                draft_data.iter().map(|(e, p)| (*e, p)).collect();
             let opponent_placed: Vec<&Piece> = opponent_pieces.iter().collect();
 
             let placement = if settings.ai_mode == AIType::Greedy {
@@ -578,7 +579,10 @@ pub fn on_confirm_click_duel(
             let ai_cell = if settings.ai_mode == AIType::Greedy {
                 greedy_block_cell(&duel_state.player, &player_pieces)
             } else {
-                pick_first_free(&duel_state.player.board_cells, &duel_state.player.disabled_cells)
+                pick_first_free(
+                    &duel_state.player.board_cells,
+                    &duel_state.player.disabled_cells,
+                )
             };
             if let Some(cell) = ai_cell {
                 duel_state.player.disabled_cells.insert(cell);
@@ -694,7 +698,6 @@ pub fn setup_duel(mut commands: Commands, settings: Res<GameSettings>) {
         ..default()
     });
     generate_duel_stash(&mut commands, &PieceLibrary(pieces));
-
 }
 
 fn spawn_board(commands: &mut Commands, side: BoardSide) {

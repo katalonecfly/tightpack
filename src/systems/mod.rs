@@ -5,7 +5,7 @@ pub mod interaction;
 pub mod inventory;
 pub mod menu;
 pub mod scoring;
+pub mod settings;
 pub mod setup;
 pub mod ui;
 pub mod visuals;
-pub mod settings;
