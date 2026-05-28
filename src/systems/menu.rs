@@ -76,6 +76,7 @@ pub fn menu_interaction(
                 "Sandbox" => next_state.set(AppState::Sandbox),
                 "Draft" => next_state.set(AppState::Draft),
                 "Duel" => next_state.set(AppState::Duel),
+                "Puzzles" => next_state.set(AppState::PuzzlesList),
                 "Settings" => next_state.set(AppState::Settings),
                 _ => {} // Puzzles still do nothing
             }

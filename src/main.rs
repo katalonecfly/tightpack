@@ -3,6 +3,7 @@ mod config;
 mod helpers;
 mod resources;
 mod systems;
+mod puzzles;
 
 use bevy::picking::prelude::*;
 use bevy::prelude::*;
@@ -17,6 +18,8 @@ enum AppState {
     Draft,
     Duel,
     Settings,
+    PuzzlesList,
+    Puzzle,
 }
 
 #[derive(Component)]
@@ -141,6 +144,30 @@ fn main() {
             OnExit(AppState::Duel),
             (cleanup_system, reset_duel_state, reset_tooltip_state),
         )
+        // PuzzlesList state
+        .add_systems(OnEnter(AppState::PuzzlesList), puzzles::setup_puzzle_list)
+        .add_systems(
+            Update,
+            puzzles::puzzle_list_interaction.run_if(in_state(AppState::PuzzlesList)),
+        )
+        .add_systems(OnExit(AppState::PuzzlesList), cleanup_system)
+
+        // Puzzle state
+        .add_systems(OnEnter(AppState::Puzzle), puzzles::setup_puzzle)
+        .add_systems(
+            Update,
+            (
+                puzzles::update_puzzle_score_ui,
+                puzzles::update_puzzle_stash_labels,
+                puzzles::update_puzzle_effect_previews,
+                puzzles::update_puzzle_tooltip,
+                puzzles::handle_puzzle_rotation,
+                puzzles::recalculate_puzzle_score_system,
+                puzzles::update_puzzle_contributions_system,
+            )
+                .run_if(in_state(AppState::Puzzle)),
+        )
+        .add_systems(OnExit(AppState::Puzzle), (cleanup_system, puzzles::reset_puzzle_state))
         .add_systems(Update, handle_escape)
         .add_systems(
             OnEnter(AppState::Settings),
