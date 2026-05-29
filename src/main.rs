@@ -36,8 +36,13 @@ fn handle_escape(
     current_state: Res<State<AppState>>,
     mut next_state: ResMut<NextState<AppState>>,
 ) {
-    if keys.just_pressed(KeyCode::Escape) && *current_state.get() != AppState::Menu {
-        next_state.set(AppState::Menu);
+    if keys.just_pressed(KeyCode::Escape) {
+        match *current_state.get() {
+            AppState::Puzzle => next_state.set(AppState::PuzzlesList),
+            AppState::PuzzlesList => next_state.set(AppState::Menu),
+            AppState::Menu => {} // do nothing
+            _ => next_state.set(AppState::Menu),
+        }
     }
 }
 
