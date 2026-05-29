@@ -331,21 +331,7 @@ pub fn on_puzzle_drag_start(
     let Some(piece_entity) = get_piece_entity(target, &piece_query, &child_of_query) else { return };
     if locked_query.contains(piece_entity) { return; }
 
-    for (other_entity, mut other_piece, mut other_transform) in param_set.p1().iter_mut() {
-        if other_entity != piece_entity && other_piece.placed_at.is_some() {
-            if let Some(old_pos) = other_piece.placed_at {
-                for offset in &other_piece.shape {
-                    puzzle_state.board_cells.remove(&(old_pos + *offset));
-                }
-                other_piece.placed_at = None;
-            }
-            other_transform.translation = other_piece.original_pos;
-            other_transform.translation.z = other_piece.original_pos.z;
-            other_transform.rotation = Quat::IDENTITY;
-            other_piece.shape = other_piece.original_shape.clone();
-            other_piece.effects = other_piece.original_effects.clone();
-        }
-    }
+    // REMOVED: the loop that unplaces other pieces - sandbox behavior
 
     if let Ok((mut transform, mut piece, _)) = param_set.p0().get_mut(piece_entity) {
         commands.entity(piece_entity).insert(Dragging);
@@ -409,18 +395,20 @@ pub fn on_puzzle_drag_end(
     child_of_query: Query<&ChildOf>,
     mut drag_piece_query: Query<(&mut Transform, &mut Piece, &Children)>,
     locked_query: Query<(), With<LockedPiece>>,
-    draft_check: Query<(), With<DraftPiece>>,
-    piece_entities: Query<Entity, With<Piece>>,
     mut puzzle_state: ResMut<PuzzleGameState>,
     ghost_query: Query<Entity, With<GhostTile>>,
     board_info: Res<PuzzleBoardInfo>,
 ) {
+    // Remove all ghost tiles
     for entity in &ghost_query {
         let _ = commands.entity(entity).try_despawn();
     }
+
     let target = on.event_target();
     let Some(piece_entity) = get_piece_entity(target, &piece_query, &child_of_query) else { return };
-    if locked_query.contains(piece_entity) { return; }
+    if locked_query.contains(piece_entity) {
+        return;
+    }
     commands.entity(piece_entity).remove::<Dragging>();
 
     if let Ok((mut transform, mut piece, _children)) = drag_piece_query.get_mut(piece_entity) {
@@ -433,34 +421,21 @@ pub fn on_puzzle_drag_end(
                 break;
             }
         }
+
         if can_place {
+            // Place the piece on board
             transform.translation = grid_to_world_puzzle(grid_pos, &board_info).with_z(1.0);
             piece.placed_at = Some(grid_pos);
             for offset in &piece.shape {
                 puzzle_state.board_cells.insert(grid_pos + *offset, piece.color);
             }
-            if draft_check.contains(piece_entity) {
-                for other_entity in &piece_entities {
-                    if other_entity != piece_entity && draft_check.contains(other_entity) {
-                        if let Ok((mut t, mut p, _)) = drag_piece_query.get_mut(other_entity) {
-                            if p.placed_at.is_some() {
-                                if let Some(old_pos) = p.placed_at {
-                                    for off in &p.shape {
-                                        puzzle_state.board_cells.remove(&(old_pos + *off));
-                                    }
-                                    p.placed_at = None;
-                                }
-                                t.translation = p.original_pos;
-                                t.translation.z = 1.0;
-                                t.rotation = Quat::IDENTITY;
-                                p.shape = p.original_shape.clone();
-                                p.effects = p.original_effects.clone();
-                            }
-                        }
-                    }
-                }
-            }
+            // Remove the placed piece from stash? No, we keep it in stash but mark as placed?
+            // Actually in sandbox, the piece stays in stash with a counter decrement.
+            // Here we have multiple copies: each copy is a separate entity. When placed, it should remain on board.
+            // We do NOT despawn it. The stash label will update the count based on placed_at.is_none().
+            // So we just leave it as is.
         } else {
+            // Snap back to original position
             transform.translation = piece.original_pos;
             transform.translation.z = piece.original_pos.z;
             transform.rotation = Quat::IDENTITY;
@@ -716,14 +691,31 @@ pub fn recalculate_puzzle_score_system(
 pub fn update_puzzle_contributions_system(
     mut commands: Commands,
     puzzle_state: Res<PuzzleGameState>,
+    board_info: Res<PuzzleBoardInfo>,
     mut piece_query: Query<(Entity, &Piece, Option<&mut ContributionDisplay>)>,
 ) {
     for (piece_entity, piece, display_opt) in piece_query.iter_mut() {
-        if let Some(_pos) = piece.placed_at {  // fixed unused variable
+        if let Some(pos) = piece.placed_at {
             let contribution = compute_piece_contribution(piece, &puzzle_state.board_cells);
             let sign = if contribution >= 0 { "+" } else { "" };
             let text_str = format!("{}{}", sign, contribution);
-            let world_pos = piece.original_pos.with_z(5.0);
+            
+            // Compute world position at the center of the piece's bounding box
+            let mut min_x = i32::MAX;
+            let mut max_x = i32::MIN;
+            let mut min_y = i32::MAX;
+            let mut max_y = i32::MIN;
+            for offset in &piece.shape {
+                let cell = pos + *offset;
+                min_x = min_x.min(cell.x);
+                max_x = max_x.max(cell.x);
+                min_y = min_y.min(cell.y);
+                max_y = max_y.max(cell.y);
+            }
+            let center_x = (min_x + max_x) as f32 / 2.0;
+            let center_y = (min_y + max_y) as f32 / 2.0;
+            let world_pos = grid_to_world_puzzle(IVec2::new(center_x as i32, center_y as i32), &board_info).with_z(5.0);
+            
             if let Some(display) = display_opt {
                 commands.entity(display.0).despawn();
                 commands.entity(piece_entity).remove::<ContributionDisplay>();
