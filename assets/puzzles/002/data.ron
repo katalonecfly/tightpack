@@ -1,0 +1,27 @@
+(
+    board_size: (8, 8),
+    blocked_cells: [(0, 0), (7, 7)],
+    pieces: [
+        (
+            shape: [(0, 0), (1, 0)],
+            color: "RED",
+            points: 3,
+            count: 10,
+            effects: [],
+        ),
+        (
+            shape: [(0, 0), (1, 0)],
+            color: "BLUE",
+            points: 3,
+            count: 10,
+            effects: [],
+        ),
+        (
+            shape: [(0, 0), (1, 0)],
+            color: "GREEN",
+            points: 3,
+            count: 11,
+            effects: [],
+        ),
+    ],
+)
