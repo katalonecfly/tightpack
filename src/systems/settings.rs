@@ -1,6 +1,6 @@
 use crate::AppState;
 use crate::Cleanup;
-use crate::resources::{AIType, GameSettings};
+use crate::resources::{AIType, GameSettings, TempSettings};
 use bevy::picking::prelude::{Click, Pointer};
 use bevy::prelude::*;
 
@@ -26,6 +26,12 @@ enum SettingKey {
 }
 
 pub fn setup_settings(mut commands: Commands, settings: Res<GameSettings>) {
+    // Store temporary settings copy
+    commands.insert_resource(TempSettings {
+        duel_blocking_enabled: settings.duel_blocking_enabled,
+        ai_mode: settings.ai_mode,
+    });
+
     commands.spawn((Camera2d, Cleanup));
 
     commands
@@ -76,6 +82,7 @@ pub fn setup_settings(mut commands: Commands, settings: Res<GameSettings>) {
                 ..default()
             },))
                 .with_children(|row| {
+                    let checkbox_text = if settings.duel_blocking_enabled { "[x]" } else { "[ ]" };
                     row.spawn((
                         Button,
                         Node {
@@ -88,11 +95,7 @@ pub fn setup_settings(mut commands: Commands, settings: Res<GameSettings>) {
                         BackgroundColor(Color::srgb(0.3, 0.3, 0.3)),
                     ))
                     .with_child((
-                        Text::new(if settings.duel_blocking_enabled {
-                            "[x]"
-                        } else {
-                            "[ ]"
-                        }),
+                        Text::new(checkbox_text),
                         TextFont {
                             font_size: 20.0,
                             ..default()
@@ -186,6 +189,7 @@ pub fn setup_settings(mut commands: Commands, settings: Res<GameSettings>) {
 
 fn toggle_checkbox(
     trigger: On<Pointer<Click>>,
+    mut temp_settings: ResMut<TempSettings>,
     mut commands: Commands,
     mut checkbox_query: Query<(&mut CheckboxState, &Children)>,
     mut text_query: Query<&mut Text>,
@@ -193,6 +197,10 @@ fn toggle_checkbox(
     let entity = trigger.event_target();
     if let Ok((mut state, children)) = checkbox_query.get_mut(entity) {
         state.value = !state.value;
+        // Update temporary settings
+        if state.setting_key == SettingKey::DuelBlocking {
+            temp_settings.duel_blocking_enabled = state.value;
+        }
         for &child in children {
             if let Ok(mut text) = text_query.get_mut(child) {
                 text.0 = if state.value { "[x]" } else { "[ ]" }.to_string();
@@ -205,10 +213,9 @@ fn toggle_checkbox(
 
 fn radio_click(
     trigger: On<Pointer<Click>>,
-    mut settings: ResMut<GameSettings>,
+    mut temp_settings: ResMut<TempSettings>,
     mut radio_query: Query<(&RadioState, &mut BackgroundColor, &Children), With<Button>>,
     all_radios: Query<(Entity, &RadioState)>,
-    _text_query: Query<&mut Text>,
 ) {
     let entity = trigger.event_target();
     let selected_value = if let Ok((state, ..)) = radio_query.get(entity) {
@@ -217,8 +224,8 @@ fn radio_click(
         return;
     };
 
-    // Update the global settings immediately
-    settings.ai_mode = selected_value;
+    // Update temporary settings
+    temp_settings.ai_mode = selected_value;
 
     // Update background colors of all radios with the same key
     for (e, _) in all_radios.iter() {
@@ -236,23 +243,11 @@ fn radio_click(
 
 fn apply_settings(
     _trigger: On<Pointer<Click>>,
-    checkbox_query: Query<&CheckboxState>,
-    radio_query: Query<&RadioState>,
+    temp_settings: Res<TempSettings>,
     mut settings: ResMut<GameSettings>,
     mut next_state: ResMut<NextState<AppState>>,
 ) {
-    for state in checkbox_query.iter() {
-        match state.setting_key {
-            SettingKey::DuelBlocking => {
-                settings.duel_blocking_enabled = state.value;
-            }
-            _ => {}
-        }
-    }
-    for state in radio_query.iter() {
-        if state.setting_key == SettingKey::AIMode {
-            settings.ai_mode = state.value;
-        }
-    }
+    settings.duel_blocking_enabled = temp_settings.duel_blocking_enabled;
+    settings.ai_mode = temp_settings.ai_mode;
     next_state.set(AppState::Menu);
 }

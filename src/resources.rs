@@ -90,3 +90,9 @@ impl Default for GameSettings {
         }
     }
 }
+
+#[derive(Resource, Clone)]
+pub struct TempSettings {
+    pub duel_blocking_enabled: bool,
+    pub ai_mode: AIType,
+}

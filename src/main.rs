@@ -7,7 +7,7 @@ mod puzzles;
 
 use bevy::picking::prelude::*;
 use bevy::prelude::*;
-use resources::{DuelState, GameSettings, GameState, PieceLibrary, TooltipState};
+use resources::{DuelState, GameSettings, GameState, PieceLibrary, TempSettings, TooltipState};
 use systems::menu;
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default, States)]
@@ -64,6 +64,10 @@ fn reset_duel_state(mut duel_state: ResMut<DuelState>) {
 
 fn reset_tooltip_state(mut tooltip: ResMut<TooltipState>) {
     *tooltip = TooltipState::default();
+}
+
+fn reset_temp_settings(mut commands: Commands) {
+    commands.remove_resource::<TempSettings>();
 }
 
 fn main() {
@@ -178,6 +182,6 @@ fn main() {
             OnEnter(AppState::Settings),
             systems::settings::setup_settings,
         )
-        .add_systems(OnExit(AppState::Settings), cleanup_system)
+        .add_systems(OnExit(AppState::Settings), (cleanup_system, reset_temp_settings))
         .run();
 }
