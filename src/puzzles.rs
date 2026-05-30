@@ -1223,7 +1223,17 @@ pub fn setup_solution_view(mut commands: Commands, selected: Res<SelectedSolutio
             shape = shape.iter().map(|&v| IVec2::new(v.y, -v.x)).collect();
         }
         let world_pos = grid_to_world_puzzle(placement.pos, &board_info);
-        spawn_solution_piece(&mut commands, shape.clone(), color, world_pos, placement.pos);
+        // Convert effects (if any) - for now empty
+        let effects = vec![]; // piece_data.effects could be converted if needed
+        spawn_solution_piece(
+            &mut commands,
+            shape.clone(),
+            color,
+            world_pos,
+            placement.pos,
+            piece_data.points,
+            effects,
+        );
         for offset in &shape {
             board_cells.insert(placement.pos + *offset, color);
         }
@@ -1242,7 +1252,9 @@ fn spawn_solution_piece(
     color: LinearRgba,
     pos: Vec3,
     origin: IVec2,
-) {
+    points: i32,
+    effects: Vec<GameEffect>,
+) -> Entity {
     let entity = commands
         .spawn((
             Transform::from_translation(pos),
@@ -1252,19 +1264,23 @@ fn spawn_solution_piece(
                 shape: shape.clone(),
                 original_shape: shape.clone(),
                 color,
-                points: 0,
-                effects: vec![],
-                original_effects: vec![],
+                points,
+                effects: effects.clone(),
+                original_effects: effects,
                 original_pos: pos,
                 placed_at: Some(origin),
                 board_side: BoardSide::Single,
             },
             LockedPiece,
             Cleanup,
+            Pickable::default(),
         ))
+        .observe(crate::systems::interaction::on_hover_in)
+        .observe(crate::systems::interaction::on_hover_out)
         .id();
 
     crate::systems::visuals::refresh_piece_visuals(commands, entity, &shape, color);
+    entity
 }
 
 pub fn reset_solution_view(mut commands: Commands) {

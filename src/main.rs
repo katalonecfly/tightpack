@@ -185,6 +185,14 @@ fn main() {
         .add_systems(OnExit(AppState::SolutionList), cleanup_system)
         // Solution view state
         .add_systems(OnEnter(AppState::SolutionView), puzzles::setup_solution_view)
+        .add_systems(
+            Update,
+            (
+                puzzles::update_puzzle_tooltip,
+                puzzles::update_puzzle_contributions_system,
+            )
+                .run_if(in_state(AppState::SolutionView)),
+        )
         .add_systems(OnExit(AppState::SolutionView), (cleanup_system, puzzles::reset_solution_view))
         // Global escape handler
         .add_systems(Update, handle_escape)
