@@ -1,0 +1,37 @@
+(
+    score: 93,
+    placements: [
+        // red dominos (piece 0)
+        (piece: 0, pos: (0,0), rot: 0),
+        (piece: 0, pos: (0,2), rot: 0),
+        (piece: 0, pos: (0,4), rot: 0),
+        (piece: 0, pos: (2,0), rot: 0),
+        (piece: 0, pos: (2,2), rot: 0),
+        (piece: 0, pos: (2,4), rot: 0),
+        (piece: 0, pos: (4,0), rot: 0),
+        (piece: 0, pos: (4,2), rot: 0),
+        (piece: 0, pos: (4,4), rot: 0),
+        (piece: 0, pos: (6,0), rot: 0),
+        // blue dominos (piece 1)
+        (piece: 1, pos: (1,0), rot: 1),  // rot 1 = vertical
+        (piece: 1, pos: (1,2), rot: 1),
+        (piece: 1, pos: (1,4), rot: 1),
+        (piece: 1, pos: (3,0), rot: 1),
+        (piece: 1, pos: (3,2), rot: 1),
+        (piece: 1, pos: (3,4), rot: 1),
+        (piece: 1, pos: (5,0), rot: 1),
+        (piece: 1, pos: (5,2), rot: 1),
+        (piece: 1, pos: (5,4), rot: 1),
+        (piece: 1, pos: (7,1), rot: 1),
+        // green dominos (piece 2)
+        (piece: 2, pos: (0,6), rot: 0),
+        (piece: 2, pos: (2,6), rot: 0),
+        (piece: 2, pos: (4,6), rot: 0),
+        (piece: 2, pos: (6,2), rot: 0),
+        (piece: 2, pos: (6,4), rot: 0),
+        (piece: 2, pos: (6,6), rot: 0),
+        (piece: 2, pos: (7,3), rot: 1),
+        (piece: 2, pos: (7,5), rot: 1),
+        (piece: 2, pos: (7,7), rot: 0),  // but (7,7) is blocked in puzzle 002? Actually blocked cells are (0,0) and (7,7). So this placement is invalid. You would need to adjust.
+    ],
+)

@@ -12,11 +12,10 @@ use serde::Deserialize;
 use std::collections::{HashMap, HashSet};
 use std::fs;
 
-// Local constant to avoid dependency on helpers::STASH_GAP (which is private)
 const PUZZLE_STASH_GAP: f32 = 60.0;
 
 // -----------------------------------------------------------------------------
-// Puzzle data structures (deserialized from RON)
+// Puzzle data structures
 // -----------------------------------------------------------------------------
 
 #[derive(Deserialize, Clone)]
@@ -36,11 +35,25 @@ pub struct PuzzlePieceData {
     pub effects: Vec<RawGameEffect>,
 }
 
+// Solution structures
+#[derive(Deserialize, Clone)]
+pub struct Solution {
+    pub score: i32,
+    pub placements: Vec<SolutionPlacement>,
+}
+
+#[derive(Deserialize, Clone)]
+pub struct SolutionPlacement {
+    pub piece: usize,      // index into puzzle_data.pieces
+    pub pos: IVec2,
+    pub rot: u32,          // 0,1,2,3
+}
+
 // -----------------------------------------------------------------------------
-// Resources for puzzle mode
+// Resources
 // -----------------------------------------------------------------------------
 
-#[derive(Resource, Clone, Copy)]   // added Clone, Copy
+#[derive(Resource, Clone, Copy)]
 pub struct PuzzleBoardInfo {
     pub size: IVec2,
     pub anchor: Vec3,
@@ -58,6 +71,13 @@ pub struct PuzzleGameState {
 pub struct CurrentPuzzle {
     pub id: String,
     pub data: PuzzleData,
+}
+
+#[derive(Resource)]
+pub struct SelectedSolution {
+    pub puzzle_id: String,
+    pub solution: Solution,
+    pub puzzle_data: PuzzleData,
 }
 
 // Helper: get list of puzzle folders
@@ -82,12 +102,12 @@ pub fn get_puzzle_list() -> Vec<String> {
 }
 
 // -----------------------------------------------------------------------------
-// Puzzle list UI
+// Puzzle list UI (with right-click to view solutions)
 // -----------------------------------------------------------------------------
 
 #[derive(Component)]
 pub struct PuzzleButton {
-    puzzle_id: String,
+    pub puzzle_id: String,
 }
 
 pub fn setup_puzzle_list(mut commands: Commands) {
@@ -129,26 +149,30 @@ pub fn setup_puzzle_list(mut commands: Commands) {
                         },
                         BackgroundColor(Color::srgb(0.3, 0.3, 0.3)),
                         PuzzleButton { puzzle_id: id.clone() },
+                        Pickable::default(),
                     ))
                     .with_child((
-                        Text::new(id),
+                        Text::new(&id),
                         TextFont {
                             font_size: 28.0,
                             ..default()
                         },
                         TextColor(Color::WHITE),
-                    ));
+                    ))
+                    .observe(on_puzzle_left_click)
+                    .observe(on_puzzle_right_click);
             }
         });
 }
 
-pub fn puzzle_list_interaction(
+fn on_puzzle_left_click(
+    trigger: On<Pointer<Click>>,
     mut commands: Commands,
+    button_query: Query<&PuzzleButton>,
     mut next_state: ResMut<NextState<AppState>>,
-    query: Query<(&Interaction, &PuzzleButton), (Changed<Interaction>, With<Button>)>,
 ) {
-    for (interaction, button) in &query {
-        if *interaction == Interaction::Pressed {
+    if trigger.event.button == PointerButton::Primary {
+        if let Ok(button) = button_query.get(trigger.event_target()) {
             let puzzle_path = format!("assets/puzzles/{}/data.ron", button.puzzle_id);
             if let Ok(content) = fs::read_to_string(&puzzle_path) {
                 if let Ok(data) = ron::from_str::<PuzzleData>(&content) {
@@ -157,18 +181,143 @@ pub fn puzzle_list_interaction(
                         data,
                     });
                     next_state.set(AppState::Puzzle);
-                } else {
-                    error!("Failed to parse puzzle data for {}", button.puzzle_id);
                 }
-            } else {
-                error!("Missing puzzle data: {}", puzzle_path);
+            }
+        }
+    }
+}
+
+fn on_puzzle_right_click(
+    trigger: On<Pointer<Click>>,
+    mut commands: Commands,
+    button_query: Query<&PuzzleButton>,
+    mut next_state: ResMut<NextState<AppState>>,
+) {
+    if trigger.event.button == PointerButton::Secondary {
+        if let Ok(button) = button_query.get(trigger.event_target()) {
+            let puzzle_path = format!("assets/puzzles/{}/data.ron", button.puzzle_id);
+            if let Ok(content) = fs::read_to_string(&puzzle_path) {
+                if let Ok(data) = ron::from_str::<PuzzleData>(&content) {
+                    commands.insert_resource(CurrentPuzzle {
+                        id: button.puzzle_id.clone(),
+                        data,
+                    });
+                    next_state.set(AppState::SolutionList);
+                }
+            }
+        }
+    }
+}
+
+
+// -----------------------------------------------------------------------------
+// Solution list screen
+// -----------------------------------------------------------------------------
+
+#[derive(Component)]
+pub struct SolutionButton {
+    pub solution_name: String,
+    pub score: i32,
+}
+
+pub fn setup_solution_list(mut commands: Commands, puzzle: Res<CurrentPuzzle>) {
+    commands.spawn((Camera2d, Cleanup));
+
+    let solutions_dir = format!("assets/puzzles/{}/solutions", puzzle.id);
+    let mut solutions = Vec::new();
+    if let Ok(entries) = fs::read_dir(&solutions_dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.extension().and_then(|s| s.to_str()) == Some("ron") {
+                if let Ok(content) = fs::read_to_string(&path) {
+                    if let Ok(solution) = ron::from_str::<Solution>(&content) {
+                        let name = path.file_stem().unwrap().to_string_lossy().to_string();
+                        solutions.push((name, solution));
+                    }
+                }
+            }
+        }
+    }
+
+    commands
+        .spawn((
+            Node {
+                width: Val::Percent(100.0),
+                height: Val::Percent(100.0),
+                flex_direction: FlexDirection::Column,
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                row_gap: Val::Px(20.0),
+                ..default()
+            },
+            Cleanup,
+        ))
+        .with_children(|parent| {
+            parent.spawn((
+                Text::new(format!("Solutions for {}", puzzle.id)),
+                TextFont {
+                    font_size: 48.0,
+                    ..default()
+                },
+                TextColor(Color::WHITE),
+            ));
+            for (name, solution) in solutions {
+                let name_clone = name.clone();
+                parent
+                    .spawn((
+                        Button,
+                        Node {
+                            width: Val::Px(300.0),
+                            height: Val::Px(50.0),
+                            justify_content: JustifyContent::Center,
+                            align_items: AlignItems::Center,
+                            ..default()
+                        },
+                        BackgroundColor(Color::srgb(0.3, 0.3, 0.3)),
+                        SolutionButton {
+                            solution_name: name,
+                            score: solution.score,
+                        },
+                        Pickable::default(),
+                    ))
+                    .with_child((
+                        Text::new(format!("{} (Score: {})", name_clone, solution.score)),
+                        TextFont {
+                            font_size: 24.0,
+                            ..default()
+                        },
+                        TextColor(Color::WHITE),
+                    ));
+            }
+        });
+}
+
+pub fn solution_list_interaction(
+    mut commands: Commands,
+    mut next_state: ResMut<NextState<AppState>>,
+    query: Query<(&Interaction, &SolutionButton), (Changed<Interaction>, With<Button>)>,
+    puzzle: Option<Res<CurrentPuzzle>>,
+) {
+    let Some(puzzle) = puzzle else { return };
+    for (interaction, button) in &query {
+        if *interaction == Interaction::Pressed {
+            let solution_path = format!("assets/puzzles/{}/solutions/{}.ron", puzzle.id, button.solution_name);
+            if let Ok(content) = fs::read_to_string(&solution_path) {
+                if let Ok(solution) = ron::from_str::<Solution>(&content) {
+                    commands.insert_resource(SelectedSolution {
+                        puzzle_id: puzzle.id.clone(),
+                        solution,
+                        puzzle_data: puzzle.data.clone(),
+                    });
+                    next_state.set(AppState::SolutionView);
+                }
             }
         }
     }
 }
 
 // -----------------------------------------------------------------------------
-// Puzzle gameplay – similar to sandbox but with dynamic board size and counts
+// Puzzle gameplay (sandbox-like)
 // -----------------------------------------------------------------------------
 
 fn board_anchor_for_size(size: IVec2) -> Vec3 {
@@ -203,7 +352,6 @@ fn is_cell_available_puzzle(
     is_in_bounds_puzzle(grid, board_info) && !board_cells.contains_key(&grid) && !disabled_cells.contains(&grid)
 }
 
-// Stash positioning for puzzles
 fn stash_left_x_puzzle(board_info: &PuzzleBoardInfo) -> f32 {
     let board_right = board_info.anchor.x + (board_info.size.x as f32 - 0.5) * board_info.tile_size;
     board_right + PUZZLE_STASH_GAP
@@ -213,7 +361,7 @@ fn stash_top_y_puzzle() -> f32 {
     BOARD_TOP_Y + TILE_SIZE / 2.0
 }
 
-// Custom spawn for puzzle pieces (with puzzle-specific drag observers)
+// Custom spawn for puzzle pieces (interactive)
 fn spawn_puzzle_piece(
     commands: &mut Commands,
     type_id: usize,
@@ -297,10 +445,7 @@ fn spawn_puzzle_piece(
     entity
 }
 
-// -----------------------------------------------------------------------------
-// Puzzle drag & drop observers (use PuzzleGameState)
-// -----------------------------------------------------------------------------
-
+// Drag & drop for puzzles (sandbox style - no unplacing other pieces)
 fn get_piece_entity(
     target: Entity,
     piece_query: &Query<(), With<Piece>>,
@@ -331,7 +476,22 @@ pub fn on_puzzle_drag_start(
     let Some(piece_entity) = get_piece_entity(target, &piece_query, &child_of_query) else { return };
     if locked_query.contains(piece_entity) { return; }
 
-    // REMOVED: the loop that unplaces other pieces - sandbox behavior
+    // Unplace any other draft piece that is on board (only for puzzle mode)
+    for (other_entity, mut other_piece, mut other_transform) in param_set.p1().iter_mut() {
+        if other_entity != piece_entity && other_piece.placed_at.is_some() {
+            if let Some(old_pos) = other_piece.placed_at {
+                for offset in &other_piece.shape {
+                    puzzle_state.board_cells.remove(&(old_pos + *offset));
+                }
+                other_piece.placed_at = None;
+            }
+            other_transform.translation = other_piece.original_pos;
+            other_transform.translation.z = other_piece.original_pos.z;
+            other_transform.rotation = Quat::IDENTITY;
+            other_piece.shape = other_piece.original_shape.clone();
+            other_piece.effects = other_piece.original_effects.clone();
+        }
+    }
 
     if let Ok((mut transform, mut piece, _)) = param_set.p0().get_mut(piece_entity) {
         commands.entity(piece_entity).insert(Dragging);
@@ -399,16 +559,13 @@ pub fn on_puzzle_drag_end(
     ghost_query: Query<Entity, With<GhostTile>>,
     board_info: Res<PuzzleBoardInfo>,
 ) {
-    // Remove all ghost tiles
     for entity in &ghost_query {
         let _ = commands.entity(entity).try_despawn();
     }
 
     let target = on.event_target();
     let Some(piece_entity) = get_piece_entity(target, &piece_query, &child_of_query) else { return };
-    if locked_query.contains(piece_entity) {
-        return;
-    }
+    if locked_query.contains(piece_entity) { return; }
     commands.entity(piece_entity).remove::<Dragging>();
 
     if let Ok((mut transform, mut piece, _children)) = drag_piece_query.get_mut(piece_entity) {
@@ -423,19 +580,13 @@ pub fn on_puzzle_drag_end(
         }
 
         if can_place {
-            // Place the piece on board
             transform.translation = grid_to_world_puzzle(grid_pos, &board_info).with_z(1.0);
             piece.placed_at = Some(grid_pos);
             for offset in &piece.shape {
                 puzzle_state.board_cells.insert(grid_pos + *offset, piece.color);
             }
-            // Remove the placed piece from stash? No, we keep it in stash but mark as placed?
-            // Actually in sandbox, the piece stays in stash with a counter decrement.
-            // Here we have multiple copies: each copy is a separate entity. When placed, it should remain on board.
-            // We do NOT despawn it. The stash label will update the count based on placed_at.is_none().
-            // So we just leave it as is.
+            // Do NOT unplace other pieces (sandbox behavior)
         } else {
-            // Snap back to original position
             transform.translation = piece.original_pos;
             transform.translation.z = piece.original_pos.z;
             transform.rotation = Quat::IDENTITY;
@@ -445,7 +596,6 @@ pub fn on_puzzle_drag_end(
     }
 }
 
-// Rotation handler for puzzle mode
 pub fn handle_puzzle_rotation(
     keyboard: Res<ButtonInput<KeyCode>>,
     mouse: Res<ButtonInput<MouseButton>>,
@@ -507,7 +657,7 @@ pub fn handle_puzzle_rotation(
 }
 
 // -----------------------------------------------------------------------------
-// UI systems for puzzle (score, stash labels, effect previews, tooltip)
+// UI systems for puzzle gameplay
 // -----------------------------------------------------------------------------
 
 pub fn update_puzzle_score_ui(
@@ -699,7 +849,6 @@ pub fn update_puzzle_contributions_system(
             let contribution = compute_piece_contribution(piece, &puzzle_state.board_cells);
             let sign = if contribution >= 0 { "+" } else { "" };
             let text_str = format!("{}{}", sign, contribution);
-            
             // Compute world position at the center of the piece's bounding box
             let mut min_x = i32::MAX;
             let mut max_x = i32::MIN;
@@ -715,7 +864,6 @@ pub fn update_puzzle_contributions_system(
             let center_x = (min_x + max_x) as f32 / 2.0;
             let center_y = (min_y + max_y) as f32 / 2.0;
             let world_pos = grid_to_world_puzzle(IVec2::new(center_x as i32, center_y as i32), &board_info).with_z(5.0);
-            
             if let Some(display) = display_opt {
                 commands.entity(display.0).despawn();
                 commands.entity(piece_entity).remove::<ContributionDisplay>();
@@ -737,7 +885,7 @@ pub fn update_puzzle_contributions_system(
     }
 }
 
-// Setup the puzzle board and pieces
+// Setup puzzle gameplay
 pub fn setup_puzzle(
     mut commands: Commands,
     puzzle: Res<CurrentPuzzle>,
@@ -751,14 +899,12 @@ pub fn setup_puzzle(
         anchor,
         tile_size: TILE_SIZE,
     };
-    // Clone before inserting as resource so we can still use board_info
     commands.insert_resource(board_info.clone());
     commands.insert_resource(PuzzleGameState::default());
     commands.insert_resource(InventoryScroll::default());
 
     commands.spawn((Camera2d, Cleanup));
 
-    // Board background tiles
     let board_root = commands.spawn((Transform::default(), Cleanup)).id();
     for x in 0..board_size.x {
         for y in 0..board_size.y {
@@ -772,7 +918,6 @@ pub fn setup_puzzle(
         }
     }
 
-    // Blocked cells (disabled from start)
     let mut disabled = HashSet::new();
     for &cell in &data.blocked_cells {
         if is_in_bounds_puzzle(cell, &board_info) {
@@ -785,7 +930,6 @@ pub fn setup_puzzle(
         ..default()
     });
 
-    // Score display
     commands.spawn((
         Text2d::new("Score: 0"),
         TextFont {
@@ -797,7 +941,6 @@ pub fn setup_puzzle(
         Cleanup,
     ));
 
-    // Stash area
     let color_map: HashMap<String, LinearRgba> = [
         ("RED".to_string(), Color::srgb_u8(216, 46, 63).to_linear()),
         ("BLUE".to_string(), Color::srgb_u8(53, 129, 216).to_linear()),
@@ -812,7 +955,6 @@ pub fn setup_puzzle(
     let stash_top = stash_top_y_puzzle();
     let stash_bottom = stash_top - stash_visible_height;
 
-    // Stash outline
     let outline_color = Color::srgba(0.4, 0.4, 0.4, 0.6);
     let thickness = 2.0;
     commands
@@ -846,7 +988,6 @@ pub fn setup_puzzle(
         height: stash_visible_height,
     });
 
-    // Spawn pieces
     let mut current_y_offset = 0.0f32;
     let mut total_height = 0.0f32;
     let stash_center_x = stash_left + stash_width / 2.0;
@@ -928,7 +1069,7 @@ fn spawn_disabled_visual_puzzle(commands: &mut Commands, grid: IVec2, board: &Pu
     ));
 }
 
-// Reset for next puzzle
+// Reset puzzle state
 pub fn reset_puzzle_state(mut commands: Commands) {
     commands.remove_resource::<PuzzleGameState>();
     commands.remove_resource::<PuzzleBoardInfo>();
@@ -936,4 +1077,123 @@ pub fn reset_puzzle_state(mut commands: Commands) {
     commands.remove_resource::<InventoryScroll>();
     commands.remove_resource::<StashContentHeight>();
     commands.remove_resource::<StashScreenRect>();
+}
+
+// -----------------------------------------------------------------------------
+// Solution view (read-only)
+// -----------------------------------------------------------------------------
+
+pub fn setup_solution_view(mut commands: Commands, selected: Res<SelectedSolution>) {
+    let data = &selected.puzzle_data;
+    let board_size = data.board_size;
+    let anchor = board_anchor_for_size(board_size);
+    let board_info = PuzzleBoardInfo {
+        size: board_size,
+        anchor,
+        tile_size: TILE_SIZE,
+    };
+    commands.insert_resource(board_info);
+
+    commands.spawn((Camera2d, Cleanup));
+
+    let board_root = commands.spawn((Transform::default(), Cleanup)).id();
+    for x in 0..board_size.x {
+        for y in 0..board_size.y {
+            let tile = commands
+                .spawn((
+                    Sprite::from_color(Color::srgb(0.2, 0.2, 0.2), Vec2::splat(TILE_SIZE - 2.0)),
+                    Transform::from_translation(grid_to_world_puzzle(IVec2::new(x, y), &board_info)),
+                ))
+                .id();
+            commands.entity(board_root).add_child(tile);
+        }
+    }
+
+    for &cell in &data.blocked_cells {
+        if is_in_bounds_puzzle(cell, &board_info) {
+            spawn_disabled_visual_puzzle(&mut commands, cell, &board_info);
+        }
+    }
+
+    commands.spawn((
+        Text2d::new(format!("Solution Score: {}", selected.solution.score)),
+        TextFont {
+            font_size: SCORE_FONT_SIZE,
+            ..default()
+        },
+        Transform::from_translation(score_text_world_pos(&format!("Solution Score: {}", selected.solution.score), SCORE_FONT_SIZE)),
+        ScoreText,
+        Cleanup,
+    ));
+
+    let color_map: HashMap<String, LinearRgba> = [
+        ("RED".to_string(), Color::srgb_u8(216, 46, 63).to_linear()),
+        ("BLUE".to_string(), Color::srgb_u8(53, 129, 216).to_linear()),
+        ("GREEN".to_string(), Color::srgb_u8(40, 204, 45).to_linear()),
+        ("YELLOW".to_string(), Color::srgb_u8(255, 225, 53).to_linear()),
+    ]
+    .into();
+
+    let mut board_cells = HashMap::new();
+    for placement in &selected.solution.placements {
+        if placement.piece >= data.pieces.len() {
+            error!("Invalid piece index {} in solution", placement.piece);
+            continue;
+        }
+        let piece_data = &data.pieces[placement.piece];
+        let color = *color_map.get(&piece_data.color).unwrap_or(&LinearRgba::WHITE);
+        let mut shape = piece_data.shape.clone();
+        for _ in 0..placement.rot % 4 {
+            shape = shape.iter().map(|&v| IVec2::new(v.y, -v.x)).collect();
+        }
+        let world_pos = grid_to_world_puzzle(placement.pos, &board_info);
+        spawn_solution_piece(&mut commands, shape.clone(), color, world_pos, placement.pos);
+        for offset in &shape {
+            board_cells.insert(placement.pos + *offset, color);
+        }
+    }
+
+    commands.insert_resource(PuzzleGameState {
+        board_cells,
+        disabled_cells: data.blocked_cells.iter().copied().collect(),
+        score: selected.solution.score,
+    });
+}
+
+fn spawn_solution_piece(
+    commands: &mut Commands,
+    shape: Vec<IVec2>,
+    color: LinearRgba,
+    pos: Vec3,
+    origin: IVec2,
+) {
+    let entity = commands
+        .spawn((
+            Transform::from_translation(pos),
+            Visibility::default(),
+            Piece {
+                type_id: 0,
+                shape: shape.clone(),
+                original_shape: shape.clone(),
+                color,
+                points: 0,
+                effects: vec![],
+                original_effects: vec![],
+                original_pos: pos,
+                placed_at: Some(origin),
+                board_side: BoardSide::Single,
+            },
+            LockedPiece,
+            Cleanup,
+        ))
+        .id();
+
+    crate::systems::visuals::refresh_piece_visuals(commands, entity, &shape, color);
+}
+
+pub fn reset_solution_view(mut commands: Commands) {
+    commands.remove_resource::<PuzzleBoardInfo>();
+    commands.remove_resource::<PuzzleGameState>();
+    commands.remove_resource::<SelectedSolution>();
+    // Keep CurrentPuzzle - it's needed when returning to the solution list
 }

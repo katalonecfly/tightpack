@@ -7,7 +7,8 @@ mod puzzles;
 
 use bevy::picking::prelude::*;
 use bevy::prelude::*;
-use resources::{DuelState, GameSettings, GameState, PieceLibrary, TempSettings, TooltipState};
+use crate::puzzles::{CurrentPuzzle, PuzzleBoardInfo, PuzzleGameState, SelectedSolution};
+use crate::resources::{GameState, DuelState, TooltipState, PieceLibrary, GameSettings, TempSettings};
 use systems::menu;
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default, States)]
@@ -20,6 +21,8 @@ enum AppState {
     Settings,
     PuzzlesList,
     Puzzle,
+    SolutionList,
+    SolutionView,
 }
 
 #[derive(Component)]
@@ -39,8 +42,10 @@ fn handle_escape(
     if keys.just_pressed(KeyCode::Escape) {
         match *current_state.get() {
             AppState::Puzzle => next_state.set(AppState::PuzzlesList),
+            AppState::SolutionView => next_state.set(AppState::SolutionList),
+            AppState::SolutionList => next_state.set(AppState::PuzzlesList),
             AppState::PuzzlesList => next_state.set(AppState::Menu),
-            AppState::Menu => {} // do nothing
+            AppState::Menu => {}
             _ => next_state.set(AppState::Menu),
         }
     }
@@ -97,7 +102,7 @@ fn main() {
                 systems::ui::update_tooltip,
                 systems::interaction::handle_rotation,
                 systems::scoring::recalculate_score_system,
-                systems::ui::update_contributions_system, // <-- added
+                systems::ui::update_contributions_system,
                 systems::inventory::scroll_inventory,
                 systems::inventory::apply_inventory_scroll,
             )
@@ -125,7 +130,7 @@ fn main() {
                 systems::ui::update_tooltip,
                 systems::interaction::handle_rotation,
                 systems::scoring::recalculate_score_system,
-                systems::ui::update_contributions_system, // <-- added
+                systems::ui::update_contributions_system,
             )
                 .run_if(in_state(AppState::Draft)),
         )
@@ -133,7 +138,7 @@ fn main() {
             OnExit(AppState::Draft),
             (cleanup_system, reset_game_state, reset_tooltip_state),
         )
-        // Duel:
+        // Duel
         .add_systems(OnEnter(AppState::Duel), systems::duel::setup_duel)
         .add_systems(
             Update,
@@ -141,7 +146,7 @@ fn main() {
                 systems::ui::update_duel_score_ui,
                 systems::ui::update_stash_labels,
                 systems::ui::update_duel_effect_previews,
-                systems::ui::update_duel_tooltip, // <-- changed
+                systems::ui::update_duel_tooltip,
                 systems::interaction::handle_rotation,
                 systems::scoring::recalculate_duel_score_system,
                 systems::ui::update_duel_contributions_system,
@@ -153,14 +158,9 @@ fn main() {
             OnExit(AppState::Duel),
             (cleanup_system, reset_duel_state, reset_tooltip_state),
         )
-        // PuzzlesList state
+        // PuzzlesList state (no update system, just observers)
         .add_systems(OnEnter(AppState::PuzzlesList), puzzles::setup_puzzle_list)
-        .add_systems(
-            Update,
-            puzzles::puzzle_list_interaction.run_if(in_state(AppState::PuzzlesList)),
-        )
         .add_systems(OnExit(AppState::PuzzlesList), cleanup_system)
-
         // Puzzle state
         .add_systems(OnEnter(AppState::Puzzle), puzzles::setup_puzzle)
         .add_systems(
@@ -177,7 +177,19 @@ fn main() {
                 .run_if(in_state(AppState::Puzzle)),
         )
         .add_systems(OnExit(AppState::Puzzle), (cleanup_system, puzzles::reset_puzzle_state))
+        // Solution list state
+        .add_systems(OnEnter(AppState::SolutionList), puzzles::setup_solution_list)
+        .add_systems(
+            Update,
+            puzzles::solution_list_interaction.run_if(in_state(AppState::SolutionList)),
+        )
+        .add_systems(OnExit(AppState::SolutionList), cleanup_system)
+        // Solution view state
+        .add_systems(OnEnter(AppState::SolutionView), puzzles::setup_solution_view)
+        .add_systems(OnExit(AppState::SolutionView), (cleanup_system, puzzles::reset_solution_view))
+        // Global escape handler
         .add_systems(Update, handle_escape)
+        // Settings
         .add_systems(
             OnEnter(AppState::Settings),
             systems::settings::setup_settings,
