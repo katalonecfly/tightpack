@@ -111,6 +111,11 @@ pub struct PuzzleButton {
     pub puzzle_id: String,
 }
 
+// Add a new component for the help button
+#[derive(Component)]
+pub struct HelpButton;
+
+// Update setup_puzzle_list
 pub fn setup_puzzle_list(mut commands: Commands) {
     commands.spawn((Camera2d, Cleanup));
 
@@ -129,14 +134,49 @@ pub fn setup_puzzle_list(mut commands: Commands) {
             Cleanup,
         ))
         .with_children(|parent| {
-            parent.spawn((
-                Text::new("Select a Puzzle"),
-                TextFont {
-                    font_size: 48.0,
-                    ..default()
-                },
-                TextColor(Color::WHITE),
-            ));
+            // Header row with title and help button
+            parent
+                .spawn((
+                    Node {
+                        flex_direction: FlexDirection::Row,
+                        align_items: AlignItems::Center,
+                        column_gap: Val::Px(10.0),
+                        ..default()
+                    },
+                ))
+                .with_children(|header| {
+                    header.spawn((
+                        Text::new("Select a Puzzle"),
+                        TextFont {
+                            font_size: 48.0,
+                            ..default()
+                        },
+                        TextColor(Color::WHITE),
+                    ));
+                    header
+                        .spawn((
+                            Button,
+                            Node {
+                                width: Val::Px(30.0),
+                                height: Val::Px(30.0),
+                                justify_content: JustifyContent::Center,
+                                align_items: AlignItems::Center,
+                                ..default()
+                            },
+                            BackgroundColor(Color::srgb(0.3, 0.3, 0.3)),
+                            HelpButton,
+                            Pickable::default(),
+                        ))
+                        .with_child((
+                            Text::new("?"),
+                            TextFont {
+                                font_size: 24.0,
+                                ..default()
+                            },
+                            TextColor(Color::WHITE),
+                        ));
+                });
+
             for id in puzzles {
                 parent
                     .spawn((
@@ -164,6 +204,64 @@ pub fn setup_puzzle_list(mut commands: Commands) {
                     .observe(on_puzzle_right_click);
             }
         });
+}
+
+// System to show tooltip for the help button
+pub fn update_help_tooltip(
+    mut commands: Commands,
+    mut tooltip_state: ResMut<TooltipState>,
+    help_query: Query<&Interaction, With<HelpButton>>,
+    windows: Query<&Window>,
+) {
+    let hovering = help_query.iter().any(|interaction| *interaction == Interaction::Hovered);
+
+    if hovering {
+        if let Ok(window) = windows.single() {
+            // Position tooltip near the top-right corner, close to the "?" button
+            let tooltip_x = window.width() - 230.0;
+            let tooltip_y = 70.0;
+            let text = "Left-click to solve puzzle\nRight-click to view solutions";
+
+            if let Some(entity) = tooltip_state.entity {
+                commands.entity(entity).insert((
+                    Node {
+                        position_type: PositionType::Absolute,
+                        left: Val::Px(tooltip_x),
+                        top: Val::Px(tooltip_y),
+                        max_width: Val::Px(250.0),
+                        padding: UiRect::all(Val::Px(10.0)),
+                        border: UiRect::all(Val::Px(1.0)),
+                        ..default()
+                    },
+                    Text::new(text),
+                ));
+            } else {
+                let entity = commands
+                    .spawn((
+                        Node {
+                            position_type: PositionType::Absolute,
+                            left: Val::Px(tooltip_x),
+                            top: Val::Px(tooltip_y),
+                            max_width: Val::Px(250.0),
+                            padding: UiRect::all(Val::Px(10.0)),
+                            border: UiRect::all(Val::Px(1.0)),
+                            ..default()
+                        },
+                        BackgroundColor(Color::srgba(0.1, 0.1, 0.1, 0.9)),
+                        BorderColor::all(Color::WHITE),
+                        GlobalZIndex(100), // Ensure it's on top
+                        Text::new(text),
+                        Cleanup,
+                    ))
+                    .id();
+                tooltip_state.entity = Some(entity);
+            }
+        }
+    } else {
+        if let Some(entity) = tooltip_state.entity.take() {
+            commands.entity(entity).despawn();
+        }
+    }
 }
 
 fn on_puzzle_left_click(

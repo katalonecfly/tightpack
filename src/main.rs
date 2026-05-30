@@ -175,6 +175,10 @@ fn main() {
             )
                 .run_if(in_state(AppState::Puzzle)),
         )
+        .add_systems(
+            Update,
+            puzzles::update_help_tooltip.run_if(in_state(AppState::PuzzlesList)),
+        )
         .add_systems(OnExit(AppState::Puzzle), (cleanup_system, puzzles::reset_puzzle_state))
         // Solution list state
         .add_systems(OnEnter(AppState::SolutionList), puzzles::setup_solution_list)
