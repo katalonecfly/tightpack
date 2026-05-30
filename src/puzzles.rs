@@ -11,6 +11,7 @@ use bevy::prelude::*;
 use serde::Deserialize;
 use std::collections::{HashMap, HashSet};
 use std::fs;
+use bevy::prelude::Color;
 
 const PUZZLE_STASH_GAP: f32 = 60.0;
 
@@ -44,9 +45,9 @@ pub struct Solution {
 
 #[derive(Deserialize, Clone)]
 pub struct SolutionPlacement {
-    pub piece: usize,      // index into puzzle_data.pieces
+    pub piece: usize,  // index in PuzzleData.pieces
     pub pos: IVec2,
-    pub rot: u32,          // 0,1,2,3
+    pub rot: u32,      // 0,1,2,3 (0=0°, 1=90°, 2=180°, 3=270° clockwise)
 }
 
 // -----------------------------------------------------------------------------
@@ -220,23 +221,98 @@ pub struct SolutionButton {
     pub score: i32,
 }
 
+fn validate_solution(solution: &Solution, puzzle_data: &PuzzleData) -> bool {
+    let board_size = puzzle_data.board_size;
+    let blocked_cells: HashSet<IVec2> = puzzle_data.blocked_cells.iter().copied().collect();
+    let pieces = &puzzle_data.pieces;
+    
+    // Track used counts per piece type
+    let mut used_counts = vec![0; pieces.len()];
+    // Track occupied cells
+    let mut occupied: HashSet<IVec2> = HashSet::new();
+    // Compute actual score
+    let mut actual_score = 0;
+    
+    for placement in &solution.placements {
+        // Check piece index valid
+        if placement.piece >= pieces.len() {
+            return false;
+        }
+        let piece_def = &pieces[placement.piece];
+        
+        // Check count not exceeded
+        used_counts[placement.piece] += 1;
+        if used_counts[placement.piece] > piece_def.count {
+            return false;
+        }
+        
+        // Get shape and apply rotation
+        let mut shape = piece_def.shape.clone();
+        for _ in 0..placement.rot % 4 {
+            shape = shape.iter().map(|&v| IVec2::new(v.y, -v.x)).collect();
+        }
+        
+        // Check each cell of the piece
+        for offset in &shape {
+            let cell = placement.pos + *offset;
+            // Check bounds
+            if cell.x < 0 || cell.x >= board_size.x || cell.y < 0 || cell.y >= board_size.y {
+                return false;
+            }
+            // Check blocked cell
+            if blocked_cells.contains(&cell) {
+                return false;
+            }
+            // Check overlap with other pieces
+            if occupied.contains(&cell) {
+                return false;
+            }
+            occupied.insert(cell);
+        }
+        
+        // Add piece points to actual score
+        actual_score += piece_def.points;
+    }
+    
+    // Verify score matches
+    actual_score == solution.score
+}
+
 pub fn setup_solution_list(mut commands: Commands, puzzle: Res<CurrentPuzzle>) {
     commands.spawn((Camera2d, Cleanup));
 
     let solutions_dir = format!("assets/puzzles/{}/solutions", puzzle.id);
-    let mut solutions = Vec::new();
+    let mut valid_solutions = Vec::new();
+
     if let Ok(entries) = fs::read_dir(&solutions_dir) {
         for entry in entries.flatten() {
             let path = entry.path();
             if path.extension().and_then(|s| s.to_str()) == Some("ron") {
                 if let Ok(content) = fs::read_to_string(&path) {
                     if let Ok(solution) = ron::from_str::<Solution>(&content) {
-                        let name = path.file_stem().unwrap().to_string_lossy().to_string();
-                        solutions.push((name, solution));
+                        if validate_solution(&solution, &puzzle.data) {
+                            let name = path.file_stem().unwrap().to_string_lossy().to_string();
+                            valid_solutions.push((name, solution));
+                        } else {
+                            warn!("Invalid solution: {}", path.display());
+                        }
                     }
                 }
             }
         }
+    }
+
+    if valid_solutions.is_empty() {
+        commands.spawn((
+            Text::new("No valid solutions found for this puzzle."),
+            TextFont {
+                font_size: 32.0,
+                ..default()
+            },
+            TextColor(Color::WHITE),
+            Cleanup,
+        ));
+        return;
     }
 
     commands
@@ -261,8 +337,8 @@ pub fn setup_solution_list(mut commands: Commands, puzzle: Res<CurrentPuzzle>) {
                 },
                 TextColor(Color::WHITE),
             ));
-            for (name, solution) in solutions {
-                let name_clone = name.clone();
+            for (name, solution) in valid_solutions {
+                let display_name = name.clone(); // clone for display
                 parent
                     .spawn((
                         Button,
@@ -275,13 +351,13 @@ pub fn setup_solution_list(mut commands: Commands, puzzle: Res<CurrentPuzzle>) {
                         },
                         BackgroundColor(Color::srgb(0.3, 0.3, 0.3)),
                         SolutionButton {
-                            solution_name: name,
+                            solution_name: name, // move original name
                             score: solution.score,
                         },
                         Pickable::default(),
                     ))
                     .with_child((
-                        Text::new(format!("{} (Score: {})", name_clone, solution.score)),
+                        Text::new(format!("{} (Score: {})", display_name, solution.score)),
                         TextFont {
                             font_size: 24.0,
                             ..default()
@@ -1136,11 +1212,11 @@ pub fn setup_solution_view(mut commands: Commands, selected: Res<SelectedSolutio
 
     let mut board_cells = HashMap::new();
     for placement in &selected.solution.placements {
-        if placement.piece >= data.pieces.len() {
-            error!("Invalid piece index {} in solution", placement.piece);
+        let piece_index = placement.piece;
+        if piece_index >= data.pieces.len() {
             continue;
         }
-        let piece_data = &data.pieces[placement.piece];
+        let piece_data = &data.pieces[piece_index];
         let color = *color_map.get(&piece_data.color).unwrap_or(&LinearRgba::WHITE);
         let mut shape = piece_data.shape.clone();
         for _ in 0..placement.rot % 4 {

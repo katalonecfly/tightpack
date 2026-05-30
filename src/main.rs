@@ -7,7 +7,6 @@ mod puzzles;
 
 use bevy::picking::prelude::*;
 use bevy::prelude::*;
-use crate::puzzles::{CurrentPuzzle, PuzzleBoardInfo, PuzzleGameState, SelectedSolution};
 use crate::resources::{GameState, DuelState, TooltipState, PieceLibrary, GameSettings, TempSettings};
 use systems::menu;
 
