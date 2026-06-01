@@ -650,22 +650,8 @@ pub fn on_puzzle_drag_start(
     let Some(piece_entity) = get_piece_entity(target, &piece_query, &child_of_query) else { return };
     if locked_query.contains(piece_entity) { return; }
 
-    // Unplace any other draft piece that is on board (only for puzzle mode)
-    for (other_entity, mut other_piece, mut other_transform) in param_set.p1().iter_mut() {
-        if other_entity != piece_entity && other_piece.placed_at.is_some() {
-            if let Some(old_pos) = other_piece.placed_at {
-                for offset in &other_piece.shape {
-                    puzzle_state.board_cells.remove(&(old_pos + *offset));
-                }
-                other_piece.placed_at = None;
-            }
-            other_transform.translation = other_piece.original_pos;
-            other_transform.translation.z = other_piece.original_pos.z;
-            other_transform.rotation = Quat::IDENTITY;
-            other_piece.shape = other_piece.original_shape.clone();
-            other_piece.effects = other_piece.original_effects.clone();
-        }
-    }
+    // DO NOT unplace other pieces in puzzle mode (sandbox behavior)
+    // Remove the loop that unplaces other draft pieces
 
     if let Ok((mut transform, mut piece, _)) = param_set.p0().get_mut(piece_entity) {
         commands.entity(piece_entity).insert(Dragging);
