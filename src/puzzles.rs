@@ -8,10 +8,16 @@ use crate::systems::setup::{randomize_piece_properties};
 use crate::AppState;
 use bevy::picking::prelude::*;
 use bevy::prelude::*;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize}; // keep Deserialize, add Serialize
 use std::collections::{HashMap, HashSet};
-use std::fs;
 use bevy::prelude::Color;
+
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
+use std::fs::{self, File};
+use std::io::Write;
+use std::time::{SystemTime, UNIX_EPOCH};
+
 
 const PUZZLE_STASH_GAP: f32 = 60.0;
 
@@ -37,17 +43,17 @@ pub struct PuzzlePieceData {
 }
 
 // Solution structures
-#[derive(Deserialize, Clone)]
+#[derive(Deserialize, Serialize, Clone, Hash)]
 pub struct Solution {
     pub score: i32,
     pub placements: Vec<SolutionPlacement>,
 }
 
-#[derive(Deserialize, Clone)]
+#[derive(Deserialize, Serialize, Clone, Hash)]
 pub struct SolutionPlacement {
-    pub piece: usize,  // index in PuzzleData.pieces
+    pub piece: usize,
     pub pos: IVec2,
-    pub rot: u32,      // 0,1,2,3 (0=0°, 1=90°, 2=180°, 3=270° clockwise)
+    pub rot: u32,
 }
 
 // -----------------------------------------------------------------------------
@@ -79,6 +85,66 @@ pub struct SelectedSolution {
     pub puzzle_id: String,
     pub solution: Solution,
     pub puzzle_data: PuzzleData,
+}
+
+#[derive(Resource)]
+struct LastSavedSolution {
+    hash: u64,
+}
+
+fn get_current_solution(
+    pieces: &Query<&Piece>,
+    puzzle_state: &PuzzleGameState,
+    puzzle_data: &PuzzleData,
+) -> Option<(Solution, u64)> {
+    let mut placements = Vec::new();
+    for piece in pieces.iter() {
+        if let Some(pos) = piece.placed_at {
+            let piece_idx = piece.type_id;
+            if piece_idx >= puzzle_data.pieces.len() {
+                return None;
+            }
+            let original = &puzzle_data.pieces[piece_idx].shape;
+            let current = &piece.shape;
+            let rot = compute_rotation(original, current);
+            placements.push(SolutionPlacement {
+                piece: piece_idx,
+                pos,
+                rot,
+            });
+        }
+    }
+    if placements.is_empty() {
+        return None;
+    }
+    let solution = Solution {
+        score: puzzle_state.score,
+        placements,
+    };
+    let mut hasher = DefaultHasher::new();
+    solution.hash(&mut hasher);
+    let hash = hasher.finish();
+    Some((solution, hash))
+}
+
+fn compute_rotation(original: &[IVec2], current: &[IVec2]) -> u32 {
+    for rot in 0..4 {
+        let mut rotated: Vec<IVec2> = original.iter().map(|&v| {
+            let mut r = v;
+            for _ in 0..rot {
+                r = IVec2::new(r.y, -r.x);
+            }
+            r
+        }).collect();
+        // Sort by (x,y) tuple for comparison
+        rotated.sort_by_key(|v| (v.x, v.y));
+        let mut curr = current.to_vec();
+        curr.sort_by_key(|v| (v.x, v.y));
+        if rotated == curr {
+            return rot;
+        }
+    }
+    0
 }
 
 // Helper: get list of puzzle folders
@@ -1101,6 +1167,32 @@ pub fn setup_puzzle(
         Cleanup,
     ));
 
+    // Save button
+    let board_right = board_info.anchor.x + (board_info.size.x as f32 - 0.5) * board_info.tile_size;
+    let board_top = stash_top_y_puzzle(); // or use BOARD_TOP_Y + TILE_SIZE/2
+    let score_y = board_top + SCORE_Y_OFFSET;
+    let button_pos = Vec3::new(board_right - CONFIRM_BUTTON_WIDTH / 2.0, score_y, 0.0);
+    commands
+        .spawn((
+            Sprite::from_color(
+                Color::srgb(0.3, 0.6, 0.8),
+                Vec2::new(CONFIRM_BUTTON_WIDTH, CONFIRM_BUTTON_HEIGHT),
+            ),
+            Transform::from_translation(button_pos),
+            Pickable::default(),
+            Cleanup,
+        ))
+        .with_child((
+            Text2d::new("Save"),
+            TextFont {
+                font_size: CONFIRM_BUTTON_FONT_SIZE,
+                ..default()
+            },
+            TextColor(Color::WHITE),
+            Transform::default(),
+        ))
+        .observe(on_save_button_click);
+
     let color_map: HashMap<String, LinearRgba> = [
         ("RED".to_string(), Color::srgb_u8(216, 46, 63).to_linear()),
         ("BLUE".to_string(), Color::srgb_u8(53, 129, 216).to_linear()),
@@ -1207,6 +1299,7 @@ pub fn setup_puzzle(
 
     commands.insert_resource(StashContentHeight(total_height));
     commands.insert_resource(InventoryScroll::default());
+    commands.insert_resource(LastSavedSolution { hash: 0 });
 }
 
 fn spawn_disabled_visual_puzzle(commands: &mut Commands, grid: IVec2, board: &PuzzleBoardInfo) {
@@ -1237,6 +1330,7 @@ pub fn reset_puzzle_state(mut commands: Commands) {
     commands.remove_resource::<InventoryScroll>();
     commands.remove_resource::<StashContentHeight>();
     commands.remove_resource::<StashScreenRect>();
+    commands.remove_resource::<LastSavedSolution>();
 }
 
 // -----------------------------------------------------------------------------
@@ -1372,4 +1466,57 @@ pub fn reset_solution_view(mut commands: Commands) {
     commands.remove_resource::<PuzzleGameState>();
     commands.remove_resource::<SelectedSolution>();
     // Keep CurrentPuzzle - it's needed when returning to the solution list
+}
+
+fn on_save_button_click(
+    trigger: On<Pointer<Click>>,
+    pieces: Query<&Piece>,
+    puzzle_state: Res<PuzzleGameState>,
+    puzzle: Res<CurrentPuzzle>,
+    mut last_saved: Option<ResMut<LastSavedSolution>>,
+    mut commands: Commands,
+) {
+    if let Some((solution, hash)) = get_current_solution(&pieces, &puzzle_state, &puzzle.data) {
+        // Check if same as last saved
+        if let Some(last) = last_saved.as_deref() {
+            if last.hash == hash {
+                // Show temporary message "Already saved" (optional)
+                info!("Solution already saved");
+                return;
+            }
+        }
+        // Ensure solutions directory exists
+        let solutions_dir = format!("assets/puzzles/{}/solutions", puzzle.id);
+        if let Err(_) = fs::create_dir_all(&solutions_dir) {
+            error!("Failed to create solutions directory");
+            return;
+        }
+        // Generate filename with timestamp
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_millis();
+        let filename = format!("{}.ron", now);
+        let filepath = format!("{}/{}", solutions_dir, filename);
+        let solution_str = ron::ser::to_string_pretty(&solution, ron::ser::PrettyConfig::default())
+            .expect("Failed to serialize solution");
+        if let Ok(mut file) = File::create(&filepath) {
+            if file.write_all(solution_str.as_bytes()).is_ok() {
+                info!("Solution saved: {}", filepath);
+                // Update last saved hash
+                if let Some(mut last) = last_saved {
+                    last.hash = hash;
+                } else {
+                    commands.insert_resource(LastSavedSolution { hash });
+                }
+                // Optionally show a temporary notification
+            } else {
+                error!("Failed to write solution file");
+            }
+        } else {
+            error!("Failed to create solution file");
+        }
+    } else {
+        info!("No pieces placed to save");
+    }
 }
