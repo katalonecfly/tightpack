@@ -25,8 +25,16 @@ enum SettingKey {
     AIMode,
 }
 
+#[derive(Component)]
+struct ConfirmationModal;
+
+#[derive(Component)]
+struct YesButton;
+
+#[derive(Component)]
+struct NoButton;
+
 pub fn setup_settings(mut commands: Commands, settings: Res<GameSettings>) {
-    // Store temporary settings copy
     commands.insert_resource(TempSettings {
         duel_blocking_enabled: settings.duel_blocking_enabled,
         ai_mode: settings.ai_mode,
@@ -73,6 +81,29 @@ pub fn setup_settings(mut commands: Commands, settings: Res<GameSettings>) {
                 TextColor(Color::WHITE),
             ))
             .observe(apply_settings);
+
+            // Reset button
+            root.spawn((
+                Button,
+                Node {
+                    width: Val::Px(200.0),
+                    height: Val::Px(50.0),
+                    justify_content: JustifyContent::Center,
+                    align_items: AlignItems::Center,
+                    margin: UiRect::top(Val::Px(20.0)),
+                    ..default()
+                },
+                BackgroundColor(Color::srgb(0.8, 0.3, 0.3)),
+            ))
+            .with_child((
+                Text::new("Reset Puzzle Progress"),
+                TextFont {
+                    font_size: 24.0,
+                    ..default()
+                },
+                TextColor(Color::WHITE),
+            ))
+            .observe(open_reset_confirmation);
 
             // Checkbox row (Destroy mode)
             root.spawn((Node {
@@ -197,7 +228,6 @@ fn toggle_checkbox(
     let entity = trigger.event_target();
     if let Ok((mut state, children)) = checkbox_query.get_mut(entity) {
         state.value = !state.value;
-        // Update temporary settings
         if state.setting_key == SettingKey::DuelBlocking {
             temp_settings.duel_blocking_enabled = state.value;
         }
@@ -223,11 +253,7 @@ fn radio_click(
     } else {
         return;
     };
-
-    // Update temporary settings
     temp_settings.ai_mode = selected_value;
-
-    // Update background colors of all radios with the same key
     for (e, _) in all_radios.iter() {
         if let Ok((state, mut bg, _)) = radio_query.get_mut(e) {
             if state.setting_key == SettingKey::AIMode {
@@ -250,4 +276,136 @@ fn apply_settings(
     settings.duel_blocking_enabled = temp_settings.duel_blocking_enabled;
     settings.ai_mode = temp_settings.ai_mode;
     next_state.set(AppState::Menu);
+}
+
+fn open_reset_confirmation(
+    _trigger: On<Pointer<Click>>,
+    mut commands: Commands,
+    windows: Query<&Window>,
+) {
+    if let Ok(window) = windows.single() {
+        let width = window.width();
+        let height = window.height();
+        let dialog_width = 400.0;
+        let dialog_height = 200.0;
+        let left = (width - dialog_width) / 2.0;
+        let top = (height - dialog_height) / 2.0;
+
+        commands
+            .spawn((
+                Node {
+                    position_type: PositionType::Absolute,
+                    left: Val::Px(0.0),
+                    top: Val::Px(0.0),
+                    width: Val::Px(width),
+                    height: Val::Px(height),
+                    ..default()
+                },
+                BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.7)),
+                GlobalZIndex(100),
+                ConfirmationModal,
+                Cleanup,
+            ))
+            .with_children(|parent| {
+                parent
+                    .spawn((
+                        Node {
+                            position_type: PositionType::Absolute,
+                            left: Val::Px(left),
+                            top: Val::Px(top),
+                            width: Val::Px(dialog_width),
+                            height: Val::Px(dialog_height),
+                            flex_direction: FlexDirection::Column,
+                            justify_content: JustifyContent::Center,
+                            align_items: AlignItems::Center,
+                            row_gap: Val::Px(20.0),
+                            padding: UiRect::all(Val::Px(20.0)),
+                            ..default()
+                        },
+                        BackgroundColor(Color::srgb(0.15, 0.15, 0.15)),
+                        BorderColor::all(Color::WHITE),
+                        GlobalZIndex(101),
+                    ))
+                    .with_children(|dialog| {
+                        dialog.spawn((
+                            Text::new("⚠️ Are you sure?\nAll your saved puzzle solutions will be permanently deleted."),
+                            TextFont {
+                                font_size: 20.0,
+                                ..default()
+                            },
+                            TextColor(Color::WHITE),
+                        ));
+                        dialog
+                            .spawn((
+                                Node {
+                                    flex_direction: FlexDirection::Row,
+                                    column_gap: Val::Px(30.0),
+                                    ..default()
+                                },
+                            ))
+                            .with_children(|row| {
+                                row.spawn((
+                                    Button,
+                                    Node {
+                                        width: Val::Px(100.0),
+                                        height: Val::Px(40.0),
+                                        justify_content: JustifyContent::Center,
+                                        align_items: AlignItems::Center,
+                                        ..default()
+                                    },
+                                    BackgroundColor(Color::srgb(0.2, 0.7, 0.2)),
+                                    YesButton,
+                                ))
+                                .with_child((
+                                    Text::new("Yes"),
+                                    TextFont::default(),
+                                    TextColor(Color::WHITE),
+                                ))
+                                .observe(confirm_reset);
+                                row.spawn((
+                                    Button,
+                                    Node {
+                                        width: Val::Px(100.0),
+                                        height: Val::Px(40.0),
+                                        justify_content: JustifyContent::Center,
+                                        align_items: AlignItems::Center,
+                                        ..default()
+                                    },
+                                    BackgroundColor(Color::srgb(0.7, 0.2, 0.2)),
+                                    NoButton,
+                                ))
+                                .with_child((
+                                    Text::new("No"),
+                                    TextFont::default(),
+                                    TextColor(Color::WHITE),
+                                ))
+                                .observe(cancel_reset);
+                            });
+                    });
+            });
+    }
+}
+
+fn confirm_reset(
+    _trigger: On<Pointer<Click>>,
+    mut commands: Commands,
+    modal_query: Query<Entity, With<ConfirmationModal>>,
+) {
+    match crate::puzzles::delete_user_solutions() {
+        Ok(count) => println!("Deleted {} user solution files.", count),
+        Err(e) => eprintln!("Failed to delete solutions: {}", e),
+    }
+    for entity in modal_query.iter() {
+        commands.entity(entity).despawn();
+    }
+}
+
+fn cancel_reset(
+    _trigger: On<Pointer<Click>>,
+    mut commands: Commands,
+    modal_query: Query<Entity, With<ConfirmationModal>>,
+) {
+    for entity in modal_query.iter() {
+        commands.entity(entity).despawn();
+    }
 }

@@ -487,7 +487,7 @@ pub fn setup_solution_list(mut commands: Commands, puzzle: Res<CurrentPuzzle>) {
         ));
         return;
     }
-    
+
     // Sort solutions by score descending, then timestamp ascending
     valid_solutions.sort_by(|a, b| {
         b.1.score.cmp(&a.1.score).then(a.1.timestamp.cmp(&b.1.timestamp))
@@ -1524,4 +1524,34 @@ fn on_save_button_click(
     } else {
         info!("No pieces placed to save");
     }
+}
+
+pub fn delete_user_solutions() -> Result<u32, std::io::Error> {
+    let puzzles_dir = "assets/puzzles";
+    let mut deleted_count = 0;
+    if let Ok(entries) = fs::read_dir(puzzles_dir) {
+        for puzzle_entry in entries.flatten() {
+            let puzzle_path = puzzle_entry.path();
+            if puzzle_path.is_dir() {
+                let solutions_dir = puzzle_path.join("solutions");
+                if solutions_dir.exists() && solutions_dir.is_dir() {
+                    if let Ok(solution_files) = fs::read_dir(&solutions_dir) {
+                        for file_entry in solution_files.flatten() {
+                            let path = file_entry.path();
+                            if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
+                                // Check if filename matches timestamp pattern: YYYY-MM-DD-HH-MM-SS.ron
+                                let pattern = regex::Regex::new(r"^\d{4}-\d{2}-\d{2}-\d{2}-\d{2}-\d{2}\.ron$").unwrap();
+                                if pattern.is_match(name) {
+                                    if fs::remove_file(&path).is_ok() {
+                                        deleted_count += 1;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    Ok(deleted_count)
 }

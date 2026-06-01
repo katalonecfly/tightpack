@@ -4699,6 +4699,7 @@ dependencies = [
  "bevy",
  "chrono",
  "rand 0.10.1",
+ "regex",
  "ron",
  "serde",
 ]

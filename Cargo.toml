@@ -9,3 +9,4 @@ rand = "0.10.1"
 ron = "0.12.1"
 serde = { version = "1.0.228", features = ["derive"] }
 chrono = "0.4"
+regex = "1"
