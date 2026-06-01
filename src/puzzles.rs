@@ -8,6 +8,7 @@ use crate::systems::setup::{randomize_piece_properties};
 use crate::AppState;
 use bevy::picking::prelude::*;
 use bevy::prelude::*;
+use chrono::Local;
 use serde::{Deserialize, Serialize}; // keep Deserialize, add Serialize
 use std::collections::{HashMap, HashSet};
 use bevy::prelude::Color;
@@ -47,6 +48,12 @@ pub struct PuzzlePieceData {
 pub struct Solution {
     pub score: i32,
     pub placements: Vec<SolutionPlacement>,
+    #[serde(default = "default_timestamp")]
+    pub timestamp: String,
+}
+
+fn default_timestamp() -> String {
+    "0000-00-00-00-00-00".to_string()
 }
 
 #[derive(Deserialize, Serialize, Clone, Hash)]
@@ -117,9 +124,11 @@ fn get_current_solution(
     if placements.is_empty() {
         return None;
     }
+    let timestamp = Local::now().format("%Y-%m-%d-%H-%M-%S").to_string();
     let solution = Solution {
         score: puzzle_state.score,
         placements,
+        timestamp,
     };
     let mut hasher = DefaultHasher::new();
     solution.hash(&mut hasher);
@@ -478,6 +487,11 @@ pub fn setup_solution_list(mut commands: Commands, puzzle: Res<CurrentPuzzle>) {
         ));
         return;
     }
+    
+    // Sort solutions by score descending, then timestamp ascending
+    valid_solutions.sort_by(|a, b| {
+        b.1.score.cmp(&a.1.score).then(a.1.timestamp.cmp(&b.1.timestamp))
+    });    
 
     commands
         .spawn((
@@ -507,7 +521,7 @@ pub fn setup_solution_list(mut commands: Commands, puzzle: Res<CurrentPuzzle>) {
                     .spawn((
                         Button,
                         Node {
-                            width: Val::Px(300.0),
+                            width: Val::Px(375.0),  // was 300.0
                             height: Val::Px(50.0),
                             justify_content: JustifyContent::Center,
                             align_items: AlignItems::Center,
@@ -1477,39 +1491,30 @@ fn on_save_button_click(
     mut commands: Commands,
 ) {
     if let Some((solution, hash)) = get_current_solution(&pieces, &puzzle_state, &puzzle.data) {
-        // Check if same as last saved
         if let Some(last) = last_saved.as_deref() {
             if last.hash == hash {
-                // Show temporary message "Already saved" (optional)
                 info!("Solution already saved");
                 return;
             }
         }
-        // Ensure solutions directory exists
         let solutions_dir = format!("assets/puzzles/{}/solutions", puzzle.id);
         if let Err(_) = fs::create_dir_all(&solutions_dir) {
             error!("Failed to create solutions directory");
             return;
         }
-        // Generate filename with timestamp
-        let now = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_millis();
-        let filename = format!("{}.ron", now);
+        let now = Local::now();
+        let filename = now.format("%Y-%m-%d-%H-%M-%S").to_string() + ".ron";
         let filepath = format!("{}/{}", solutions_dir, filename);
         let solution_str = ron::ser::to_string_pretty(&solution, ron::ser::PrettyConfig::default())
             .expect("Failed to serialize solution");
         if let Ok(mut file) = File::create(&filepath) {
             if file.write_all(solution_str.as_bytes()).is_ok() {
                 info!("Solution saved: {}", filepath);
-                // Update last saved hash
                 if let Some(mut last) = last_saved {
                     last.hash = hash;
                 } else {
                     commands.insert_resource(LastSavedSolution { hash });
                 }
-                // Optionally show a temporary notification
             } else {
                 error!("Failed to write solution file");
             }

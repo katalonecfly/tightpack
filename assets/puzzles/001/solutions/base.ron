@@ -1,5 +1,6 @@
 (
     score: 24,
+    timestamp: "0000-00-00-00-00-00",
     placements: [
         (piece: 0, pos: (0,0), rot: 0),
         (piece: 0, pos: (0,1), rot: 0),
