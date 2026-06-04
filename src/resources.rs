@@ -80,6 +80,7 @@ pub enum AIType {
 pub struct GameSettings {
     pub duel_blocking_enabled: bool,
     pub ai_mode: AIType,
+    pub rounds: u32, // 1..99
 }
 
 impl Default for GameSettings {
@@ -87,6 +88,7 @@ impl Default for GameSettings {
         Self {
             duel_blocking_enabled: true,
             ai_mode: AIType::default(),
+            rounds: 20,
         }
     }
 }
@@ -95,4 +97,23 @@ impl Default for GameSettings {
 pub struct TempSettings {
     pub duel_blocking_enabled: bool,
     pub ai_mode: AIType,
+    pub rounds: u32,
+}
+
+#[derive(Resource)]
+pub struct RoundCounter {
+    pub current: u32,
+    pub total: u32,
+}
+
+impl RoundCounter {
+    pub fn new(total: u32) -> Self {
+        Self { current: 0, total }
+    }
+    pub fn is_game_over(&self) -> bool {
+        self.current >= self.total
+    }
+    pub fn advance(&mut self) {
+        self.current += 1;
+    }
 }

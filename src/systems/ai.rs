@@ -82,7 +82,7 @@ pub fn greedy_placement(
                     }
 
                     // 1. Immediate points from this piece itself
-                    let mut immediate_self = piece.points;
+                    let immediate_self = piece.points;
                     let mut potential_self = 0;
 
                     // 2. Interaction with existing pieces

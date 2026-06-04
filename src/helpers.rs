@@ -7,7 +7,7 @@ pub const BOARD_SIZE: IVec2 = IVec2::new(10, 10); // change freely
 
 // Layout constants
 const SINGLE_BOARD_LEFT_X: f32 = -250.0; // center of cell (0,0) for single board
-const DUEL_GAP: f32 = 60.0; // horizontal gap between duel boards
+const DUEL_GAP: f32 = 160.0; // horizontal gap between duel boards
 pub const BOARD_TOP_Y: f32 = 280.0; // world Y of the **top row cell center**
 const STASH_GAP: f32 = 60.0; // gap between board and stash in Sandbox
 

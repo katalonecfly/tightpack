@@ -105,8 +105,9 @@ pub fn update_duel_score_ui(
         for (mut text, mut transform) in &mut opponent_query {
             let score_str = format!("Opponent: {}", duel_state.opponent.score);
             text.0 = score_str.clone();
-            transform.translation =
-                score_text_world_pos_for_side(&score_str, SCORE_FONT_SIZE, BoardSide::Right);
+            let mut pos = score_text_world_pos_for_side(&score_str, SCORE_FONT_SIZE, BoardSide::Right);
+            pos.x += 80.0;  // shift right by 80 pixels
+            transform.translation = pos;
         }
     }
 }
@@ -302,50 +303,42 @@ pub fn update_tooltip(
 pub fn update_contributions_system(
     mut commands: Commands,
     state: Res<GameState>,
-    mut piece_query: Query<
-        (Entity, &Piece, Option<&mut ContributionDisplay>),
-        Without<OpponentPiece>,
-    >,
+    mut piece_query: Query<(Entity, &Piece, &Transform, Option<&mut ContributionDisplay>), Without<OpponentPiece>>,
 ) {
-    for (piece_entity, piece, display_opt) in piece_query.iter_mut() {
+    for (piece_entity, piece, transform, display_opt) in piece_query.iter_mut() {
         if let Some(pos) = piece.placed_at {
             let contribution =
                 crate::systems::scoring::compute_piece_contribution(piece, &state.board_cells);
             let sign = if contribution >= 0 { "+" } else { "" };
             let text_str = format!("{}{}", sign, contribution);
 
-            let first_offset = piece.shape.first().unwrap_or(&IVec2::ZERO);
-            let cell_pos = pos + *first_offset;
-            let world_pos = crate::helpers::grid_to_world_for_side(cell_pos, piece.board_side);
-            let text_pos = world_pos.with_z(5.0);
+            // Compute centroid of the piece's cells
+            let mut centroid_grid = IVec2::ZERO;
+            for offset in &piece.shape {
+                centroid_grid += pos + *offset;
+            }
+            centroid_grid.x = (centroid_grid.x as f32 / piece.shape.len() as f32).round() as i32;
+            centroid_grid.y = (centroid_grid.y as f32 / piece.shape.len() as f32).round() as i32;
+            let world_pos = crate::helpers::grid_to_world_for_side(centroid_grid, piece.board_side).with_z(5.0);
 
             if let Some(display) = display_opt {
                 commands.entity(display.0).despawn();
-                commands
-                    .entity(piece_entity)
-                    .remove::<ContributionDisplay>();
+                commands.entity(piece_entity).remove::<ContributionDisplay>();
             }
             let text_entity = commands
                 .spawn((
                     Text2d::new(text_str),
-                    TextFont {
-                        font_size: 18.0,
-                        ..default()
-                    },
+                    TextFont { font_size: 18.0, ..default() },
                     TextColor(Color::WHITE),
-                    Transform::from_translation(text_pos),
+                    Transform::from_translation(world_pos),
                     Cleanup,
                 ))
                 .id();
-            commands
-                .entity(piece_entity)
-                .insert(ContributionDisplay(text_entity));
+            commands.entity(piece_entity).insert(ContributionDisplay(text_entity));
         } else {
             if let Some(display) = display_opt {
                 commands.entity(display.0).despawn();
-                commands
-                    .entity(piece_entity)
-                    .remove::<ContributionDisplay>();
+                commands.entity(piece_entity).remove::<ContributionDisplay>();
             }
         }
     }
@@ -354,9 +347,9 @@ pub fn update_contributions_system(
 pub fn update_duel_contributions_system(
     mut commands: Commands,
     duel_state: Res<DuelState>,
-    mut piece_query: Query<(Entity, &Piece, Option<&mut ContributionDisplay>)>,
+    mut piece_query: Query<(Entity, &Piece, &Transform, Option<&mut ContributionDisplay>)>,
 ) {
-    for (piece_entity, piece, display_opt) in piece_query.iter_mut() {
+    for (piece_entity, piece, transform, display_opt) in piece_query.iter_mut() {
         let board_cells = match piece.board_side {
             BoardSide::Left => &duel_state.player.board_cells,
             BoardSide::Right => &duel_state.opponent.board_cells,
@@ -368,38 +361,33 @@ pub fn update_duel_contributions_system(
             let sign = if contribution >= 0 { "+" } else { "" };
             let text_str = format!("{}{}", sign, contribution);
 
-            let first_offset = piece.shape.first().unwrap_or(&IVec2::ZERO);
-            let cell_pos = pos + *first_offset;
-            let world_pos = crate::helpers::grid_to_world_for_side(cell_pos, piece.board_side);
-            let text_pos = world_pos.with_z(5.0);
+            // Compute centroid of the piece's cells in grid coordinates, then convert to world
+            let mut centroid_grid = IVec2::ZERO;
+            for offset in &piece.shape {
+                centroid_grid += pos + *offset;
+            }
+            centroid_grid.x = (centroid_grid.x as f32 / piece.shape.len() as f32).round() as i32;
+            centroid_grid.y = (centroid_grid.y as f32 / piece.shape.len() as f32).round() as i32;
+            let world_pos = crate::helpers::grid_to_world_for_side(centroid_grid, piece.board_side).with_z(5.0);
 
             if let Some(display) = display_opt {
                 commands.entity(display.0).despawn();
-                commands
-                    .entity(piece_entity)
-                    .remove::<ContributionDisplay>();
+                commands.entity(piece_entity).remove::<ContributionDisplay>();
             }
             let text_entity = commands
                 .spawn((
                     Text2d::new(text_str),
-                    TextFont {
-                        font_size: 18.0,
-                        ..default()
-                    },
+                    TextFont { font_size: 18.0, ..default() },
                     TextColor(Color::WHITE),
-                    Transform::from_translation(text_pos),
+                    Transform::from_translation(world_pos),
                     Cleanup,
                 ))
                 .id();
-            commands
-                .entity(piece_entity)
-                .insert(ContributionDisplay(text_entity));
+            commands.entity(piece_entity).insert(ContributionDisplay(text_entity));
         } else {
             if let Some(display) = display_opt {
                 commands.entity(display.0).despawn();
-                commands
-                    .entity(piece_entity)
-                    .remove::<ContributionDisplay>();
+                commands.entity(piece_entity).remove::<ContributionDisplay>();
             }
         }
     }

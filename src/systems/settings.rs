@@ -1,8 +1,8 @@
 use crate::AppState;
 use crate::Cleanup;
 use crate::resources::{AIType, GameSettings, TempSettings};
-use bevy::picking::prelude::{Click, Pointer};
 use bevy::prelude::*;
+use bevy::picking::prelude::{Click, Pointer};
 
 #[derive(Component)]
 struct SettingsRoot;
@@ -23,7 +23,17 @@ struct RadioState {
 enum SettingKey {
     DuelBlocking,
     AIMode,
+    Rounds,
 }
+
+#[derive(Component)]
+pub struct RoundsDisplay;
+
+#[derive(Component)]
+pub struct RoundsDecrease;
+
+#[derive(Component)]
+pub struct RoundsIncrease;
 
 #[derive(Component)]
 struct ConfirmationModal;
@@ -38,6 +48,7 @@ pub fn setup_settings(mut commands: Commands, settings: Res<GameSettings>) {
     commands.insert_resource(TempSettings {
         duel_blocking_enabled: settings.duel_blocking_enabled,
         ai_mode: settings.ai_mode,
+        rounds: settings.rounds,
     });
 
     commands.spawn((Camera2d, Cleanup));
@@ -215,6 +226,61 @@ pub fn setup_settings(mut commands: Commands, settings: Res<GameSettings>) {
                     ))
                     .observe(radio_click);
                 });
+
+            // Rounds UI (simple buttons)
+            root.spawn((Node {
+                flex_direction: FlexDirection::Row,
+                align_items: AlignItems::Center,
+                column_gap: Val::Px(15.0),
+                ..default()
+            },))
+                .with_children(|row| {
+                    row.spawn((
+                        Text::new("Rounds (1-99):"),
+                        TextFont::default(),
+                        TextColor(Color::WHITE),
+                    ));
+                    row.spawn((
+                        Button,
+                        Node {
+                            width: Val::Px(40.0),
+                            height: Val::Px(40.0),
+                            justify_content: JustifyContent::Center,
+                            align_items: AlignItems::Center,
+                            ..default()
+                        },
+                        BackgroundColor(Color::srgb(0.3, 0.3, 0.3)),
+                        RoundsDecrease,
+                    ))
+                    .with_child((
+                        Text::new("-"),
+                        TextFont { font_size: 30.0, ..default() },
+                        TextColor(Color::WHITE),
+                    ));
+                    row.spawn((
+                        Text::new(settings.rounds.to_string()),
+                        TextFont { font_size: 28.0, ..default() },
+                        TextColor(Color::WHITE),
+                        RoundsDisplay,
+                    ));
+                    row.spawn((
+                        Button,
+                        Node {
+                            width: Val::Px(40.0),
+                            height: Val::Px(40.0),
+                            justify_content: JustifyContent::Center,
+                            align_items: AlignItems::Center,
+                            ..default()
+                        },
+                        BackgroundColor(Color::srgb(0.3, 0.3, 0.3)),
+                        RoundsIncrease,
+                    ))
+                    .with_child((
+                        Text::new("+"),
+                        TextFont { font_size: 30.0, ..default() },
+                        TextColor(Color::WHITE),
+                    ));
+                });
         });
 }
 
@@ -267,6 +333,36 @@ fn radio_click(
     }
 }
 
+pub fn handle_rounds_buttons(
+    mut temp_settings: ResMut<TempSettings>,
+    mut text_query: Query<&mut Text, With<RoundsDisplay>>,
+    decrease_button: Query<&Interaction, (With<RoundsDecrease>, Changed<Interaction>)>,
+    increase_button: Query<&Interaction, (With<RoundsIncrease>, Changed<Interaction>)>,
+) {
+    if let Ok(interaction) = decrease_button.single() {
+        if *interaction == Interaction::Pressed {
+            let new_val = temp_settings.rounds.saturating_sub(1);
+            if new_val >= 1 {
+                temp_settings.rounds = new_val;
+                if let Ok(mut text) = text_query.single_mut() {
+                    text.0 = new_val.to_string();
+                }
+            }
+        }
+    }
+    if let Ok(interaction) = increase_button.single() {
+        if *interaction == Interaction::Pressed {
+            let new_val = temp_settings.rounds.saturating_add(1);
+            if new_val <= 99 {
+                temp_settings.rounds = new_val;
+                if let Ok(mut text) = text_query.single_mut() {
+                    text.0 = new_val.to_string();
+                }
+            }
+        }
+    }
+}
+
 fn apply_settings(
     _trigger: On<Pointer<Click>>,
     temp_settings: Res<TempSettings>,
@@ -275,6 +371,7 @@ fn apply_settings(
 ) {
     settings.duel_blocking_enabled = temp_settings.duel_blocking_enabled;
     settings.ai_mode = temp_settings.ai_mode;
+    settings.rounds = temp_settings.rounds;
     next_state.set(AppState::Menu);
 }
 

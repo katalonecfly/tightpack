@@ -17,7 +17,6 @@ use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 use std::fs::{self, File};
 use std::io::Write;
-use std::time::{SystemTime, UNIX_EPOCH};
 
 
 const PUZZLE_STASH_GAP: f32 = 60.0;
@@ -1089,21 +1088,16 @@ pub fn update_puzzle_contributions_system(
             let contribution = compute_piece_contribution(piece, &puzzle_state.board_cells);
             let sign = if contribution >= 0 { "+" } else { "" };
             let text_str = format!("{}{}", sign, contribution);
-            // Compute world position at the center of the piece's bounding box
-            let mut min_x = i32::MAX;
-            let mut max_x = i32::MIN;
-            let mut min_y = i32::MAX;
-            let mut max_y = i32::MIN;
+
+            // Compute centroid of piece's cells
+            let mut centroid_grid = IVec2::ZERO;
             for offset in &piece.shape {
-                let cell = pos + *offset;
-                min_x = min_x.min(cell.x);
-                max_x = max_x.max(cell.x);
-                min_y = min_y.min(cell.y);
-                max_y = max_y.max(cell.y);
+                centroid_grid += pos + *offset;
             }
-            let center_x = (min_x + max_x) as f32 / 2.0;
-            let center_y = (min_y + max_y) as f32 / 2.0;
-            let world_pos = grid_to_world_puzzle(IVec2::new(center_x as i32, center_y as i32), &board_info).with_z(5.0);
+            centroid_grid.x = (centroid_grid.x as f32 / piece.shape.len() as f32).round() as i32;
+            centroid_grid.y = (centroid_grid.y as f32 / piece.shape.len() as f32).round() as i32;
+            let world_pos = grid_to_world_puzzle(centroid_grid, &board_info).with_z(5.0);
+
             if let Some(display) = display_opt {
                 commands.entity(display.0).despawn();
                 commands.entity(piece_entity).remove::<ContributionDisplay>();
@@ -1483,11 +1477,11 @@ pub fn reset_solution_view(mut commands: Commands) {
 }
 
 fn on_save_button_click(
-    trigger: On<Pointer<Click>>,
+    _trigger: On<Pointer<Click>>,
     pieces: Query<&Piece>,
     puzzle_state: Res<PuzzleGameState>,
     puzzle: Res<CurrentPuzzle>,
-    mut last_saved: Option<ResMut<LastSavedSolution>>,
+    last_saved: Option<ResMut<LastSavedSolution>>,
     mut commands: Commands,
 ) {
     if let Some((solution, hash)) = get_current_solution(&pieces, &puzzle_state, &puzzle.data) {

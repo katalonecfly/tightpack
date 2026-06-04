@@ -7,7 +7,7 @@ mod puzzles;
 
 use bevy::picking::prelude::*;
 use bevy::prelude::*;
-use crate::resources::{GameState, DuelState, TooltipState, PieceLibrary, GameSettings, TempSettings};
+use crate::resources::{GameState, DuelState, TooltipState, PieceLibrary, GameSettings, TempSettings, RoundCounter};
 use systems::menu;
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default, States)]
@@ -74,9 +74,14 @@ fn reset_temp_settings(mut commands: Commands) {
     commands.remove_resource::<TempSettings>();
 }
 
+fn reset_round_counter(mut commands: Commands) {
+    commands.remove_resource::<RoundCounter>();
+}
+
 fn main() {
     App::new()
-        .add_plugins((DefaultPlugins, MeshPickingPlugin))
+        .add_plugins(DefaultPlugins)
+        .add_plugins(MeshPickingPlugin)
         .init_resource::<GameState>()
         .init_resource::<TooltipState>()
         .init_resource::<PieceLibrary>()
@@ -130,12 +135,13 @@ fn main() {
                 systems::interaction::handle_rotation,
                 systems::scoring::recalculate_score_system,
                 systems::ui::update_contributions_system,
+                systems::draft::update_draft_round_display,
             )
                 .run_if(in_state(AppState::Draft)),
         )
         .add_systems(
             OnExit(AppState::Draft),
-            (cleanup_system, reset_game_state, reset_tooltip_state),
+            (cleanup_system, reset_game_state, reset_tooltip_state, reset_round_counter),
         )
         // Duel
         .add_systems(OnEnter(AppState::Duel), systems::duel::setup_duel)
@@ -150,14 +156,15 @@ fn main() {
                 systems::scoring::recalculate_duel_score_system,
                 systems::ui::update_duel_contributions_system,
                 systems::duel::handle_destroy_input,
+                systems::duel::update_duel_round_display,
             )
                 .run_if(in_state(AppState::Duel)),
         )
         .add_systems(
             OnExit(AppState::Duel),
-            (cleanup_system, reset_duel_state, reset_tooltip_state),
+            (cleanup_system, reset_duel_state, reset_tooltip_state, reset_round_counter),
         )
-        // PuzzlesList state (no update system, just observers)
+        // PuzzlesList state
         .add_systems(OnEnter(AppState::PuzzlesList), puzzles::setup_puzzle_list)
         .add_systems(OnExit(AppState::PuzzlesList), cleanup_system)
         // Puzzle state
@@ -204,6 +211,10 @@ fn main() {
         .add_systems(
             OnEnter(AppState::Settings),
             systems::settings::setup_settings,
+        )
+        .add_systems(
+            Update,
+            systems::settings::handle_rounds_buttons.run_if(in_state(AppState::Settings)),
         )
         .add_systems(OnExit(AppState::Settings), (cleanup_system, reset_temp_settings))
         .run();
