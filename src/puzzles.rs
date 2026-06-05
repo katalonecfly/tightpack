@@ -1549,3 +1549,24 @@ pub fn delete_user_solutions() -> Result<u32, std::io::Error> {
     }
     Ok(deleted_count)
 }
+
+pub fn reset_puzzle_board(
+    mut puzzle_state: ResMut<PuzzleGameState>,
+    mut piece_query: Query<(&mut Piece, &mut Transform)>,
+) {
+    // Clear board cells
+    puzzle_state.board_cells.clear();
+    puzzle_state.score = 0;
+
+    // Reset all pieces to stash positions
+    for (mut piece, mut transform) in piece_query.iter_mut() {
+        if piece.placed_at.is_some() {
+            piece.placed_at = None;
+            transform.translation = piece.original_pos;
+            transform.translation.z = piece.original_pos.z;
+            transform.rotation = Quat::IDENTITY;
+            piece.shape = piece.original_shape.clone();
+            piece.effects = piece.original_effects.clone();
+        }
+    }
+}

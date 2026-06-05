@@ -9,6 +9,8 @@ use bevy::picking::prelude::*;
 use bevy::prelude::*;
 use crate::resources::{GameState, DuelState, TooltipState, PieceLibrary, GameSettings, TempSettings, RoundCounter};
 use systems::menu;
+use crate::components::Piece;
+use crate::puzzles::PuzzleGameState;
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default, States)]
 enum AppState {
@@ -46,6 +48,66 @@ fn handle_escape(
             AppState::PuzzlesList => next_state.set(AppState::Menu),
             AppState::Menu => {}
             _ => next_state.set(AppState::Menu),
+        }
+    }
+}
+
+// Hotkey: Ctrl+N reloads the current game state (full reset)
+fn handle_reset(
+    keys: Res<ButtonInput<KeyCode>>,
+    current_state: Res<State<AppState>>,
+    mut next_state: ResMut<NextState<AppState>>,
+    mut game_state: ResMut<GameState>,
+    mut puzzle_state: Option<ResMut<PuzzleGameState>>,
+    mut duel_state: Option<ResMut<DuelState>>,
+    mut round_counter: Option<ResMut<RoundCounter>>,
+    mut piece_query: Query<(&mut Piece, &mut Transform)>,
+    library: Res<PieceLibrary>,
+    settings: Res<GameSettings>,
+) {
+    if keys.pressed(KeyCode::ControlLeft) && keys.just_pressed(KeyCode::KeyN) {
+        match *current_state.get() {
+            AppState::Sandbox => {
+                // Reset sandbox directly
+                game_state.board_cells.clear();
+                game_state.score = 0;
+                for (mut piece, mut transform) in piece_query.iter_mut() {
+                    if piece.placed_at.is_some() {
+                        piece.placed_at = None;
+                        transform.translation = piece.original_pos;
+                        transform.translation.z = piece.original_pos.z;
+                        transform.rotation = Quat::IDENTITY;
+                        piece.shape = piece.original_shape.clone();
+                        piece.effects = piece.original_effects.clone();
+                    }
+                }
+            }
+            AppState::Draft => {
+                let state = *current_state.get();
+                next_state.set(state);
+            }
+            AppState::Duel => {
+                let state = *current_state.get();
+                next_state.set(state);
+            }
+            AppState::Puzzle => {
+                if let Some(mut puzzle) = puzzle_state {
+                    // Reset puzzle board directly
+                    puzzle.board_cells.clear();
+                    puzzle.score = 0;
+                    for (mut piece, mut transform) in piece_query.iter_mut() {
+                        if piece.placed_at.is_some() {
+                            piece.placed_at = None;
+                            transform.translation = piece.original_pos;
+                            transform.translation.z = piece.original_pos.z;
+                            transform.rotation = Quat::IDENTITY;
+                            piece.shape = piece.original_shape.clone();
+                            piece.effects = piece.original_effects.clone();
+                        }
+                    }
+                }
+            }
+            _ => {}
         }
     }
 }
@@ -109,6 +171,7 @@ fn main() {
                 systems::ui::update_contributions_system,
                 systems::inventory::scroll_inventory,
                 systems::inventory::apply_inventory_scroll,
+                handle_reset,
             )
                 .run_if(in_state(AppState::Sandbox)),
         )
@@ -136,6 +199,7 @@ fn main() {
                 systems::scoring::recalculate_score_system,
                 systems::ui::update_contributions_system,
                 systems::draft::update_draft_round_display,
+                handle_reset,
             )
                 .run_if(in_state(AppState::Draft)),
         )
@@ -157,6 +221,7 @@ fn main() {
                 systems::ui::update_duel_contributions_system,
                 systems::duel::handle_destroy_input,
                 systems::duel::update_duel_round_display,
+                handle_reset,
             )
                 .run_if(in_state(AppState::Duel)),
         )
@@ -179,6 +244,7 @@ fn main() {
                 puzzles::handle_puzzle_rotation,
                 puzzles::recalculate_puzzle_score_system,
                 puzzles::update_puzzle_contributions_system,
+                handle_reset,
             )
                 .run_if(in_state(AppState::Puzzle)),
         )
