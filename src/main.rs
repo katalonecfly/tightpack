@@ -113,8 +113,9 @@ fn handle_reset(
 }
 
 fn load_effects_descriptions(mut commands: Commands) {
-    let file_content =
-        std::fs::read_to_string("assets/effects.ron").expect("Missing assets/effects.ron");
+    //let file_content =
+        //std::fs::read_to_string("assets/effects.ron").expect("Missing assets/effects.ron");
+    let file_content = include_str!("../assets/effects.ron");
     let descs: config::EffectDescriptions =
         ron::from_str(&file_content).expect("Failed to parse effects.ron");
     commands.insert_resource(descs);

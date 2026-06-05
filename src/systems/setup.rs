@@ -17,7 +17,9 @@ const AVAILABLE_COLORS: &[&str] = &["RED", "BLUE", "GREEN"];
 fn spawn_common(commands: &mut Commands) -> Vec<RawPieceConfig> {
     commands.spawn((Camera2d, Cleanup));
 
-    let file_content = std::fs::read_to_string("assets/pieces.ron").expect("Missing pieces.ron");
+    //let file_content = std::fs::read_to_string("assets/pieces.ron").expect("Missing pieces.ron");
+    let file_content = include_str!("../../assets/pieces.ron");
+
     let lib: RawPieceLibrary = ron::from_str(&file_content).expect("Failed to parse RON");
     let pieces = lib.pieces.clone();
     commands.insert_resource(PieceLibrary(lib.pieces));
