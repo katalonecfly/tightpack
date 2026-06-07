@@ -19,6 +19,9 @@ use std::fs::{self, File};
 #[cfg(not(target_arch = "wasm32"))]
 use std::io::Write;
 
+#[cfg(target_arch = "wasm32")]
+use js_sys;
+
 // -----------------------------------------------------------------------------
 // Puzzle data structures
 // -----------------------------------------------------------------------------
@@ -678,11 +681,12 @@ fn get_current_solution(
     if placements.is_empty() {
         return None;
     }
+    
     #[cfg(not(target_arch = "wasm32"))]
     let timestamp = Local::now().format("%Y-%m-%d-%H-%M-%S").to_string();
     #[cfg(target_arch = "wasm32")]
     let timestamp = js_sys::Date::new_0().to_iso_string().as_string().unwrap_or_else(|| "unknown".to_string());
-
+    
     let solution = Solution {
         score: puzzle_state.score,
         placements,
