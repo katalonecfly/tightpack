@@ -533,8 +533,7 @@ fn spawn_disabled_visual(commands: &mut Commands, grid: IVec2, side: BoardSide, 
 }
 
 pub fn setup_duel(mut commands: Commands, settings: Res<GameSettings>) {    commands.spawn((Camera2d, Cleanup));
-    let file_content = std::fs::read_to_string("assets/pieces.ron").expect("Missing pieces.ron");
-    let lib: crate::config::RawPieceLibrary = ron::from_str(&file_content).expect("Failed to parse RON");
+    let file_content = include_str!("../../assets/pieces.ron");    let lib: crate::config::RawPieceLibrary = ron::from_str(&file_content).expect("Failed to parse RON");
     let pieces = lib.pieces.clone();
     commands.insert_resource(PieceLibrary(pieces.clone()));
 
