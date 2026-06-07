@@ -1,25 +1,23 @@
 use crate::Cleanup;
 use crate::components::*;
-use crate::config::{RawPieceConfig, RawGameEffect, PieceType, EffectDescriptions};
+use crate::config::{RawPieceConfig, RawGameEffect, EffectDescriptions};
 use crate::helpers::*;
 use crate::resources::{InventoryScroll, StashContentHeight, StashScreenRect, TooltipState};
 use crate::systems::scoring::{check_condition, linear_rgba_near, compute_piece_contribution};
-use crate::systems::setup::{randomize_piece_properties};
+use crate::systems::setup::randomize_piece_properties;
 use crate::AppState;
 use bevy::picking::prelude::*;
 use bevy::prelude::*;
 use chrono::Local;
-use serde::{Deserialize, Serialize}; // keep Deserialize, add Serialize
+use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
-use bevy::prelude::Color;
-
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
+
+#[cfg(not(target_arch = "wasm32"))]
 use std::fs::{self, File};
+#[cfg(not(target_arch = "wasm32"))]
 use std::io::Write;
-
-
-const PUZZLE_STASH_GAP: f32 = 60.0;
 
 // -----------------------------------------------------------------------------
 // Puzzle data structures
@@ -42,7 +40,6 @@ pub struct PuzzlePieceData {
     pub effects: Vec<RawGameEffect>,
 }
 
-// Solution structures
 #[derive(Deserialize, Serialize, Clone, Hash)]
 pub struct Solution {
     pub score: i32,
@@ -63,121 +60,266 @@ pub struct SolutionPlacement {
 }
 
 // -----------------------------------------------------------------------------
-// Resources
+// Cross‑platform storage
 // -----------------------------------------------------------------------------
 
-#[derive(Resource, Clone, Copy)]
-pub struct PuzzleBoardInfo {
-    pub size: IVec2,
-    pub anchor: Vec3,
-    pub tile_size: f32,
-}
+#[cfg(not(target_arch = "wasm32"))]
+mod storage {
+    use super::*;
 
-#[derive(Resource, Default)]
-pub struct PuzzleGameState {
-    pub board_cells: HashMap<IVec2, LinearRgba>,
-    pub disabled_cells: HashSet<IVec2>,
-    pub score: i32,
-}
-
-#[derive(Resource)]
-pub struct CurrentPuzzle {
-    pub id: String,
-    pub data: PuzzleData,
-}
-
-#[derive(Resource)]
-pub struct SelectedSolution {
-    pub puzzle_id: String,
-    pub solution: Solution,
-    pub puzzle_data: PuzzleData,
-}
-
-#[derive(Resource)]
-struct LastSavedSolution {
-    hash: u64,
-}
-
-fn get_current_solution(
-    pieces: &Query<&Piece>,
-    puzzle_state: &PuzzleGameState,
-    puzzle_data: &PuzzleData,
-) -> Option<(Solution, u64)> {
-    let mut placements = Vec::new();
-    for piece in pieces.iter() {
-        if let Some(pos) = piece.placed_at {
-            let piece_idx = piece.type_id;
-            if piece_idx >= puzzle_data.pieces.len() {
-                return None;
-            }
-            let original = &puzzle_data.pieces[piece_idx].shape;
-            let current = &piece.shape;
-            let rot = compute_rotation(original, current);
-            placements.push(SolutionPlacement {
-                piece: piece_idx,
-                pos,
-                rot,
-            });
+    pub fn get_puzzle_list() -> Vec<String> {
+        let puzzles_dir = "assets/puzzles";
+        if let Ok(entries) = fs::read_dir(puzzles_dir) {
+            entries
+                .filter_map(|entry| {
+                    let path = entry.ok()?.path();
+                    if path.is_dir() {
+                        path.file_name()
+                            .and_then(|n| n.to_str())
+                            .map(|s| s.to_string())
+                    } else {
+                        None
+                    }
+                })
+                .collect()
+        } else {
+            Vec::new()
         }
     }
-    if placements.is_empty() {
-        return None;
-    }
-    let timestamp = Local::now().format("%Y-%m-%d-%H-%M-%S").to_string();
-    let solution = Solution {
-        score: puzzle_state.score,
-        placements,
-        timestamp,
-    };
-    let mut hasher = DefaultHasher::new();
-    solution.hash(&mut hasher);
-    let hash = hasher.finish();
-    Some((solution, hash))
-}
 
-fn compute_rotation(original: &[IVec2], current: &[IVec2]) -> u32 {
-    for rot in 0..4 {
-        let mut rotated: Vec<IVec2> = original.iter().map(|&v| {
-            let mut r = v;
-            for _ in 0..rot {
-                r = IVec2::new(r.y, -r.x);
-            }
-            r
-        }).collect();
-        // Sort by (x,y) tuple for comparison
-        rotated.sort_by_key(|v| (v.x, v.y));
-        let mut curr = current.to_vec();
-        curr.sort_by_key(|v| (v.x, v.y));
-        if rotated == curr {
-            return rot;
-        }
+    pub fn load_puzzle_data(id: &str) -> Option<PuzzleData> {
+        let path = format!("assets/puzzles/{}/data.ron", id);
+        fs::read_to_string(&path).ok().and_then(|content| ron::from_str(&content).ok())
     }
-    0
-}
 
-// Helper: get list of puzzle folders
-pub fn get_puzzle_list() -> Vec<String> {
-    let puzzles_dir = "assets/puzzles";
-    if let Ok(entries) = fs::read_dir(puzzles_dir) {
-        entries
-            .filter_map(|entry| {
-                let path = entry.ok()?.path();
-                if path.is_dir() {
-                    path.file_name()
-                        .and_then(|n| n.to_str())
-                        .map(|s| s.to_string())
-                } else {
-                    None
+    pub fn get_solutions(puzzle_id: &str) -> Vec<(String, Solution)> {
+        let solutions_dir = format!("assets/puzzles/{}/solutions", puzzle_id);
+        let mut solutions = Vec::new();
+        if let Ok(entries) = fs::read_dir(&solutions_dir) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if path.extension().and_then(|s| s.to_str()) == Some("ron") {
+                    if let Ok(content) = fs::read_to_string(&path) {
+                        if let Ok(solution) = ron::from_str::<Solution>(&content) {
+                            if validate_solution(&solution, puzzle_id) {
+                                let name = path.file_stem().unwrap().to_string_lossy().to_string();
+                                solutions.push((name, solution));
+                            }
+                        }
+                    }
                 }
-            })
-            .collect()
-    } else {
-        Vec::new()
+            }
+        }
+        solutions.sort_by(|a, b| b.1.score.cmp(&a.1.score).then(a.0.cmp(&b.0)));
+        solutions
+    }
+
+    pub fn save_solution(puzzle_id: &str, solution: &Solution) -> bool {
+        let solutions_dir = format!("assets/puzzles/{}/solutions", puzzle_id);
+        let _ = fs::create_dir_all(&solutions_dir);
+        let filename = format!("{}.ron", solution.timestamp);
+        let path = format!("{}/{}", solutions_dir, filename);
+        let content = match ron::ser::to_string_pretty(solution, ron::ser::PrettyConfig::default()) {
+            Ok(c) => c,
+            Err(_) => return false,
+        };
+        fs::write(&path, content).is_ok()
+    }
+
+    pub fn delete_all_user_solutions() -> Result<u32, String> {
+        let puzzles_dir = "assets/puzzles";
+        let mut deleted_count = 0;
+        if let Ok(entries) = fs::read_dir(puzzles_dir) {
+            for puzzle_entry in entries.flatten() {
+                let puzzle_path = puzzle_entry.path();
+                if puzzle_path.is_dir() {
+                    let solutions_dir = puzzle_path.join("solutions");
+                    if solutions_dir.exists() && solutions_dir.is_dir() {
+                        if let Ok(solution_files) = fs::read_dir(&solutions_dir) {
+                            for file_entry in solution_files.flatten() {
+                                let path = file_entry.path();
+                                if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
+                                    let pattern = regex::Regex::new(r"^\d{4}-\d{2}-\d{2}-\d{2}-\d{2}-\d{2}\.ron$").unwrap();
+                                    if pattern.is_match(name) && fs::remove_file(&path).is_ok() {
+                                        deleted_count += 1;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        Ok(deleted_count)
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+mod storage {
+    use super::*;
+    use web_sys::{window, Storage};
+
+    fn local_storage() -> Option<Storage> {
+        window()?.local_storage().ok()?
+    }
+
+    pub fn get_puzzle_list() -> Vec<String> {
+        vec![
+            "001".to_string(),
+            "002".to_string(),
+        ]
+    }
+
+    pub fn load_puzzle_data(id: &str) -> Option<PuzzleData> {
+        match id {
+            "001" => {
+                let content = include_str!("../assets/puzzles/001/data.ron");
+                ron::from_str(content).ok()
+            }
+            "002" => {
+                let content = include_str!("../assets/puzzles/002/data.ron");
+                ron::from_str(content).ok()
+            }
+            _ => None,
+        }
+    }
+
+    fn storage_key(puzzle_id: &str, timestamp: &str) -> String {
+        format!("puzzle_{}_solution_{}", puzzle_id, timestamp)
+    }
+
+    pub fn get_solutions(puzzle_id: &str) -> Vec<(String, Solution)> {
+        let mut solutions = Vec::new();
+
+        // Add base solution (embedded) if it exists
+        let base_solution_opt = match puzzle_id {
+            "001" => {
+                let content = include_str!("../assets/puzzles/001/solutions/base.ron");
+                ron::from_str(content).ok()
+            }
+            "002" => {
+                let content = include_str!("../assets/puzzles/002/solutions/base.ron");
+                ron::from_str(content).ok()
+            }
+            _ => None,
+        };
+        if let Some(solution) = base_solution_opt {
+            if validate_solution(&solution, puzzle_id) {
+                solutions.push(("base".to_string(), solution));
+            }
+        }
+
+        // Load user solutions from localStorage
+        let storage = match local_storage() {
+            Some(s) => s,
+            None => return solutions,
+        };
+        let prefix = format!("puzzle_{}_solution_", puzzle_id);
+        let len = storage.length().unwrap_or(0);
+        for i in 0..len {
+            if let Ok(Some(key)) = storage.key(i) {
+                if key.starts_with(&prefix) {
+                    if let Ok(Some(value)) = storage.get_item(&key) {
+                        if let Ok(solution) = ron::from_str::<Solution>(&value) {
+                            if validate_solution(&solution, puzzle_id) {
+                                let timestamp = key.trim_start_matches(&prefix).to_string();
+                                // Avoid adding duplicate base solution if saved by user (optional)
+                                if timestamp != "base" {
+                                    solutions.push((timestamp, solution));
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        // Sort by score descending, then name ascending
+        solutions.sort_by(|a, b| b.1.score.cmp(&a.1.score).then(a.0.cmp(&b.0)));
+        solutions
+    }
+
+    pub fn save_solution(puzzle_id: &str, solution: &Solution) -> bool {
+        let storage = match local_storage() {
+            Some(s) => s,
+            None => return false,
+        };
+        let key = storage_key(puzzle_id, &solution.timestamp);
+        let value = match ron::ser::to_string_pretty(solution, ron::ser::PrettyConfig::default()) {
+            Ok(v) => v,
+            Err(_) => return false,
+        };
+        storage.set_item(&key, &value).is_ok()
+    }
+
+    pub fn delete_all_user_solutions() -> Result<u32, String> {
+        let storage = match local_storage() {
+            Some(s) => s,
+            None => return Ok(0),
+        };
+        let mut deleted = 0;
+        let len = storage.length().map_err(|_| "failed to get length".to_string())?;
+        let mut to_remove = Vec::new();
+        for i in 0..len {
+            if let Ok(Some(key)) = storage.key(i) {
+                if key.starts_with("puzzle_") && key.contains("_solution_") {
+                    to_remove.push(key);
+                }
+            }
+        }
+        for key in to_remove {
+            if storage.remove_item(&key).is_ok() {
+                deleted += 1;
+            }
+        }
+        Ok(deleted)
     }
 }
 
 // -----------------------------------------------------------------------------
-// Puzzle list UI (with right-click to view solutions)
+// Shared validation
+// -----------------------------------------------------------------------------
+
+fn validate_solution(solution: &Solution, puzzle_id: &str) -> bool {
+    let puzzle_data = match storage::load_puzzle_data(puzzle_id) {
+        Some(d) => d,
+        None => return false,
+    };
+    let board_size = puzzle_data.board_size;
+    let blocked_cells: HashSet<IVec2> = puzzle_data.blocked_cells.iter().copied().collect();
+    let pieces = &puzzle_data.pieces;
+    let mut used_counts = vec![0; pieces.len()];
+    let mut occupied: HashSet<IVec2> = HashSet::new();
+    let mut actual_score = 0;
+    for placement in &solution.placements {
+        if placement.piece >= pieces.len() {
+            return false;
+        }
+        let piece_def = &pieces[placement.piece];
+        used_counts[placement.piece] += 1;
+        if used_counts[placement.piece] > piece_def.count {
+            return false;
+        }
+        let mut shape = piece_def.shape.clone();
+        for _ in 0..placement.rot % 4 {
+            shape = shape.iter().map(|&v| IVec2::new(v.y, -v.x)).collect();
+        }
+        for offset in &shape {
+            let cell = placement.pos + *offset;
+            if cell.x < 0 || cell.x >= board_size.x || cell.y < 0 || cell.y >= board_size.y {
+                return false;
+            }
+            if blocked_cells.contains(&cell) || occupied.contains(&cell) {
+                return false;
+            }
+            occupied.insert(cell);
+        }
+        actual_score += piece_def.points;
+    }
+    actual_score == solution.score
+}
+
+// -----------------------------------------------------------------------------
+// Puzzle list UI
 // -----------------------------------------------------------------------------
 
 #[derive(Component)]
@@ -185,15 +327,13 @@ pub struct PuzzleButton {
     pub puzzle_id: String,
 }
 
-// Add a new component for the help button
 #[derive(Component)]
 pub struct HelpButton;
 
-// Update setup_puzzle_list
 pub fn setup_puzzle_list(mut commands: Commands) {
     commands.spawn((Camera2d, Cleanup));
 
-    let puzzles = get_puzzle_list();
+    let puzzles = storage::get_puzzle_list();
     commands
         .spawn((
             Node {
@@ -208,7 +348,6 @@ pub fn setup_puzzle_list(mut commands: Commands) {
             Cleanup,
         ))
         .with_children(|parent| {
-            // Header row with title and help button
             parent
                 .spawn((
                     Node {
@@ -280,7 +419,6 @@ pub fn setup_puzzle_list(mut commands: Commands) {
         });
 }
 
-// System to show tooltip for the help button
 pub fn update_help_tooltip(
     mut commands: Commands,
     mut tooltip_state: ResMut<TooltipState>,
@@ -288,14 +426,11 @@ pub fn update_help_tooltip(
     windows: Query<&Window>,
 ) {
     let hovering = help_query.iter().any(|interaction| *interaction == Interaction::Hovered);
-
     if hovering {
         if let Ok(window) = windows.single() {
-            // Position tooltip near the top-right corner, close to the "?" button
             let tooltip_x = window.width() - 230.0;
             let tooltip_y = 70.0;
             let text = "Left-click to solve puzzle\nRight-click to view solutions";
-
             if let Some(entity) = tooltip_state.entity {
                 commands.entity(entity).insert((
                     Node {
@@ -323,7 +458,7 @@ pub fn update_help_tooltip(
                         },
                         BackgroundColor(Color::srgba(0.1, 0.1, 0.1, 0.9)),
                         BorderColor::all(Color::WHITE),
-                        GlobalZIndex(100), // Ensure it's on top
+                        GlobalZIndex(100),
                         Text::new(text),
                         Cleanup,
                     ))
@@ -331,10 +466,8 @@ pub fn update_help_tooltip(
                 tooltip_state.entity = Some(entity);
             }
         }
-    } else {
-        if let Some(entity) = tooltip_state.entity.take() {
-            commands.entity(entity).despawn();
-        }
+    } else if let Some(entity) = tooltip_state.entity.take() {
+        commands.entity(entity).despawn();
     }
 }
 
@@ -346,15 +479,12 @@ fn on_puzzle_left_click(
 ) {
     if trigger.event.button == PointerButton::Primary {
         if let Ok(button) = button_query.get(trigger.event_target()) {
-            let puzzle_path = format!("assets/puzzles/{}/data.ron", button.puzzle_id);
-            if let Ok(content) = fs::read_to_string(&puzzle_path) {
-                if let Ok(data) = ron::from_str::<PuzzleData>(&content) {
-                    commands.insert_resource(CurrentPuzzle {
-                        id: button.puzzle_id.clone(),
-                        data,
-                    });
-                    next_state.set(AppState::Puzzle);
-                }
+            if let Some(data) = storage::load_puzzle_data(&button.puzzle_id) {
+                commands.insert_resource(CurrentPuzzle {
+                    id: button.puzzle_id.clone(),
+                    data,
+                });
+                next_state.set(AppState::Puzzle);
             }
         }
     }
@@ -368,20 +498,16 @@ fn on_puzzle_right_click(
 ) {
     if trigger.event.button == PointerButton::Secondary {
         if let Ok(button) = button_query.get(trigger.event_target()) {
-            let puzzle_path = format!("assets/puzzles/{}/data.ron", button.puzzle_id);
-            if let Ok(content) = fs::read_to_string(&puzzle_path) {
-                if let Ok(data) = ron::from_str::<PuzzleData>(&content) {
-                    commands.insert_resource(CurrentPuzzle {
-                        id: button.puzzle_id.clone(),
-                        data,
-                    });
-                    next_state.set(AppState::SolutionList);
-                }
+            if let Some(data) = storage::load_puzzle_data(&button.puzzle_id) {
+                commands.insert_resource(CurrentPuzzle {
+                    id: button.puzzle_id.clone(),
+                    data,
+                });
+                next_state.set(AppState::SolutionList);
             }
         }
     }
 }
-
 
 // -----------------------------------------------------------------------------
 // Solution list screen
@@ -393,86 +519,10 @@ pub struct SolutionButton {
     pub score: i32,
 }
 
-fn validate_solution(solution: &Solution, puzzle_data: &PuzzleData) -> bool {
-    let board_size = puzzle_data.board_size;
-    let blocked_cells: HashSet<IVec2> = puzzle_data.blocked_cells.iter().copied().collect();
-    let pieces = &puzzle_data.pieces;
-    
-    // Track used counts per piece type
-    let mut used_counts = vec![0; pieces.len()];
-    // Track occupied cells
-    let mut occupied: HashSet<IVec2> = HashSet::new();
-    // Compute actual score
-    let mut actual_score = 0;
-    
-    for placement in &solution.placements {
-        // Check piece index valid
-        if placement.piece >= pieces.len() {
-            return false;
-        }
-        let piece_def = &pieces[placement.piece];
-        
-        // Check count not exceeded
-        used_counts[placement.piece] += 1;
-        if used_counts[placement.piece] > piece_def.count {
-            return false;
-        }
-        
-        // Get shape and apply rotation
-        let mut shape = piece_def.shape.clone();
-        for _ in 0..placement.rot % 4 {
-            shape = shape.iter().map(|&v| IVec2::new(v.y, -v.x)).collect();
-        }
-        
-        // Check each cell of the piece
-        for offset in &shape {
-            let cell = placement.pos + *offset;
-            // Check bounds
-            if cell.x < 0 || cell.x >= board_size.x || cell.y < 0 || cell.y >= board_size.y {
-                return false;
-            }
-            // Check blocked cell
-            if blocked_cells.contains(&cell) {
-                return false;
-            }
-            // Check overlap with other pieces
-            if occupied.contains(&cell) {
-                return false;
-            }
-            occupied.insert(cell);
-        }
-        
-        // Add piece points to actual score
-        actual_score += piece_def.points;
-    }
-    
-    // Verify score matches
-    actual_score == solution.score
-}
-
 pub fn setup_solution_list(mut commands: Commands, puzzle: Res<CurrentPuzzle>) {
     commands.spawn((Camera2d, Cleanup));
 
-    let solutions_dir = format!("assets/puzzles/{}/solutions", puzzle.id);
-    let mut valid_solutions = Vec::new();
-
-    if let Ok(entries) = fs::read_dir(&solutions_dir) {
-        for entry in entries.flatten() {
-            let path = entry.path();
-            if path.extension().and_then(|s| s.to_str()) == Some("ron") {
-                if let Ok(content) = fs::read_to_string(&path) {
-                    if let Ok(solution) = ron::from_str::<Solution>(&content) {
-                        if validate_solution(&solution, &puzzle.data) {
-                            let name = path.file_stem().unwrap().to_string_lossy().to_string();
-                            valid_solutions.push((name, solution));
-                        } else {
-                            warn!("Invalid solution: {}", path.display());
-                        }
-                    }
-                }
-            }
-        }
-    }
+    let mut valid_solutions = storage::get_solutions(&puzzle.id);
 
     if valid_solutions.is_empty() {
         commands.spawn((
@@ -486,11 +536,6 @@ pub fn setup_solution_list(mut commands: Commands, puzzle: Res<CurrentPuzzle>) {
         ));
         return;
     }
-
-    // Sort solutions by score descending, then timestamp ascending
-    valid_solutions.sort_by(|a, b| {
-        b.1.score.cmp(&a.1.score).then(a.1.timestamp.cmp(&b.1.timestamp))
-    });    
 
     commands
         .spawn((
@@ -515,12 +560,12 @@ pub fn setup_solution_list(mut commands: Commands, puzzle: Res<CurrentPuzzle>) {
                 TextColor(Color::WHITE),
             ));
             for (name, solution) in valid_solutions {
-                let display_name = name.clone(); // clone for display
+                let display_name = name.clone();
                 parent
                     .spawn((
                         Button,
                         Node {
-                            width: Val::Px(375.0),  // was 300.0
+                            width: Val::Px(375.0),
                             height: Val::Px(50.0),
                             justify_content: JustifyContent::Center,
                             align_items: AlignItems::Center,
@@ -528,7 +573,7 @@ pub fn setup_solution_list(mut commands: Commands, puzzle: Res<CurrentPuzzle>) {
                         },
                         BackgroundColor(Color::srgb(0.3, 0.3, 0.3)),
                         SolutionButton {
-                            solution_name: name, // move original name
+                            solution_name: name,
                             score: solution.score,
                         },
                         Pickable::default(),
@@ -554,15 +599,16 @@ pub fn solution_list_interaction(
     let Some(puzzle) = puzzle else { return };
     for (interaction, button) in &query {
         if *interaction == Interaction::Pressed {
-            let solution_path = format!("assets/puzzles/{}/solutions/{}.ron", puzzle.id, button.solution_name);
-            if let Ok(content) = fs::read_to_string(&solution_path) {
-                if let Ok(solution) = ron::from_str::<Solution>(&content) {
+            let solutions = storage::get_solutions(&puzzle.id);
+            for (name, solution) in solutions {
+                if name == button.solution_name {
                     commands.insert_resource(SelectedSolution {
                         puzzle_id: puzzle.id.clone(),
                         solution,
                         puzzle_data: puzzle.data.clone(),
                     });
                     next_state.set(AppState::SolutionView);
+                    break;
                 }
             }
         }
@@ -570,8 +616,102 @@ pub fn solution_list_interaction(
 }
 
 // -----------------------------------------------------------------------------
-// Puzzle gameplay (sandbox-like)
+// Puzzle gameplay (shared)
 // -----------------------------------------------------------------------------
+
+const PUZZLE_STASH_GAP: f32 = 60.0;
+
+#[derive(Resource, Clone, Copy)]
+pub struct PuzzleBoardInfo {
+    pub size: IVec2,
+    pub anchor: Vec3,
+    pub tile_size: f32,
+}
+
+#[derive(Resource, Default)]
+pub struct PuzzleGameState {
+    pub board_cells: HashMap<IVec2, LinearRgba>,
+    pub disabled_cells: HashSet<IVec2>,
+    pub score: i32,
+}
+
+#[derive(Resource)]
+pub struct CurrentPuzzle {
+    pub id: String,
+    pub data: PuzzleData,
+}
+
+#[derive(Resource)]
+pub struct SelectedSolution {
+    pub puzzle_id: String,
+    pub solution: Solution,
+    pub puzzle_data: PuzzleData,
+}
+
+#[derive(Resource)]
+struct LastSavedSolution {
+    hash: u64,
+}
+
+fn get_current_solution(
+    pieces: &Query<&Piece>,
+    puzzle_state: &PuzzleGameState,
+    puzzle_data: &PuzzleData,
+) -> Option<(Solution, u64)> {
+    let mut placements = Vec::new();
+    for piece in pieces.iter() {
+        if let Some(pos) = piece.placed_at {
+            let piece_idx = piece.type_id;
+            if piece_idx >= puzzle_data.pieces.len() {
+                return None;
+            }
+            let original = &puzzle_data.pieces[piece_idx].shape;
+            let current = &piece.shape;
+            let rot = compute_rotation(original, current);
+            placements.push(SolutionPlacement {
+                piece: piece_idx,
+                pos,
+                rot,
+            });
+        }
+    }
+    if placements.is_empty() {
+        return None;
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    let timestamp = Local::now().format("%Y-%m-%d-%H-%M-%S").to_string();
+    #[cfg(target_arch = "wasm32")]
+    let timestamp = js_sys::Date::new_0().to_iso_string().as_string().unwrap_or_else(|| "unknown".to_string());
+
+    let solution = Solution {
+        score: puzzle_state.score,
+        placements,
+        timestamp,
+    };
+    let mut hasher = DefaultHasher::new();
+    solution.hash(&mut hasher);
+    let hash = hasher.finish();
+    Some((solution, hash))
+}
+
+fn compute_rotation(original: &[IVec2], current: &[IVec2]) -> u32 {
+    for rot in 0..4 {
+        let mut rotated: Vec<IVec2> = original.iter().map(|&v| {
+            let mut r = v;
+            for _ in 0..rot {
+                r = IVec2::new(r.y, -r.x);
+            }
+            r
+        }).collect();
+        rotated.sort_by_key(|v| (v.x, v.y));
+        let mut curr = current.to_vec();
+        curr.sort_by_key(|v| (v.x, v.y));
+        if rotated == curr {
+            return rot;
+        }
+    }
+    0
+}
 
 fn board_anchor_for_size(size: IVec2) -> Vec3 {
     let board_width = size.x as f32 * TILE_SIZE;
@@ -614,7 +754,6 @@ fn stash_top_y_puzzle() -> f32 {
     BOARD_TOP_Y + TILE_SIZE / 2.0
 }
 
-// Custom spawn for puzzle pieces (interactive)
 fn spawn_puzzle_piece(
     commands: &mut Commands,
     type_id: usize,
@@ -698,7 +837,6 @@ fn spawn_puzzle_piece(
     entity
 }
 
-// Drag & drop for puzzles (sandbox style - no unplacing other pieces)
 fn get_piece_entity(
     target: Entity,
     piece_query: &Query<(), With<Piece>>,
@@ -728,9 +866,6 @@ pub fn on_puzzle_drag_start(
     let target = on.event_target();
     let Some(piece_entity) = get_piece_entity(target, &piece_query, &child_of_query) else { return };
     if locked_query.contains(piece_entity) { return; }
-
-    // DO NOT unplace other pieces in puzzle mode (sandbox behavior)
-    // Remove the loop that unplaces other draft pieces
 
     if let Ok((mut transform, mut piece, _)) = param_set.p0().get_mut(piece_entity) {
         commands.entity(piece_entity).insert(Dragging);
@@ -824,7 +959,6 @@ pub fn on_puzzle_drag_end(
             for offset in &piece.shape {
                 puzzle_state.board_cells.insert(grid_pos + *offset, piece.color);
             }
-            // Do NOT unplace other pieces (sandbox behavior)
         } else {
             transform.translation = piece.original_pos;
             transform.translation.z = piece.original_pos.z;
@@ -895,10 +1029,6 @@ pub fn handle_puzzle_rotation(
     }
 }
 
-// -----------------------------------------------------------------------------
-// UI systems for puzzle gameplay
-// -----------------------------------------------------------------------------
-
 pub fn update_puzzle_score_ui(
     puzzle_state: Res<PuzzleGameState>,
     mut query: Query<(&mut Text2d, &mut Transform), With<ScoreText>>,
@@ -922,39 +1052,6 @@ pub fn update_puzzle_stash_labels(
             .filter(|p| p.type_id == label.0 && p.placed_at.is_none() && p.board_side == BoardSide::Single)
             .count();
         text.0 = format!("x{}", count);
-    }
-}
-
-pub fn update_puzzle_effect_previews(
-    puzzle_state: Res<PuzzleGameState>,
-    piece_query: Query<(&Piece, &Children, Has<Hovered>, Has<Dragging>)>,
-    mut preview_query: Query<(&mut Visibility, &mut Sprite, &EffectPreview)>,
-) {
-    for (piece, children, is_hovered, is_dragging) in &piece_query {
-        let show = is_hovered || is_dragging;
-        for &child in children {
-            if let Ok((mut visibility, mut sprite, preview)) = preview_query.get_mut(child) {
-                if show {
-                    *visibility = Visibility::Visible;
-                    let mut active = false;
-                    if let Some(grid_pos) = piece.placed_at {
-                        let target_cell = grid_pos + preview.offset;
-                        if crate::helpers::is_in_bounds(target_cell) {
-                            active = check_condition(&preview.condition, Some(target_cell), &puzzle_state.board_cells);
-                        }
-                    }
-                    if active {
-                        sprite.color = Color::srgb(1.0, 1.0, 0.0).into();
-                        sprite.custom_size = Some(Vec2::splat(12.0));
-                    } else {
-                        sprite.color = Color::srgba(1.0, 1.0, 0.0, 0.4).into();
-                        sprite.custom_size = Some(Vec2::splat(8.0));
-                    }
-                } else {
-                    *visibility = Visibility::Hidden;
-                }
-            }
-        }
     }
 }
 
@@ -1088,16 +1185,20 @@ pub fn update_puzzle_contributions_system(
             let contribution = compute_piece_contribution(piece, &puzzle_state.board_cells);
             let sign = if contribution >= 0 { "+" } else { "" };
             let text_str = format!("{}{}", sign, contribution);
-
-            // Compute centroid of piece's cells
-            let mut centroid_grid = IVec2::ZERO;
+            let mut min_x = i32::MAX;
+            let mut max_x = i32::MIN;
+            let mut min_y = i32::MAX;
+            let mut max_y = i32::MIN;
             for offset in &piece.shape {
-                centroid_grid += pos + *offset;
+                let cell = pos + *offset;
+                min_x = min_x.min(cell.x);
+                max_x = max_x.max(cell.x);
+                min_y = min_y.min(cell.y);
+                max_y = max_y.max(cell.y);
             }
-            centroid_grid.x = (centroid_grid.x as f32 / piece.shape.len() as f32).round() as i32;
-            centroid_grid.y = (centroid_grid.y as f32 / piece.shape.len() as f32).round() as i32;
-            let world_pos = grid_to_world_puzzle(centroid_grid, &board_info).with_z(5.0);
-
+            let center_x = (min_x + max_x) as f32 / 2.0;
+            let center_y = (min_y + max_y) as f32 / 2.0;
+            let world_pos = grid_to_world_puzzle(IVec2::new(center_x as i32, center_y as i32), &board_info).with_z(5.0);
             if let Some(display) = display_opt {
                 commands.entity(display.0).despawn();
                 commands.entity(piece_entity).remove::<ContributionDisplay>();
@@ -1119,7 +1220,6 @@ pub fn update_puzzle_contributions_system(
     }
 }
 
-// Setup puzzle gameplay
 pub fn setup_puzzle(
     mut commands: Commands,
     puzzle: Res<CurrentPuzzle>,
@@ -1175,9 +1275,8 @@ pub fn setup_puzzle(
         Cleanup,
     ));
 
-    // Save button
     let board_right = board_info.anchor.x + (board_info.size.x as f32 - 0.5) * board_info.tile_size;
-    let board_top = stash_top_y_puzzle(); // or use BOARD_TOP_Y + TILE_SIZE/2
+    let board_top = stash_top_y_puzzle();
     let score_y = board_top + SCORE_Y_OFFSET;
     let button_pos = Vec3::new(board_right - CONFIRM_BUTTON_WIDTH / 2.0, score_y, 0.0);
     commands
@@ -1258,7 +1357,7 @@ pub fn setup_puzzle(
             color: piece_data.color.clone(),
             points: piece_data.points,
             effects: piece_data.effects.clone(),
-            piece_type: PieceType::Static,
+            piece_type: crate::config::PieceType::Static,
         };
         let (color, effects) = randomize_piece_properties(&raw, &color_map);
         let min_x = piece_data.shape.iter().map(|o| o.x).min().unwrap_or(0);
@@ -1330,7 +1429,6 @@ fn spawn_disabled_visual_puzzle(commands: &mut Commands, grid: IVec2, board: &Pu
     ));
 }
 
-// Reset puzzle state
 pub fn reset_puzzle_state(mut commands: Commands) {
     commands.remove_resource::<PuzzleGameState>();
     commands.remove_resource::<PuzzleBoardInfo>();
@@ -1340,10 +1438,6 @@ pub fn reset_puzzle_state(mut commands: Commands) {
     commands.remove_resource::<StashScreenRect>();
     commands.remove_resource::<LastSavedSolution>();
 }
-
-// -----------------------------------------------------------------------------
-// Solution view (read-only)
-// -----------------------------------------------------------------------------
 
 pub fn setup_solution_view(mut commands: Commands, selected: Res<SelectedSolution>) {
     let data = &selected.puzzle_data;
@@ -1409,8 +1503,7 @@ pub fn setup_solution_view(mut commands: Commands, selected: Res<SelectedSolutio
             shape = shape.iter().map(|&v| IVec2::new(v.y, -v.x)).collect();
         }
         let world_pos = grid_to_world_puzzle(placement.pos, &board_info);
-        // Convert effects (if any) - for now empty
-        let effects = vec![]; // piece_data.effects could be converted if needed
+        let effects = vec![];
         spawn_solution_piece(
             &mut commands,
             shape.clone(),
@@ -1473,15 +1566,14 @@ pub fn reset_solution_view(mut commands: Commands) {
     commands.remove_resource::<PuzzleBoardInfo>();
     commands.remove_resource::<PuzzleGameState>();
     commands.remove_resource::<SelectedSolution>();
-    // Keep CurrentPuzzle - it's needed when returning to the solution list
 }
 
-fn on_save_button_click(
+pub fn on_save_button_click(
     _trigger: On<Pointer<Click>>,
     pieces: Query<&Piece>,
     puzzle_state: Res<PuzzleGameState>,
     puzzle: Res<CurrentPuzzle>,
-    last_saved: Option<ResMut<LastSavedSolution>>,
+    mut last_saved: Option<ResMut<LastSavedSolution>>,
     mut commands: Commands,
 ) {
     if let Some((solution, hash)) = get_current_solution(&pieces, &puzzle_state, &puzzle.data) {
@@ -1491,82 +1583,54 @@ fn on_save_button_click(
                 return;
             }
         }
-        let solutions_dir = format!("assets/puzzles/{}/solutions", puzzle.id);
-        if let Err(_) = fs::create_dir_all(&solutions_dir) {
-            error!("Failed to create solutions directory");
-            return;
-        }
-        let now = Local::now();
-        let filename = now.format("%Y-%m-%d-%H-%M-%S").to_string() + ".ron";
-        let filepath = format!("{}/{}", solutions_dir, filename);
-        let solution_str = ron::ser::to_string_pretty(&solution, ron::ser::PrettyConfig::default())
-            .expect("Failed to serialize solution");
-        if let Ok(mut file) = File::create(&filepath) {
-            if file.write_all(solution_str.as_bytes()).is_ok() {
-                info!("Solution saved: {}", filepath);
-                if let Some(mut last) = last_saved {
-                    last.hash = hash;
-                } else {
-                    commands.insert_resource(LastSavedSolution { hash });
-                }
+        if storage::save_solution(&puzzle.id, &solution) {
+            info!("Solution saved");
+            if let Some(mut last) = last_saved {
+                last.hash = hash;
             } else {
-                error!("Failed to write solution file");
+                commands.insert_resource(LastSavedSolution { hash });
             }
         } else {
-            error!("Failed to create solution file");
+            error!("Failed to save solution");
         }
     } else {
         info!("No pieces placed to save");
     }
 }
 
-pub fn delete_user_solutions() -> Result<u32, std::io::Error> {
-    let puzzles_dir = "assets/puzzles";
-    let mut deleted_count = 0;
-    if let Ok(entries) = fs::read_dir(puzzles_dir) {
-        for puzzle_entry in entries.flatten() {
-            let puzzle_path = puzzle_entry.path();
-            if puzzle_path.is_dir() {
-                let solutions_dir = puzzle_path.join("solutions");
-                if solutions_dir.exists() && solutions_dir.is_dir() {
-                    if let Ok(solution_files) = fs::read_dir(&solutions_dir) {
-                        for file_entry in solution_files.flatten() {
-                            let path = file_entry.path();
-                            if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
-                                // Check if filename matches timestamp pattern: YYYY-MM-DD-HH-MM-SS.ron
-                                let pattern = regex::Regex::new(r"^\d{4}-\d{2}-\d{2}-\d{2}-\d{2}-\d{2}\.ron$").unwrap();
-                                if pattern.is_match(name) {
-                                    if fs::remove_file(&path).is_ok() {
-                                        deleted_count += 1;
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-    Ok(deleted_count)
+pub fn delete_user_solutions() -> Result<u32, String> {
+    storage::delete_all_user_solutions()
 }
 
-pub fn reset_puzzle_board(
-    mut puzzle_state: ResMut<PuzzleGameState>,
-    mut piece_query: Query<(&mut Piece, &mut Transform)>,
+pub fn update_puzzle_effect_previews(
+    puzzle_state: Res<PuzzleGameState>,
+    piece_query: Query<(&Piece, &Children, Has<Hovered>, Has<Dragging>)>,
+    mut preview_query: Query<(&mut Visibility, &mut Sprite, &EffectPreview)>,
 ) {
-    // Clear board cells
-    puzzle_state.board_cells.clear();
-    puzzle_state.score = 0;
-
-    // Reset all pieces to stash positions
-    for (mut piece, mut transform) in piece_query.iter_mut() {
-        if piece.placed_at.is_some() {
-            piece.placed_at = None;
-            transform.translation = piece.original_pos;
-            transform.translation.z = piece.original_pos.z;
-            transform.rotation = Quat::IDENTITY;
-            piece.shape = piece.original_shape.clone();
-            piece.effects = piece.original_effects.clone();
+    for (piece, children, is_hovered, is_dragging) in &piece_query {
+        let show = is_hovered || is_dragging;
+        for &child in children {
+            if let Ok((mut visibility, mut sprite, preview)) = preview_query.get_mut(child) {
+                if show {
+                    *visibility = Visibility::Visible;
+                    let mut active = false;
+                    if let Some(grid_pos) = piece.placed_at {
+                        let target_cell = grid_pos + preview.offset;
+                        if crate::helpers::is_in_bounds(target_cell) {
+                            active = check_condition(&preview.condition, Some(target_cell), &puzzle_state.board_cells);
+                        }
+                    }
+                    if active {
+                        sprite.color = Color::srgb(1.0, 1.0, 0.0).into();
+                        sprite.custom_size = Some(Vec2::splat(12.0));
+                    } else {
+                        sprite.color = Color::srgba(1.0, 1.0, 0.0, 0.4).into();
+                        sprite.custom_size = Some(Vec2::splat(8.0));
+                    }
+                } else {
+                    *visibility = Visibility::Hidden;
+                }
+            }
         }
     }
 }

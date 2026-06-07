@@ -4695,10 +4695,12 @@ dependencies = [
  "bevy",
  "chrono",
  "getrandom 0.4.2",
+ "js-sys",
  "rand 0.10.1",
  "regex",
  "ron",
  "serde",
+ "web-sys",
 ]
 
 [[package]]
