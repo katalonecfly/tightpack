@@ -1236,8 +1236,39 @@ pub fn update_puzzle_tooltip(
 pub fn recalculate_puzzle_score_system(
     mut puzzle_state: ResMut<PuzzleGameState>,
     piece_query: Query<&Piece>,
+    board_info: Res<PuzzleBoardInfo>,
 ) {
-    puzzle_state.score = crate::systems::scoring::recalculate_score(&puzzle_state.board_cells, &piece_query);
+    puzzle_state.score = recalculate_puzzle_score(&puzzle_state.board_cells, &piece_query, &board_info);
+}
+
+fn recalculate_puzzle_score(
+    board_cells: &HashMap<IVec2, LinearRgba>,
+    piece_query: &Query<&Piece>,
+    board_info: &PuzzleBoardInfo,
+) -> i32 {
+    let mut total = 0;
+    for piece in piece_query.iter() {
+        if let Some(pos) = piece.placed_at {
+            total += piece.points;
+            for effect in &piece.effects {
+                if let Some(offsets) = &effect.offsets {
+                    for offset in offsets {
+                        let target_cell = pos + *offset;
+                        if is_in_bounds_puzzle(target_cell, board_info) {
+                            if check_condition(&effect.condition, Some(target_cell), board_cells) {
+                                total += effect.points;
+                            }
+                        }
+                    }
+                } else {
+                    if check_condition(&effect.condition, Some(pos), board_cells) {
+                        total += effect.points;
+                    }
+                }
+            }
+        }
+    }
+    total
 }
 
 pub fn update_puzzle_contributions_system(
@@ -1666,6 +1697,7 @@ pub fn delete_user_solutions() -> Result<u32, String> {
 
 pub fn update_puzzle_effect_previews(
     puzzle_state: Res<PuzzleGameState>,
+    board_info: Res<PuzzleBoardInfo>,
     piece_query: Query<(&Piece, &Children, Has<Hovered>, Has<Dragging>)>,
     mut preview_query: Query<(&mut Visibility, &mut Sprite, &EffectPreview)>,
 ) {
@@ -1678,7 +1710,7 @@ pub fn update_puzzle_effect_previews(
                     let mut active = false;
                     if let Some(grid_pos) = piece.placed_at {
                         let target_cell = grid_pos + preview.offset;
-                        if crate::helpers::is_in_bounds(target_cell) {
+                        if is_in_bounds_puzzle(target_cell, &board_info) {
                             active = check_condition(&preview.condition, Some(target_cell), &puzzle_state.board_cells);
                         }
                     }
