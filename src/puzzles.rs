@@ -1251,20 +1251,16 @@ pub fn update_puzzle_contributions_system(
             let contribution = compute_piece_contribution(piece, &puzzle_state.board_cells);
             let sign = if contribution >= 0 { "+" } else { "" };
             let text_str = format!("{}{}", sign, contribution);
-            let mut min_x = i32::MAX;
-            let mut max_x = i32::MIN;
-            let mut min_y = i32::MAX;
-            let mut max_y = i32::MIN;
+
+            // Compute centroid in grid coordinates (same as other modes)
+            let mut centroid_grid = IVec2::ZERO;
             for offset in &piece.shape {
-                let cell = pos + *offset;
-                min_x = min_x.min(cell.x);
-                max_x = max_x.max(cell.x);
-                min_y = min_y.min(cell.y);
-                max_y = max_y.max(cell.y);
+                centroid_grid += pos + *offset;
             }
-            let center_x = (min_x + max_x) as f32 / 2.0;
-            let center_y = (min_y + max_y) as f32 / 2.0;
-            let world_pos = grid_to_world_puzzle(IVec2::new(center_x as i32, center_y as i32), &board_info).with_z(5.0);
+            centroid_grid.x = (centroid_grid.x as f32 / piece.shape.len() as f32).round() as i32;
+            centroid_grid.y = (centroid_grid.y as f32 / piece.shape.len() as f32).round() as i32;
+            let world_pos = grid_to_world_puzzle(centroid_grid, &board_info).with_z(5.0);
+
             if let Some(display) = display_opt {
                 commands.entity(display.0).despawn();
                 commands.entity(piece_entity).remove::<ContributionDisplay>();
