@@ -1,12 +1,11 @@
 use crate::Cleanup;
-use crate::components::StashPosition;
 use crate::components::*;
 use crate::config::*;
 use crate::helpers::BOARD_TOP_Y;
 use crate::helpers::*;
 use crate::resources::PieceLibrary;
 use crate::resources::{InventoryScroll, StashContentHeight, StashScreenRect};
-use crate::systems::draft::DraftConfirmButton; // <-- added import
+use crate::systems::draft::DraftConfirmButton;
 use bevy::prelude::*;
 use rand::prelude::*;
 use rand::seq::SliceRandom;
@@ -18,8 +17,7 @@ fn spawn_common(commands: &mut Commands) -> Vec<RawPieceConfig> {
     commands.spawn((Camera2d, Cleanup));
 
     let file_content = include_str!("../../assets/pieces.ron");
-
-    let lib: RawPieceLibrary = ron::from_str(&file_content).expect("Failed to parse RON");
+    let lib: RawPieceLibrary = ron::from_str(file_content).expect("Failed to parse RON");
     let pieces = lib.pieces.clone();
     commands.insert_resource(PieceLibrary(lib.pieces));
 
@@ -63,7 +61,6 @@ pub fn setup_sandbox(mut commands: Commands, windows: Query<&Window>) {
     let stash_bottom = stash_top - stash_visible_height;
     let stash_right = stash_left + stash_width;
 
-    // Screen‑space rectangle for mouse‑wheel detection
     let screen_x = (window.width() / 2.0) + stash_left;
     let screen_y = (window.height() / 2.0) - stash_top;
     commands.insert_resource(StashScreenRect {
@@ -73,7 +70,6 @@ pub fn setup_sandbox(mut commands: Commands, windows: Query<&Window>) {
         height: stash_visible_height,
     });
 
-    // Stash outline (perimeter)
     let outline_color = Color::srgba(0.4, 0.4, 0.4, 0.6);
     let thickness = 2.0;
     commands
@@ -97,7 +93,6 @@ pub fn setup_sandbox(mut commands: Commands, windows: Query<&Window>) {
             ));
         });
 
-    // Pieces and labels (unchanged except using stash_left)
     let color_map: HashMap<String, LinearRgba> = [
         ("RED".into(), Color::srgb_u8(216, 46, 63).to_linear()),
         ("BLUE".into(), Color::srgb_u8(53, 129, 216).to_linear()),
@@ -124,9 +119,6 @@ pub fn setup_sandbox(mut commands: Commands, windows: Query<&Window>) {
         for copy_idx in 0..copy_count {
             let (color, effects) = randomize_piece_properties(raw, &color_map);
             let pos = Vec3::new(piece_x, base_y, 1.0 + copy_idx as f32 * 0.001);
-            // Inside setup_sandbox, around line 100
-            // In setup_sandbox (around line 100)
-            // Inside setup_sandbox, around line 100
             let entity = spawn_draggable_piece(
                 &mut commands,
                 type_id,
@@ -135,9 +127,9 @@ pub fn setup_sandbox(mut commands: Commands, windows: Query<&Window>) {
                 raw.points,
                 effects,
                 pos,
-                false, // draft_mode
-                true,  // interactive
-                true,  // hoverable   <-- added
+                false,
+                true,
+                true,
                 BoardSide::Single,
             );
             commands.entity(entity).insert(StashPosition {
@@ -238,7 +230,6 @@ pub fn randomize_piece_properties(
         return (color, effects);
     }
 
-    // Dynamic piece: must have at least one effect, otherwise fallback
     if raw.effects.is_empty() {
         let color = random_color(color_map);
         return (color, Vec::new());
@@ -284,14 +275,6 @@ pub fn random_color(color_map: &HashMap<String, LinearRgba>) -> LinearRgba {
     *color_map.get(*color_name).unwrap_or(&LinearRgba::WHITE)
 }
 
-// In systems/setup.rs
-
-// In systems/setup.rs
-
-// In systems/setup.rs
-
-// In systems/setup.rs
-
 pub fn spawn_draggable_piece(
     commands: &mut Commands,
     type_id: usize,
@@ -329,7 +312,6 @@ pub fn spawn_draggable_piece(
         commands.entity(entity).insert(DraftPiece);
     }
 
-    // Attach observers to parent
     if hoverable {
         commands
             .entity(entity)
@@ -342,15 +324,13 @@ pub fn spawn_draggable_piece(
             .entity(entity)
             .observe(crate::systems::interaction::on_drag_start)
             .observe(crate::systems::interaction::on_drag)
-            .observe(crate::systems::interaction::on_drag_end);
+            .observe(crate::systems::interaction::on_drag_end)
+            .observe(crate::systems::interaction::on_right_click_unplace);
     }
 
-    // Draw the full visual appearance (bridges, perimeters)
     crate::systems::visuals::refresh_piece_visuals(commands, entity, &shape, color);
 
-    // Add interactive children (small tile sprites and effect previews)
     commands.entity(entity).with_children(|parent| {
-        // Small tile sprites (these are the hitboxes for dragging/hovering)
         for offset in &shape {
             let mut child = parent.spawn((
                 Sprite::from_color(color, Vec2::splat(TILE_SIZE - 4.0)),
@@ -366,11 +346,11 @@ pub fn spawn_draggable_piece(
                 child
                     .observe(crate::systems::interaction::on_drag_start)
                     .observe(crate::systems::interaction::on_drag)
-                    .observe(crate::systems::interaction::on_drag_end);
+                    .observe(crate::systems::interaction::on_drag_end)
+                    .observe(crate::systems::interaction::on_right_click_unplace);
             }
         }
 
-        // Effect preview sprites
         for effect in &effects {
             if let Some(offsets) = &effect.offsets {
                 for offset in offsets {
@@ -397,7 +377,8 @@ pub fn spawn_draggable_piece(
                         preview
                             .observe(crate::systems::interaction::on_drag_start)
                             .observe(crate::systems::interaction::on_drag)
-                            .observe(crate::systems::interaction::on_drag_end);
+                            .observe(crate::systems::interaction::on_drag_end)
+                            .observe(crate::systems::interaction::on_right_click_unplace);
                     }
                 }
             }

@@ -351,7 +351,7 @@ pub fn update_contributions_system(
     state: Res<GameState>,
     mut piece_query: Query<(Entity, &Piece, &Transform, Option<&mut ContributionDisplay>), Without<OpponentPiece>>,
 ) {
-    for (piece_entity, piece, transform, display_opt) in piece_query.iter_mut() {
+    for (piece_entity, piece, _transform, display_opt) in piece_query.iter_mut() {
         if let Some(pos) = piece.placed_at {
             let contribution =
                 crate::systems::scoring::compute_piece_contribution(piece, &state.board_cells);

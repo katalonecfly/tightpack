@@ -61,12 +61,12 @@ fn handle_reset(
     current_state: Res<State<AppState>>,
     mut next_state: ResMut<NextState<AppState>>,
     mut game_state: ResMut<GameState>,
-    mut puzzle_state: Option<ResMut<PuzzleGameState>>,
-    mut duel_state: Option<ResMut<DuelState>>,
-    mut round_counter: Option<ResMut<RoundCounter>>,
+    puzzle_state: Option<ResMut<PuzzleGameState>>,
+    _duel_state: Option<ResMut<DuelState>>,
+    _round_counter: Option<ResMut<RoundCounter>>,
     mut piece_query: Query<(&mut Piece, &mut Transform)>,
-    library: Res<PieceLibrary>,
-    settings: Res<GameSettings>,
+    _library: Res<PieceLibrary>,
+    _settings: Res<GameSettings>,
 ) {
     if keys.pressed(KeyCode::ControlLeft) && keys.just_pressed(KeyCode::KeyN) {
         match *current_state.get() {

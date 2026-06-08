@@ -15,9 +15,7 @@ use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 
 #[cfg(not(target_arch = "wasm32"))]
-use std::fs::{self, File};
-#[cfg(not(target_arch = "wasm32"))]
-use std::io::Write;
+use std::fs::{self};
 
 #[cfg(target_arch = "wasm32")]
 use js_sys;
@@ -794,7 +792,8 @@ fn spawn_puzzle_piece(
         .observe(on_puzzle_drag)
         .observe(on_puzzle_drag_end)
         .observe(crate::systems::interaction::on_hover_in)
-        .observe(crate::systems::interaction::on_hover_out);
+        .observe(crate::systems::interaction::on_hover_out)
+        .observe(crate::systems::interaction::on_right_click_unplace);
 
     crate::systems::visuals::refresh_piece_visuals(commands, entity, &shape, color);
 
@@ -809,7 +808,8 @@ fn spawn_puzzle_piece(
                 .observe(crate::systems::interaction::on_child_hover_out)
                 .observe(on_puzzle_drag_start)
                 .observe(on_puzzle_drag)
-                .observe(on_puzzle_drag_end);
+                .observe(on_puzzle_drag_end)
+                .observe(crate::systems::interaction::on_right_click_unplace);
         }
         for effect in &effects {
             if let Some(offsets) = &effect.offsets {
@@ -832,7 +832,8 @@ fn spawn_puzzle_piece(
                         .observe(crate::systems::interaction::on_child_hover_out)
                         .observe(on_puzzle_drag_start)
                         .observe(on_puzzle_drag)
-                        .observe(on_puzzle_drag_end);
+                        .observe(on_puzzle_drag_end)
+                        .observe(crate::systems::interaction::on_right_click_unplace);
                 }
             }
         }
@@ -1577,7 +1578,7 @@ pub fn on_save_button_click(
     pieces: Query<&Piece>,
     puzzle_state: Res<PuzzleGameState>,
     puzzle: Res<CurrentPuzzle>,
-    mut last_saved: Option<ResMut<LastSavedSolution>>,
+    last_saved: Option<ResMut<LastSavedSolution>>,
     mut commands: Commands,
 ) {
     if let Some((solution, hash)) = get_current_solution(&pieces, &puzzle_state, &puzzle.data) {

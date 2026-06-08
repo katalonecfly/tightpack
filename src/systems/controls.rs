@@ -1,7 +1,6 @@
 use crate::Cleanup;
 use crate::AppState;
 use bevy::prelude::*;
-use bevy::picking::prelude::*;
 
 pub fn setup_controls(mut commands: Commands) {
     commands.spawn((Camera2d, Cleanup));

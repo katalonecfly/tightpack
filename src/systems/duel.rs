@@ -116,7 +116,11 @@ fn spawn_side_pieces(
             side,
         );
         if interactive {
-            commands.entity(entity).observe(on_drag_start_duel).observe(on_drag_duel).observe(on_drag_end_duel);
+            commands.entity(entity)
+                .observe(on_drag_start_duel)
+                .observe(on_drag_duel)
+                .observe(on_drag_end_duel)
+                .observe(crate::systems::interaction::on_right_click_unplace);
             commands.entity(entity).insert(PlayerPiece);
         } else {
             commands.entity(entity).insert(OpponentPiece);
@@ -126,7 +130,12 @@ fn spawn_side_pieces(
 
         if interactive {
             commands.entity(entity).insert(Pickable::default());
-            commands.entity(entity).observe(on_drag_start_duel).observe(on_drag_duel).observe(on_drag_end_duel).observe(on_hover_in_duel).observe(on_hover_out_duel);
+            commands.entity(entity)
+                .observe(on_drag_start_duel)
+                .observe(on_drag_duel)
+                .observe(on_drag_end_duel)
+                .observe(on_hover_in_duel)
+                .observe(on_hover_out_duel);
             commands.entity(entity).insert(PlayerPiece);
         } else {
             commands.entity(entity).insert(OpponentPiece);
@@ -145,9 +154,14 @@ fn spawn_side_pieces(
                 Cleanup,
             ))
             .id();
+        // Fixed match arms: each arm returns () by using a block
         match side {
-            BoardSide::Left => { commands.entity(label_entity).insert(PlayerPiece); }
-            BoardSide::Right => { commands.entity(label_entity).insert(OpponentPiece); }
+            BoardSide::Left => {
+                commands.entity(label_entity).insert(PlayerPiece);
+            }
+            BoardSide::Right => {
+                commands.entity(label_entity).insert(OpponentPiece);
+            }
             _ => {}
         }
 
