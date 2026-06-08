@@ -11,6 +11,7 @@ use crate::resources::{GameState, DuelState, TooltipState, PieceLibrary, GameSet
 use systems::menu;
 use crate::components::Piece;
 use crate::puzzles::PuzzleGameState;
+use crate::systems::controls::setup_controls;
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default, States)]
 enum AppState {
@@ -20,6 +21,7 @@ enum AppState {
     Draft,
     Duel,
     Settings,
+    Controls,
     PuzzlesList,
     Puzzle,
     SolutionList,
@@ -42,6 +44,7 @@ fn handle_escape(
 ) {
     if keys.just_pressed(KeyCode::Escape) {
         match *current_state.get() {
+            AppState::Controls => next_state.set(AppState::Menu),
             AppState::Puzzle => next_state.set(AppState::PuzzlesList),
             AppState::SolutionView => next_state.set(AppState::SolutionList),
             AppState::SolutionList => next_state.set(AppState::PuzzlesList),
@@ -282,5 +285,7 @@ fn main() {
             systems::settings::handle_rounds_buttons.run_if(in_state(AppState::Settings)),
         )
         .add_systems(OnExit(AppState::Settings), (cleanup_system, reset_temp_settings))
+        .add_systems(OnEnter(AppState::Controls), setup_controls)
+        .add_systems(OnExit(AppState::Controls), cleanup_system)
         .run();
 }

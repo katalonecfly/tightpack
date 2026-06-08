@@ -31,8 +31,7 @@ pub fn setup_menu(mut commands: Commands) {
                 },
                 TextColor(TEXT_COLOR),
             ));
-            for label in &["Sandbox", "Draft", "Duel", "Puzzles", "Settings"] {
-                parent
+                for label in &["Sandbox", "Draft", "Duel", "Puzzles", "Settings", "Controls"] {                parent
                     .spawn((
                         Button,
                         Node {
@@ -78,7 +77,8 @@ pub fn menu_interaction(
                 "Duel" => next_state.set(AppState::Duel),
                 "Puzzles" => next_state.set(AppState::PuzzlesList),
                 "Settings" => next_state.set(AppState::Settings),
-                _ => {} // Puzzles still do nothing
+                "Controls" => next_state.set(AppState::Controls),
+                _ => {}
             }
         }
     }
