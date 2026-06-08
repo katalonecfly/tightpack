@@ -281,6 +281,10 @@ mod storage {
 // -----------------------------------------------------------------------------
 
 fn validate_solution(solution: &Solution, puzzle_id: &str) -> bool {
+    use crate::components::{EffectCondition, GameEffect};
+    use crate::config::RawEffectCondition;
+    use std::collections::HashMap;
+
     let puzzle_data = match storage::load_puzzle_data(puzzle_id) {
         Some(d) => d,
         None => return false,
@@ -289,8 +293,16 @@ fn validate_solution(solution: &Solution, puzzle_id: &str) -> bool {
     let blocked_cells: HashSet<IVec2> = puzzle_data.blocked_cells.iter().copied().collect();
     let pieces = &puzzle_data.pieces;
     let mut used_counts = vec![0; pieces.len()];
-    let mut occupied: HashSet<IVec2> = HashSet::new();
-    let mut actual_score = 0;
+    let mut board_cells: HashMap<IVec2, LinearRgba> = HashMap::new();
+    let mut placed = Vec::new();
+
+    let color_map: HashMap<String, LinearRgba> = [
+        ("RED".to_string(), Color::srgb_u8(216, 46, 63).to_linear()),
+        ("BLUE".to_string(), Color::srgb_u8(53, 129, 216).to_linear()),
+        ("GREEN".to_string(), Color::srgb_u8(40, 204, 45).to_linear()),
+    ]
+    .into();
+
     for placement in &solution.placements {
         if placement.piece >= pieces.len() {
             return false;
@@ -300,23 +312,72 @@ fn validate_solution(solution: &Solution, puzzle_id: &str) -> bool {
         if used_counts[placement.piece] > piece_def.count {
             return false;
         }
+
         let mut shape = piece_def.shape.clone();
-        for _ in 0..placement.rot % 4 {
+        let rot = placement.rot % 4;
+        for _ in 0..rot {
             shape = shape.iter().map(|&v| IVec2::new(v.y, -v.x)).collect();
         }
+
+        let raw_effects = piece_def.effects.clone();
+        let mut rotated_effects = Vec::new();
+        for re in raw_effects {
+            let mut offsets = re.offsets.clone();
+            for _ in 0..rot {
+                offsets = offsets.iter().map(|&v| IVec2::new(v.y, -v.x)).collect();
+            }
+            let condition = match &re.condition {
+                RawEffectCondition::IsEmpty => EffectCondition::IsEmpty,
+                RawEffectCondition::MatchesColor(c) => {
+                    EffectCondition::MatchesColor(*color_map.get(c).unwrap())
+                }
+                RawEffectCondition::NoColorOnBoard(c) => {
+                    EffectCondition::NoColorOnBoard(*color_map.get(c).unwrap())
+                }
+            };
+            rotated_effects.push(GameEffect {
+                condition,
+                points: re.points,
+                offsets: if offsets.is_empty() { None } else { Some(offsets) },
+            });
+        }
+
+        let color = *color_map.get(&piece_def.color).unwrap();
+
         for offset in &shape {
             let cell = placement.pos + *offset;
             if cell.x < 0 || cell.x >= board_size.x || cell.y < 0 || cell.y >= board_size.y {
                 return false;
             }
-            if blocked_cells.contains(&cell) || occupied.contains(&cell) {
+            if blocked_cells.contains(&cell) || board_cells.contains_key(&cell) {
                 return false;
             }
-            occupied.insert(cell);
+            board_cells.insert(cell, color);
         }
-        actual_score += piece_def.points;
+
+        placed.push((placement.pos, shape, color, piece_def.points, rotated_effects));
     }
-    actual_score == solution.score
+
+    let mut total_score = 0;
+    for (origin, _shape, _color, raw_points, effects) in &placed {
+        total_score += raw_points;
+        for effect in effects {
+            if let Some(offsets) = &effect.offsets {
+                for offset in offsets {
+                    let target_cell = *origin + *offset;
+                    if target_cell.x >= 0 && target_cell.x < board_size.x
+                        && target_cell.y >= 0 && target_cell.y < board_size.y
+                    {
+                        if crate::systems::scoring::check_condition(&effect.condition, Some(target_cell), &board_cells) {
+                            total_score += effect.points;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    total_score == solution.score
 }
 
 // -----------------------------------------------------------------------------
