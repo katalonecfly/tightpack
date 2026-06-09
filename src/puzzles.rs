@@ -529,13 +529,9 @@ pub fn update_puzzle_contributions_system(
             let sign = if contribution >= 0 { "+" } else { "" };
             let text_str = format!("{}{}", sign, contribution);
 
-            let mut centroid_grid = IVec2::ZERO;
-            for offset in &piece.shape {
-                centroid_grid += pos + *offset;
-            }
-            centroid_grid.x = (centroid_grid.x as f32 / piece.shape.len() as f32).round() as i32;
-            centroid_grid.y = (centroid_grid.y as f32 / piece.shape.len() as f32).round() as i32;
-            let world_pos = grid_to_world_puzzle(centroid_grid, &board_info).with_z(5.0);
+            let first_offset = piece.shape.first().unwrap_or(&IVec2::ZERO);
+            let cell_pos = pos + *first_offset;
+            let world_pos = grid_to_world_puzzle(cell_pos, &board_info).with_z(5.0);
 
             if let Some(display) = display_opt {
                 commands.entity(display.0).despawn();
@@ -1017,35 +1013,6 @@ pub fn update_puzzle_effect_previews(
                     }
                 } else {
                     *visibility = Visibility::Hidden;
-                }
-            }
-        }
-    }
-}
-
-pub fn update_solution_effect_previews(
-    puzzle_state: Res<PuzzleGameState>,
-    board_info: Res<PuzzleBoardInfo>,
-    piece_query: Query<(&Piece, &Children), Without<Dragging>>,
-    mut preview_query: Query<(&mut Visibility, &mut Sprite, &EffectPreview)>,
-) {
-    for (piece, children) in &piece_query {
-        for &child in children {
-            if let Ok((mut visibility, mut sprite, preview)) = preview_query.get_mut(child) {
-                *visibility = Visibility::Visible;
-                let mut active = false;
-                if let Some(grid_pos) = piece.placed_at {
-                    let target_cell = grid_pos + preview.offset;
-                    if is_in_bounds_puzzle(target_cell, &board_info) {
-                        active = check_condition(&preview.condition, Some(target_cell), &puzzle_state.board_cells);
-                    }
-                }
-                if active {
-                    sprite.color = Color::srgb(1.0, 1.0, 0.0).into();
-                    sprite.custom_size = Some(Vec2::splat(12.0));
-                } else {
-                    sprite.color = Color::srgba(1.0, 1.0, 0.0, 0.4).into();
-                    sprite.custom_size = Some(Vec2::splat(8.0));
                 }
             }
         }

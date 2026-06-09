@@ -9,6 +9,7 @@ use crate::systems::scoring::check_condition;
 use crate::systems::scoring::linear_rgba_near;
 use bevy::prelude::*;
 use bevy::window::Window;
+use crate::helpers::grid_to_world_for_side;
 
 fn color_name_from_rgba(rgba: &LinearRgba) -> &'static str {
     let red = Color::srgb_u8(216, 46, 63).to_linear();
@@ -363,15 +364,10 @@ pub fn update_contributions_system(
             let sign = if contribution >= 0 { "+" } else { "" };
             let text_str = format!("{}{}", sign, contribution);
 
-            // Compute centroid of the piece's cells
-            let mut centroid_grid = IVec2::ZERO;
-            for offset in &piece.shape {
-                centroid_grid += pos + *offset;
-            }
-            centroid_grid.x = (centroid_grid.x as f32 / piece.shape.len() as f32).round() as i32;
-            centroid_grid.y = (centroid_grid.y as f32 / piece.shape.len() as f32).round() as i32;
-            let world_pos = crate::helpers::grid_to_world_for_side(centroid_grid, piece.board_side).with_z(5.0);
-
+            let first_offset = piece.shape.first().unwrap_or(&IVec2::ZERO);
+            let cell_pos = pos + *first_offset;
+            let world_pos = grid_to_world_for_side(cell_pos, piece.board_side).with_z(5.0);
+            
             if let Some(display) = display_opt {
                 commands.entity(display.0).despawn();
                 commands.entity(piece_entity).remove::<ContributionDisplay>();
@@ -412,15 +408,10 @@ pub fn update_duel_contributions_system(
             let sign = if contribution >= 0 { "+" } else { "" };
             let text_str = format!("{}{}", sign, contribution);
 
-            // Compute centroid of the piece's cells in grid coordinates, then convert to world
-            let mut centroid_grid = IVec2::ZERO;
-            for offset in &piece.shape {
-                centroid_grid += pos + *offset;
-            }
-            centroid_grid.x = (centroid_grid.x as f32 / piece.shape.len() as f32).round() as i32;
-            centroid_grid.y = (centroid_grid.y as f32 / piece.shape.len() as f32).round() as i32;
-            let world_pos = crate::helpers::grid_to_world_for_side(centroid_grid, piece.board_side).with_z(5.0);
-
+            let first_offset = piece.shape.first().unwrap_or(&IVec2::ZERO);
+            let cell_pos = pos + *first_offset;
+            let world_pos = grid_to_world_for_side(cell_pos, piece.board_side).with_z(5.0);
+            
             if let Some(display) = display_opt {
                 commands.entity(display.0).despawn();
                 commands.entity(piece_entity).remove::<ContributionDisplay>();
