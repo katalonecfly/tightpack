@@ -1,0 +1,82 @@
+(
+    board_size: (10, 6),
+    blocked_cells: [(6,0),(6,1),(6,2),(6,3),(6,4),(6,5)],
+    pieces: [
+        (
+            shape: [(0, 0), (1, 0), (2, 0), (3, 0), (0, 1), (1, 1), (3,1), (3,2), (4,2)],
+            color: "GREEN",
+            points: 45,
+            count: 1,
+            effects: [],
+        ),
+        (
+            shape: [(0, 0), (1, 0), (2, 0), (3, 0), (0, 1), (1, 1), (3,1), (3,2), (4,2)],
+            color: "RED",
+            points: 45,
+            count: 1,
+            effects: [],
+        ),
+        (
+            shape: [(0, 0), (1, 0), (2, 0), (3, 0), (0, 1), (1, 1), (3,1), (3,2), (4,2)],
+            color: "BLUE",
+            points: 45,
+            count: 1,
+            effects: [],
+        ),
+        (
+            shape: [(0, 0), (1, 0), (2, 0)],
+            color: "BLUE",
+            points: 6,
+            count: 1,
+            effects: [
+                (condition: MatchesColor("RED"),              points: 3, offsets: [(4,0),(5,0)]),
+            ],
+        ),
+        (
+            shape: [(0, 0), (1, 0), (2, 0)],
+            color: "GREEN",
+            points: 6,
+            count: 1,
+            effects: [
+                (condition: MatchesColor("BLUE"),              points: 3, offsets: [(7,0),(8,0),(9,0)]),
+            ],
+        ),
+        (
+            shape: [(0, 0), (1, 0), (2, 0)],
+            color: "RED",
+            points: 6,
+            count: 1,
+            effects: [
+                (condition: MatchesColor("GREEN"),              points: 3, offsets: [(6,0),(7,0),(8,0),(9,0)]),
+            ],
+        ),
+        (
+            shape: [(0, 0), (1, 0), (2, 0)],
+            color: "BLUE",
+            points: 6,
+            count: 1,
+            effects: [
+                (condition: IsEmpty,            points: 3, offsets: [(4,0),(5,0),(6,0),(7,0)]),
+            ],
+        ),
+        (
+            shape: [(0, 0), (1, 0), (2, 0)],
+            color: "GREEN",
+            points: 6,
+            count: 1,
+            effects: [
+                (condition: IsEmpty,             points: 3, offsets: [(7,0),(8,0)]),
+            ],
+        ),
+        (
+            shape: [(0, 0), (1, 0), (2, 0)],
+            color: "RED",
+            points: 6,
+            count: 1,
+            effects: [
+                (condition: MatchesColor("BLUE"),            points: 3, offsets: [(8,0),(9,0)]),
+            ],
+        ),
+
+    ],
+)

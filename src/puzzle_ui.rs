@@ -200,6 +200,7 @@ pub mod storage {
         vec![
             "001".to_string(),
             "002".to_string(),
+            "003".to_string(),
         ]
     }
 
@@ -211,6 +212,10 @@ pub mod storage {
             }
             "002" => {
                 let content = include_str!("../assets/puzzles/002/data.ron");
+                ron::from_str(content).ok()
+            }
+            "003" => {
+                let content = include_str!("../assets/puzzles/003/data.ron");
                 ron::from_str(content).ok()
             }
             _ => None,
@@ -231,6 +236,10 @@ pub mod storage {
             }
             "002" => {
                 let content = include_str!("../assets/puzzles/002/solutions/base.ron");
+                ron::from_str(content).ok()
+            }
+            "003" => {
+                let content = include_str!("../assets/puzzles/003/solutions/base.ron");
                 ron::from_str(content).ok()
             }
             _ => None,

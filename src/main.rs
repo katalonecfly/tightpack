@@ -236,6 +236,8 @@ fn main() {
                 handle_puzzle_rotation,
                 recalculate_puzzle_score_system,
                 update_puzzle_contributions_system,
+                systems::inventory::scroll_inventory,
+                systems::inventory::apply_inventory_scroll,
                 handle_reset,
             )
                 .run_if(in_state(AppState::Puzzle)),
