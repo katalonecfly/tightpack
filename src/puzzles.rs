@@ -837,11 +837,36 @@ pub fn setup_solution_view(mut commands: Commands, selected: Res<SelectedSolutio
         let piece_data = &data.pieces[piece_index];
         let color = *color_map.get(&piece_data.color).unwrap_or(&LinearRgba::WHITE);
         let mut shape = piece_data.shape.clone();
-        for _ in 0..placement.rot % 4 {
+        let rot = placement.rot % 4;
+        for _ in 0..rot {
             shape = shape.iter().map(|&v| IVec2::new(v.y, -v.x)).collect();
         }
+
+        // Build rotated effects
+        let raw_effects = piece_data.effects.clone();
+        let mut rotated_effects = Vec::new();
+        for re in raw_effects {
+            let mut offsets = re.offsets.clone();
+            for _ in 0..rot {
+                offsets = offsets.iter().map(|&v| IVec2::new(v.y, -v.x)).collect();
+            }
+            let condition = match &re.condition {
+                crate::config::RawEffectCondition::IsEmpty => EffectCondition::IsEmpty,
+                crate::config::RawEffectCondition::MatchesColor(c) => {
+                    EffectCondition::MatchesColor(*color_map.get(c).unwrap())
+                }
+                crate::config::RawEffectCondition::NoColorOnBoard(c) => {
+                    EffectCondition::NoColorOnBoard(*color_map.get(c).unwrap())
+                }
+            };
+            rotated_effects.push(GameEffect {
+                condition,
+                points: re.points,
+                offsets: if offsets.is_empty() { None } else { Some(offsets) },
+            });
+        }
+
         let world_pos = grid_to_world_puzzle(placement.pos, &board_info);
-        let effects = vec![];
         spawn_solution_piece(
             &mut commands,
             shape.clone(),
@@ -849,7 +874,7 @@ pub fn setup_solution_view(mut commands: Commands, selected: Res<SelectedSolutio
             world_pos,
             placement.pos,
             piece_data.points,
-            effects,
+            rotated_effects,  // now passing effects
         );
         for offset in &shape {
             board_cells.insert(placement.pos + *offset, color);
@@ -883,7 +908,7 @@ fn spawn_solution_piece(
                 color,
                 points,
                 effects: effects.clone(),
-                original_effects: effects,
+                original_effects: effects.clone(),
                 original_pos: pos,
                 placed_at: Some(origin),
                 board_side: BoardSide::Single,
@@ -896,7 +921,31 @@ fn spawn_solution_piece(
         .observe(crate::systems::interaction::on_hover_out)
         .id();
 
+    // Create visual tiles (bridges, perimeters) – this also creates the main sprites
     crate::systems::visuals::refresh_piece_visuals(commands, entity, &shape, color);
+
+    // Add effect preview sprites (yellow squares)
+    for effect in &effects {
+        if let Some(offsets) = &effect.offsets {
+            for offset in offsets {
+                commands.entity(entity).with_children(|parent| {
+                    parent.spawn((
+                        Sprite {
+                            color: Color::srgb(1.0, 1.0, 0.0).into(),
+                            custom_size: Some(Vec2::splat(12.0)),
+                            ..default()
+                        },
+                        Transform::from_translation(offset.as_vec2().extend(5.0) * TILE_SIZE),
+                        EffectPreview {
+                            offset: *offset,
+                            condition: effect.condition.clone(),
+                        },
+                    ));
+                });
+            }
+        }
+    }
+
     entity
 }
 
@@ -968,6 +1017,35 @@ pub fn update_puzzle_effect_previews(
                     }
                 } else {
                     *visibility = Visibility::Hidden;
+                }
+            }
+        }
+    }
+}
+
+pub fn update_solution_effect_previews(
+    puzzle_state: Res<PuzzleGameState>,
+    board_info: Res<PuzzleBoardInfo>,
+    piece_query: Query<(&Piece, &Children), Without<Dragging>>,
+    mut preview_query: Query<(&mut Visibility, &mut Sprite, &EffectPreview)>,
+) {
+    for (piece, children) in &piece_query {
+        for &child in children {
+            if let Ok((mut visibility, mut sprite, preview)) = preview_query.get_mut(child) {
+                *visibility = Visibility::Visible;
+                let mut active = false;
+                if let Some(grid_pos) = piece.placed_at {
+                    let target_cell = grid_pos + preview.offset;
+                    if is_in_bounds_puzzle(target_cell, &board_info) {
+                        active = check_condition(&preview.condition, Some(target_cell), &puzzle_state.board_cells);
+                    }
+                }
+                if active {
+                    sprite.color = Color::srgb(1.0, 1.0, 0.0).into();
+                    sprite.custom_size = Some(Vec2::splat(12.0));
+                } else {
+                    sprite.color = Color::srgba(1.0, 1.0, 0.0, 0.4).into();
+                    sprite.custom_size = Some(Vec2::splat(8.0));
                 }
             }
         }

@@ -260,10 +260,11 @@ fn main() {
             Update,
             (
                 update_puzzle_tooltip,
+                update_puzzle_effect_previews,
                 update_puzzle_contributions_system,
             )
                 .run_if(in_state(AppState::SolutionView)),
-        )
+        )        
         .add_systems(OnExit(AppState::SolutionView), (cleanup_system, reset_solution_view))
         // Global escape handler
         .add_systems(Update, handle_escape)
