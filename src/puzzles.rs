@@ -578,13 +578,12 @@ fn on_puzzle_right_click(
 #[derive(Component)]
 pub struct SolutionButton {
     pub solution_name: String,
-    pub score: i32,
 }
 
 pub fn setup_solution_list(mut commands: Commands, puzzle: Res<CurrentPuzzle>) {
     commands.spawn((Camera2d, Cleanup));
 
-    let mut valid_solutions = storage::get_solutions(&puzzle.id);
+    let valid_solutions = storage::get_solutions(&puzzle.id);
 
     if valid_solutions.is_empty() {
         commands.spawn((
@@ -636,7 +635,6 @@ pub fn setup_solution_list(mut commands: Commands, puzzle: Res<CurrentPuzzle>) {
                         BackgroundColor(Color::srgb(0.3, 0.3, 0.3)),
                         SolutionButton {
                             solution_name: name,
-                            score: solution.score,
                         },
                         Pickable::default(),
                     ))
@@ -665,7 +663,6 @@ pub fn solution_list_interaction(
             for (name, solution) in solutions {
                 if name == button.solution_name {
                     commands.insert_resource(SelectedSolution {
-                        puzzle_id: puzzle.id.clone(),
                         solution,
                         puzzle_data: puzzle.data.clone(),
                     });
@@ -705,13 +702,12 @@ pub struct CurrentPuzzle {
 
 #[derive(Resource)]
 pub struct SelectedSolution {
-    pub puzzle_id: String,
     pub solution: Solution,
     pub puzzle_data: PuzzleData,
 }
 
 #[derive(Resource)]
-struct LastSavedSolution {
+pub struct LastSavedSolution {
     hash: u64,
 }
 

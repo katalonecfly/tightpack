@@ -395,7 +395,7 @@ pub fn update_duel_contributions_system(
     duel_state: Res<DuelState>,
     mut piece_query: Query<(Entity, &Piece, &Transform, Option<&mut ContributionDisplay>)>,
 ) {
-    for (piece_entity, piece, transform, display_opt) in piece_query.iter_mut() {
+    for (piece_entity, piece, _transform, display_opt) in piece_query.iter_mut() {
         let board_cells = match piece.board_side {
             BoardSide::Left => &duel_state.player.board_cells,
             BoardSide::Right => &duel_state.opponent.board_cells,

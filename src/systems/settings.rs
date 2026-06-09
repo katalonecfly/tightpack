@@ -23,7 +23,6 @@ struct RadioState {
 enum SettingKey {
     DuelBlocking,
     AIMode,
-    Rounds,
 }
 
 #[derive(Component)]

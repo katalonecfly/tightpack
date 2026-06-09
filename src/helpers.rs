@@ -64,11 +64,6 @@ pub fn world_to_grid_for_side(world: Vec3, side: BoardSide) -> IVec2 {
     )
 }
 
-/// Single‑board version.
-pub fn world_to_grid(world: Vec3) -> IVec2 {
-    world_to_grid_for_side(world, BoardSide::Single)
-}
-
 pub fn is_in_bounds(grid: IVec2) -> bool {
     grid.x >= 0 && grid.x < BOARD_SIZE.x && grid.y >= 0 && grid.y < BOARD_SIZE.y
 }
