@@ -102,7 +102,7 @@ pub mod storage {
 
     pub fn get_puzzle_list() -> Vec<String> {
         let puzzles_dir = "assets/puzzles";
-        if let Ok(entries) = fs::read_dir(puzzles_dir) {
+        let mut list = if let Ok(entries) = fs::read_dir(puzzles_dir) {
             entries
                 .filter_map(|entry| {
                     let path = entry.ok()?.path();
@@ -117,7 +117,9 @@ pub mod storage {
                 .collect()
         } else {
             Vec::new()
-        }
+        };
+        list.sort();
+        list
     }
 
     pub fn load_puzzle_data(id: &str) -> Option<PuzzleData> {
@@ -197,13 +199,15 @@ pub mod storage {
     }
 
     pub fn get_puzzle_list() -> Vec<String> {
-        vec![
+        let mut list = vec![
             "001".to_string(),
             "002".to_string(),
             "003".to_string(),
-        ]
+        ];
+        list.sort();
+        list
     }
-
+    
     pub fn load_puzzle_data(id: &str) -> Option<PuzzleData> {
         match id {
             "001" => {

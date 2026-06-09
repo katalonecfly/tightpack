@@ -13,8 +13,6 @@ use bevy::picking::prelude::*;
 use bevy::prelude::*;
 use std::collections::{HashMap, HashSet};
 
-#[cfg(target_arch = "wasm32")]
-use js_sys;
 
 // -----------------------------------------------------------------------------
 // Puzzle gameplay (shared)
