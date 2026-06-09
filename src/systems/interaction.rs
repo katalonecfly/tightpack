@@ -1,7 +1,7 @@
 use crate::components::*;
 use crate::helpers::*;
 use crate::resources::GameState;
-use crate::puzzles::PuzzleGameState;
+use crate::puzzle_ui::PuzzleGameState;
 use crate::resources::DuelState;
 use bevy::prelude::*;
 

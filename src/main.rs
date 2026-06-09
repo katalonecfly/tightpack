@@ -4,14 +4,15 @@ mod helpers;
 mod resources;
 mod systems;
 mod puzzles;
+mod puzzle_ui;
 
 use bevy::picking::prelude::*;
 use bevy::prelude::*;
 use crate::resources::{GameState, DuelState, TooltipState, PieceLibrary, GameSettings, TempSettings, RoundCounter};
-use systems::menu;
+use crate::systems::menu;
+use crate::puzzles::*;
+use crate::puzzle_ui::*;
 use crate::components::Piece;
-use crate::puzzles::PuzzleGameState;
-use crate::systems::controls::setup_controls;
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default, States)]
 enum AppState {
@@ -44,73 +45,13 @@ fn handle_escape(
 ) {
     if keys.just_pressed(KeyCode::Escape) {
         match *current_state.get() {
-            AppState::Controls => next_state.set(AppState::Menu),
             AppState::Puzzle => next_state.set(AppState::PuzzlesList),
             AppState::SolutionView => next_state.set(AppState::SolutionList),
             AppState::SolutionList => next_state.set(AppState::PuzzlesList),
             AppState::PuzzlesList => next_state.set(AppState::Menu),
+            AppState::Controls => next_state.set(AppState::Menu),
             AppState::Menu => {}
             _ => next_state.set(AppState::Menu),
-        }
-    }
-}
-
-// Hotkey: Ctrl+N reloads the current game state (full reset)
-fn handle_reset(
-    keys: Res<ButtonInput<KeyCode>>,
-    current_state: Res<State<AppState>>,
-    mut next_state: ResMut<NextState<AppState>>,
-    mut game_state: ResMut<GameState>,
-    puzzle_state: Option<ResMut<PuzzleGameState>>,
-    _duel_state: Option<ResMut<DuelState>>,
-    _round_counter: Option<ResMut<RoundCounter>>,
-    mut piece_query: Query<(&mut Piece, &mut Transform)>,
-    _library: Res<PieceLibrary>,
-    _settings: Res<GameSettings>,
-) {
-    if keys.pressed(KeyCode::ControlLeft) && keys.just_pressed(KeyCode::KeyN) {
-        match *current_state.get() {
-            AppState::Sandbox => {
-                // Reset sandbox directly
-                game_state.board_cells.clear();
-                game_state.score = 0;
-                for (mut piece, mut transform) in piece_query.iter_mut() {
-                    if piece.placed_at.is_some() {
-                        piece.placed_at = None;
-                        transform.translation = piece.original_pos;
-                        transform.translation.z = piece.original_pos.z;
-                        transform.rotation = Quat::IDENTITY;
-                        piece.shape = piece.original_shape.clone();
-                        piece.effects = piece.original_effects.clone();
-                    }
-                }
-            }
-            AppState::Draft => {
-                let state = *current_state.get();
-                next_state.set(state);
-            }
-            AppState::Duel => {
-                let state = *current_state.get();
-                next_state.set(state);
-            }
-            AppState::Puzzle => {
-                if let Some(mut puzzle) = puzzle_state {
-                    // Reset puzzle board directly
-                    puzzle.board_cells.clear();
-                    puzzle.score = 0;
-                    for (mut piece, mut transform) in piece_query.iter_mut() {
-                        if piece.placed_at.is_some() {
-                            piece.placed_at = None;
-                            transform.translation = piece.original_pos;
-                            transform.translation.z = piece.original_pos.z;
-                            transform.rotation = Quat::IDENTITY;
-                            piece.shape = piece.original_shape.clone();
-                            piece.effects = piece.original_effects.clone();
-                        }
-                    }
-                }
-            }
-            _ => {}
         }
     }
 }
@@ -140,6 +81,52 @@ fn reset_temp_settings(mut commands: Commands) {
 
 fn reset_round_counter(mut commands: Commands) {
     commands.remove_resource::<RoundCounter>();
+}
+
+fn handle_reset(
+    keys: Res<ButtonInput<KeyCode>>,
+    current_state: Res<State<AppState>>,
+    mut next_state: ResMut<NextState<AppState>>,
+    mut game_state: ResMut<GameState>,
+    _puzzle_state: Option<ResMut<PuzzleGameState>>,
+    _duel_state: Option<ResMut<DuelState>>,
+    _round_counter: Option<ResMut<RoundCounter>>,
+    mut piece_query: Query<(&mut Piece, &mut Transform)>,
+    _library: Res<PieceLibrary>,
+    _settings: Res<GameSettings>,
+) {
+    if keys.pressed(KeyCode::ControlLeft) && keys.just_pressed(KeyCode::KeyN) {
+        match *current_state.get() {
+            AppState::Sandbox => {
+                game_state.board_cells.clear();
+                game_state.score = 0;
+                for (mut piece, mut transform) in piece_query.iter_mut() {
+                    if piece.placed_at.is_some() {
+                        piece.placed_at = None;
+                        transform.translation = piece.original_pos;
+                        transform.translation.z = piece.original_pos.z;
+                        transform.rotation = Quat::IDENTITY;
+                        piece.shape = piece.original_shape.clone();
+                        piece.effects = piece.original_effects.clone();
+                    }
+                }
+            }
+            AppState::Draft => {
+                let state = *current_state.get();
+                next_state.set(state);
+            }
+            AppState::Duel => {
+                let state = *current_state.get();
+                next_state.set(state);
+            }
+            AppState::Puzzle => {
+                // Puzzle reset is handled by re-entering the state (simpler)
+                let state = *current_state.get();
+                next_state.set(state);
+            }
+            _ => {}
+        }
+    }
 }
 
 fn main() {
@@ -231,48 +218,51 @@ fn main() {
             OnExit(AppState::Duel),
             (cleanup_system, reset_duel_state, reset_tooltip_state, reset_round_counter),
         )
+        // Controls
+        .add_systems(OnEnter(AppState::Controls), systems::controls::setup_controls)
+        .add_systems(OnExit(AppState::Controls), cleanup_system)
         // PuzzlesList state
-        .add_systems(OnEnter(AppState::PuzzlesList), puzzles::setup_puzzle_list)
+        .add_systems(OnEnter(AppState::PuzzlesList), setup_puzzle_list)
         .add_systems(OnExit(AppState::PuzzlesList), cleanup_system)
         // Puzzle state
-        .add_systems(OnEnter(AppState::Puzzle), puzzles::setup_puzzle)
+        .add_systems(OnEnter(AppState::Puzzle), setup_puzzle)
         .add_systems(
             Update,
             (
-                puzzles::update_puzzle_score_ui,
-                puzzles::update_puzzle_stash_labels,
-                puzzles::update_puzzle_effect_previews,
-                puzzles::update_puzzle_tooltip,
-                puzzles::handle_puzzle_rotation,
-                puzzles::recalculate_puzzle_score_system,
-                puzzles::update_puzzle_contributions_system,
+                update_puzzle_score_ui,
+                update_puzzle_stash_labels,
+                update_puzzle_effect_previews,
+                update_puzzle_tooltip,
+                handle_puzzle_rotation,
+                recalculate_puzzle_score_system,
+                update_puzzle_contributions_system,
                 handle_reset,
             )
                 .run_if(in_state(AppState::Puzzle)),
         )
         .add_systems(
             Update,
-            puzzles::update_help_tooltip.run_if(in_state(AppState::PuzzlesList)),
+            update_help_tooltip.run_if(in_state(AppState::PuzzlesList)),
         )
-        .add_systems(OnExit(AppState::Puzzle), (cleanup_system, puzzles::reset_puzzle_state))
+        .add_systems(OnExit(AppState::Puzzle), (cleanup_system, reset_puzzle_state))
         // Solution list state
-        .add_systems(OnEnter(AppState::SolutionList), puzzles::setup_solution_list)
+        .add_systems(OnEnter(AppState::SolutionList), setup_solution_list)
         .add_systems(
             Update,
-            puzzles::solution_list_interaction.run_if(in_state(AppState::SolutionList)),
+            solution_list_interaction.run_if(in_state(AppState::SolutionList)),
         )
         .add_systems(OnExit(AppState::SolutionList), cleanup_system)
         // Solution view state
-        .add_systems(OnEnter(AppState::SolutionView), puzzles::setup_solution_view)
+        .add_systems(OnEnter(AppState::SolutionView), setup_solution_view)
         .add_systems(
             Update,
             (
-                puzzles::update_puzzle_tooltip,
-                puzzles::update_puzzle_contributions_system,
+                update_puzzle_tooltip,
+                update_puzzle_contributions_system,
             )
                 .run_if(in_state(AppState::SolutionView)),
         )
-        .add_systems(OnExit(AppState::SolutionView), (cleanup_system, puzzles::reset_solution_view))
+        .add_systems(OnExit(AppState::SolutionView), (cleanup_system, reset_solution_view))
         // Global escape handler
         .add_systems(Update, handle_escape)
         // Settings
@@ -285,7 +275,5 @@ fn main() {
             systems::settings::handle_rounds_buttons.run_if(in_state(AppState::Settings)),
         )
         .add_systems(OnExit(AppState::Settings), (cleanup_system, reset_temp_settings))
-        .add_systems(OnEnter(AppState::Controls), setup_controls)
-        .add_systems(OnExit(AppState::Controls), cleanup_system)
         .run();
 }
