@@ -114,10 +114,10 @@ pub fn update_duel_score_ui(
 
 pub fn update_duel_effect_previews(
     duel_state: Res<DuelState>,
-    piece_query: Query<(&Piece, &Children, Has<Hovered>, Has<Dragging>)>,
+    mut piece_query: Query<(&Piece, &Children, Has<Hovered>, Has<Dragging>)>,
     mut preview_query: Query<(&mut Visibility, &mut Sprite, &mut EffectPreview)>,
 ) {
-    for (piece, children, is_hovered, is_dragging) in &piece_query {
+    for (piece, children, is_hovered, is_dragging) in &mut piece_query {
         let show = is_hovered || is_dragging;
         if !show {
             for &child in children {
@@ -134,6 +134,7 @@ pub fn update_duel_effect_previews(
             _ => continue,
         };
 
+        // Build a fresh map from offset -> condition using the piece's current effects
         let mut offset_to_condition = std::collections::HashMap::new();
         for effect in &piece.effects {
             if let Some(offsets) = &effect.offsets {
@@ -143,12 +144,16 @@ pub fn update_duel_effect_previews(
             }
         }
 
+        // Update each child preview
         for &child in children {
             if let Ok((mut visibility, mut sprite, mut preview)) = preview_query.get_mut(child) {
                 *visibility = Visibility::Visible;
+
+                // Sync preview with the current effect data
                 if let Some(condition) = offset_to_condition.get(&preview.offset) {
                     preview.condition = condition.clone();
                 } else {
+                    // This offset no longer exists in the rotated effects – hide preview
                     *visibility = Visibility::Hidden;
                     continue;
                 }
