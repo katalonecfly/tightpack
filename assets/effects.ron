@@ -4,5 +4,8 @@
         "MatchesColor(RED)": "Gain {points} point(s) for each RED target cell.",
         "MatchesColor(BLUE)": "Gain {points} point(s) for each BLUE target cell.",
         "MatchesColor(GREEN)": "Gain {points} point(s) for each GREEN target cell.",
+        "NoColorOnBoard(RED)": "Gain {points} point(s) if there are no other RED pieces on the board.",
+        "NoColorOnBoard(BLUE)": "Gain {points} point(s) if there are no other BLUE pieces on the board.",
+        "NoColorOnBoard(GREEN)": "Gain {points} point(s) if there are no other GREEN pieces on the board.",
     }
 )
