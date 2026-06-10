@@ -1,0 +1,41 @@
+(
+    score: 115,
+    timestamp: "0000-00-00-00-00-00",
+    placements: [
+        (
+            piece: 2,
+            pos: (3, 4),
+            rot: 1,
+        ),
+        (
+            piece: 4,
+            pos: (5, 2),
+            rot: 1,
+        ),
+        (
+            piece: 1,
+            pos: (2, 1),
+            rot: 1,
+        ),
+        (
+            piece: 0,
+            pos: (0, 2),
+            rot: 0,
+        ),
+        (
+            piece: 3,
+            pos: (5, 4),
+            rot: 1,
+        ),
+        (
+            piece: 4,
+            pos: (0, 0),
+            rot: 0,
+        ),
+        (
+            piece: 3,
+            pos: (4, 0),
+            rot: 0,
+        ),
+    ],
+)

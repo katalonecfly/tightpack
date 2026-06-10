@@ -1,7 +1,6 @@
 use crate::Cleanup;
 use crate::components::*;
 use crate::resources::TooltipState;
-use crate::systems::scoring::check_condition;
 use crate::AppState;
 use bevy::picking::prelude::*;
 use bevy::prelude::*;
@@ -203,11 +202,12 @@ pub mod storage {
             "001".to_string(),
             "002".to_string(),
             "003".to_string(),
+            "004".to_string(),
         ];
         list.sort();
         list
     }
-    
+
     pub fn load_puzzle_data(id: &str) -> Option<PuzzleData> {
         match id {
             "001" => {
@@ -220,6 +220,10 @@ pub mod storage {
             }
             "003" => {
                 let content = include_str!("../assets/puzzles/003/data.ron");
+                ron::from_str(content).ok()
+            }
+            "004" => {
+                let content = include_str!("../assets/puzzles/004/data.ron");
                 ron::from_str(content).ok()
             }
             _ => None,
@@ -244,6 +248,10 @@ pub mod storage {
             }
             "003" => {
                 let content = include_str!("../assets/puzzles/003/solutions/base.ron");
+                ron::from_str(content).ok()
+            }
+            "004" => {
+                let content = include_str!("../assets/puzzles/004/solutions/base.ron");
                 ron::from_str(content).ok()
             }
             _ => None,
@@ -324,6 +332,7 @@ pub mod storage {
 pub fn validate_solution(solution: &Solution, puzzle_id: &str) -> bool {
     use crate::components::{EffectCondition, GameEffect};
     use crate::config::RawEffectCondition;
+    use std::collections::{HashMap, HashSet};
 
     let puzzle_data = match storage::load_puzzle_data(puzzle_id) {
         Some(d) => d,
@@ -334,7 +343,7 @@ pub fn validate_solution(solution: &Solution, puzzle_id: &str) -> bool {
     let pieces = &puzzle_data.pieces;
     let mut used_counts = vec![0; pieces.len()];
     let mut board_cells: HashMap<IVec2, LinearRgba> = HashMap::new();
-    let mut placed = Vec::new();
+    let mut placed = Vec::new(); // stores (origin, shape, color, points, effects, occupied_cells)
 
     let color_map: HashMap<String, LinearRgba> = [
         ("RED".to_string(), Color::srgb_u8(216, 46, 63).to_linear()),
@@ -343,6 +352,7 @@ pub fn validate_solution(solution: &Solution, puzzle_id: &str) -> bool {
     ]
     .into();
 
+    // First pass: validate placements and build board
     for placement in &solution.placements {
         if placement.piece >= pieces.len() {
             return false;
@@ -359,6 +369,7 @@ pub fn validate_solution(solution: &Solution, puzzle_id: &str) -> bool {
             shape = shape.iter().map(|&v| IVec2::new(v.y, -v.x)).collect();
         }
 
+        // Build rotated effects
         let raw_effects = piece_def.effects.clone();
         let mut rotated_effects = Vec::new();
         for re in raw_effects {
@@ -384,6 +395,8 @@ pub fn validate_solution(solution: &Solution, puzzle_id: &str) -> bool {
 
         let color = *color_map.get(&piece_def.color).unwrap();
 
+        // Check cells and insert into board
+        let mut occupied = Vec::new();
         for offset in &shape {
             let cell = placement.pos + *offset;
             if cell.x < 0 || cell.x >= board_size.x || cell.y < 0 || cell.y >= board_size.y {
@@ -393,14 +406,16 @@ pub fn validate_solution(solution: &Solution, puzzle_id: &str) -> bool {
                 return false;
             }
             board_cells.insert(cell, color);
+            occupied.push(cell);
         }
-
-        placed.push((placement.pos, shape, color, piece_def.points, rotated_effects));
+        placed.push((placement.pos, shape, color, piece_def.points, rotated_effects, occupied));
     }
 
+    // Second pass: compute total score including effects, excluding own cells for NoColorOnBoard
     let mut total_score = 0;
-    for (origin, _shape, _color, raw_points, effects) in &placed {
+    for (origin, _shape, _color, raw_points, effects, occupied) in &placed {
         total_score += raw_points;
+        let exclude_set: HashSet<IVec2> = occupied.iter().copied().collect();
         for effect in effects {
             if let Some(offsets) = &effect.offsets {
                 for offset in offsets {
@@ -408,9 +423,31 @@ pub fn validate_solution(solution: &Solution, puzzle_id: &str) -> bool {
                     if target_cell.x >= 0 && target_cell.x < board_size.x
                         && target_cell.y >= 0 && target_cell.y < board_size.y
                     {
-                        if check_condition(&effect.condition, Some(target_cell), &board_cells) {
+                        if crate::systems::scoring::check_condition(&effect.condition, Some(target_cell), &board_cells) {
                             total_score += effect.points;
                         }
+                    }
+                }
+            } else {
+                // Global effect (NoColorOnBoard) – check excluding own cells
+                if let EffectCondition::NoColorOnBoard(c) = &effect.condition {
+                    let mut found_other = false;
+                    for (cell, board_color) in board_cells.iter() {
+                        if exclude_set.contains(cell) {
+                            continue;
+                        }
+                        if crate::systems::scoring::linear_rgba_near(board_color, c) {
+                            found_other = true;
+                            break;
+                        }
+                    }
+                    if !found_other {
+                        total_score += effect.points;
+                    }
+                } else {
+                    // Other global effects (not used currently)
+                    if crate::systems::scoring::check_condition(&effect.condition, Some(*origin), &board_cells) {
+                        total_score += effect.points;
                     }
                 }
             }

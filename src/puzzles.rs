@@ -490,10 +490,16 @@ fn recalculate_puzzle_score(
     piece_query: &Query<&Piece>,
     board_info: &PuzzleBoardInfo,
 ) -> i32 {
+    use std::collections::HashSet;
     let mut total = 0;
     for piece in piece_query.iter() {
         if let Some(pos) = piece.placed_at {
             total += piece.points;
+            // Build set of cells occupied by this piece
+            let mut exclude_cells = HashSet::new();
+            for offset in &piece.shape {
+                exclude_cells.insert(pos + *offset);
+            }
             for effect in &piece.effects {
                 if let Some(offsets) = &effect.offsets {
                     for offset in offsets {
@@ -505,8 +511,26 @@ fn recalculate_puzzle_score(
                         }
                     }
                 } else {
-                    if check_condition(&effect.condition, Some(pos), board_cells) {
-                        total += effect.points;
+                    // Global effect (NoColorOnBoard)
+                    if let EffectCondition::NoColorOnBoard(c) = &effect.condition {
+                        // Check if any other cell of that color exists (excluding this piece's cells)
+                        let mut found_other = false;
+                        for (cell, board_color) in board_cells.iter() {
+                            if exclude_cells.contains(cell) {
+                                continue;
+                            }
+                            if linear_rgba_near(board_color, c) {
+                                found_other = true;
+                                break;
+                            }
+                        }
+                        if !found_other {
+                            total += effect.points;
+                        }
+                    } else {
+                        if check_condition(&effect.condition, Some(pos), board_cells) {
+                            total += effect.points;
+                        }
                     }
                 }
             }
