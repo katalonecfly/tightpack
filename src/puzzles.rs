@@ -3,7 +3,7 @@ use crate::components::*;
 use crate::config::{RawPieceConfig, EffectDescriptions};
 use crate::helpers::*;
 use crate::resources::{InventoryScroll, StashContentHeight, StashScreenRect, TooltipState};
-use crate::systems::scoring::{check_condition, linear_rgba_near, compute_piece_contribution};
+use crate::systems::scoring::{check_condition, check_condition_with_sizes, linear_rgba_near, compute_piece_contribution};
 use crate::systems::setup::randomize_piece_properties;
 use crate::puzzle_ui::{
     PuzzleBoardInfo, PuzzleGameState, CurrentPuzzle, SelectedSolution, LastSavedSolution,
@@ -376,12 +376,24 @@ fn color_name_from_rgba(rgba: &LinearRgba) -> &'static str {
 }
 
 fn get_effect_description(cond: &EffectCondition, descs: &EffectDescriptions) -> String {
-    let key = match cond {
-        EffectCondition::MatchesColor(c) => format!("MatchesColor({})", color_name_from_rgba(c)),
-        EffectCondition::IsEmpty => "IsEmpty".to_string(),
-        EffectCondition::NoColorOnBoard(c) => format!("NoColorOnBoard({})", color_name_from_rgba(c)),
-    };
-    descs.descriptions.get(&key).cloned().unwrap_or_else(|| format!("Unknown effect: {}", key))
+    match cond {
+        EffectCondition::MatchesColor(c) => {
+            let key = format!("MatchesColor({})", color_name_from_rgba(c));
+            descs.descriptions.get(&key).cloned().unwrap_or_else(|| format!("Unknown effect: {}", key))
+        }
+        EffectCondition::IsEmpty => {
+            descs.descriptions.get("IsEmpty").cloned().unwrap_or_else(|| "Unknown effect: IsEmpty".to_string())
+        }
+        EffectCondition::NoColorOnBoard(c) => {
+            let key = format!("NoColorOnBoard({})", color_name_from_rgba(c));
+            descs.descriptions.get(&key).cloned().unwrap_or_else(|| format!("Unknown effect: {}", key))
+        }
+        EffectCondition::MatchesSize(_) => {
+            descs.descriptions.get("MatchesSize(X)").cloned().unwrap_or_else(|| {
+                "Unknown effect: MatchesSize(X)".to_string()
+            })
+        }
+    }
 }
 
 pub fn update_puzzle_tooltip(
@@ -422,14 +434,18 @@ pub fn update_puzzle_tooltip(
                             for effect in &piece.effects {
                                 text.push_str("\n- ");
                                 let desc_template = get_effect_description(&effect.condition, &effect_descs);
-                                let color_name = match &effect.condition {
-                                    EffectCondition::MatchesColor(c) => color_name_from_rgba(c),
-                                    EffectCondition::IsEmpty => "empty",
-                                    EffectCondition::NoColorOnBoard(c) => color_name_from_rgba(c),
+                                let desc = match &effect.condition {
+                                    EffectCondition::MatchesSize(size) => {
+                                        desc_template.replace("{points}", &effect.points.to_string()).replace("{X}", &size.to_string())
+                                    }
+                                    _ => desc_template
+                                        .replace("{points}", &effect.points.to_string())
+                                        .replace("{color}", color_name_from_rgba(match &effect.condition {
+                                            EffectCondition::MatchesColor(c) => c,
+                                            EffectCondition::NoColorOnBoard(c) => c,
+                                            _ => &LinearRgba::WHITE,
+                                        })),
                                 };
-                                let desc = desc_template
-                                    .replace("{points}", &effect.points.to_string())
-                                    .replace("{color}", color_name);
                                 text.push_str(&desc);
                             }
                         }
@@ -495,7 +511,6 @@ fn recalculate_puzzle_score(
     for piece in piece_query.iter() {
         if let Some(pos) = piece.placed_at {
             total += piece.points;
-            // Build set of cells occupied by this piece
             let mut exclude_cells = HashSet::new();
             for offset in &piece.shape {
                 exclude_cells.insert(pos + *offset);
@@ -505,31 +520,29 @@ fn recalculate_puzzle_score(
                     for offset in offsets {
                         let target_cell = pos + *offset;
                         if is_in_bounds_puzzle(target_cell, board_info) {
-                            if check_condition(&effect.condition, Some(target_cell), board_cells) {
+                            if check_condition_with_sizes(&effect.condition, Some(target_cell), board_cells, piece_query) {
                                 total += effect.points;
                             }
                         }
                     }
                 } else {
-                    // Global effect (NoColorOnBoard)
-                    if let EffectCondition::NoColorOnBoard(c) = &effect.condition {
-                        // Check if any other cell of that color exists (excluding this piece's cells)
-                        let mut found_other = false;
-                        for (cell, board_color) in board_cells.iter() {
-                            if exclude_cells.contains(cell) {
-                                continue;
+                    match &effect.condition {
+                        EffectCondition::NoColorOnBoard(c) => {
+                            let mut found_other = false;
+                            for (cell, board_color) in board_cells.iter() {
+                                if exclude_cells.contains(cell) { continue; }
+                                if linear_rgba_near(board_color, c) {
+                                    found_other = true;
+                                    break;
+                                }
                             }
-                            if linear_rgba_near(board_color, c) {
-                                found_other = true;
-                                break;
+                            if !found_other { total += effect.points; }
+                        }
+                        EffectCondition::MatchesSize(_) => {}
+                        _ => {
+                            if check_condition(&effect.condition, Some(pos), board_cells) {
+                                total += effect.points;
                             }
-                        }
-                        if !found_other {
-                            total += effect.points;
-                        }
-                    } else {
-                        if check_condition(&effect.condition, Some(pos), board_cells) {
-                            total += effect.points;
                         }
                     }
                 }
@@ -543,29 +556,32 @@ pub fn update_puzzle_contributions_system(
     mut commands: Commands,
     puzzle_state: Res<PuzzleGameState>,
     board_info: Res<PuzzleBoardInfo>,
-    mut piece_query: Query<(Entity, &Piece, Option<&mut ContributionDisplay>)>,
+    mut piece_query: Query<(Entity, &Piece, &Transform, Option<&mut ContributionDisplay>)>,
+    all_pieces: Query<&Piece>,
 ) {
-    for (piece_entity, piece, display_opt) in piece_query.iter_mut() {
+    for (piece_entity, piece, _transform, display_opt) in piece_query.iter_mut() {
         if let Some(pos) = piece.placed_at {
-            let contribution = compute_piece_contribution(piece, &puzzle_state.board_cells);
+            let contribution = crate::systems::scoring::compute_piece_contribution(piece, &puzzle_state.board_cells, &all_pieces);
             let sign = if contribution >= 0 { "+" } else { "" };
             let text_str = format!("{}{}", sign, contribution);
 
             let first_offset = piece.shape.first().unwrap_or(&IVec2::ZERO);
             let cell_pos = pos + *first_offset;
             let world_pos = grid_to_world_puzzle(cell_pos, &board_info).with_z(5.0);
-
+            
             if let Some(display) = display_opt {
                 commands.entity(display.0).despawn();
                 commands.entity(piece_entity).remove::<ContributionDisplay>();
             }
-            let text_entity = commands.spawn((
-                Text2d::new(text_str),
-                TextFont { font_size: 18.0, ..default() },
-                TextColor(Color::WHITE),
-                Transform::from_translation(world_pos),
-                Cleanup,
-            )).id();
+            let text_entity = commands
+                .spawn((
+                    Text2d::new(text_str),
+                    TextFont { font_size: 18.0, ..default() },
+                    TextColor(Color::WHITE),
+                    Transform::from_translation(world_pos),
+                    Cleanup,
+                ))
+                .id();
             commands.entity(piece_entity).insert(ContributionDisplay(text_entity));
         } else {
             if let Some(display) = display_opt {
@@ -876,6 +892,9 @@ pub fn setup_solution_view(mut commands: Commands, selected: Res<SelectedSolutio
                 crate::config::RawEffectCondition::NoColorOnBoard(c) => {
                     EffectCondition::NoColorOnBoard(*color_map.get(c).unwrap())
                 }
+                crate::config::RawEffectCondition::MatchesSize(size) => {
+                    EffectCondition::MatchesSize(*size as usize)
+                }
             };
             rotated_effects.push(GameEffect {
                 condition,
@@ -1012,6 +1031,7 @@ pub fn update_puzzle_effect_previews(
     board_info: Res<PuzzleBoardInfo>,
     piece_query: Query<(&Piece, &Children, Has<Hovered>, Has<Dragging>)>,
     mut preview_query: Query<(&mut Visibility, &mut Sprite, &EffectPreview)>,
+    all_pieces: Query<&Piece>, // add this
 ) {
     for (piece, children, is_hovered, is_dragging) in &piece_query {
         let show = is_hovered || is_dragging;
@@ -1023,7 +1043,7 @@ pub fn update_puzzle_effect_previews(
                     if let Some(grid_pos) = piece.placed_at {
                         let target_cell = grid_pos + preview.offset;
                         if is_in_bounds_puzzle(target_cell, &board_info) {
-                            active = check_condition(&preview.condition, Some(target_cell), &puzzle_state.board_cells);
+                            active = check_condition_with_sizes(&preview.condition, Some(target_cell), &puzzle_state.board_cells, &all_pieces);                        
                         }
                     }
                     if active {

@@ -22,20 +22,24 @@ pub fn recalculate_score<F: QueryFilter>(
                         for offset in offsets {
                             let target_cell = pos + *offset;
                             if crate::helpers::is_in_bounds(target_cell) {
-                                if check_condition(&effect.condition, Some(target_cell), board_cells) {
+                                if check_condition_with_sizes(&effect.condition, Some(target_cell), board_cells, piece_query) {
                                     total += effect.points;
                                 }
                             }
                         }
                     }
                     None => {
-                        if let EffectCondition::NoColorOnBoard(c) = &effect.condition {
-                            if no_color_on_board_excluding(board_cells, c, &exclude_cells) {
-                                total += effect.points;
+                        match &effect.condition {
+                            EffectCondition::NoColorOnBoard(c) => {
+                                if no_color_on_board_excluding(board_cells, c, &exclude_cells) {
+                                    total += effect.points;
+                                }
                             }
-                        } else {
-                            if check_condition(&effect.condition, Some(pos), board_cells) {
-                                total += effect.points;
+                            EffectCondition::MatchesSize(_) => {}
+                            _ => {
+                                if check_condition(&effect.condition, Some(pos), board_cells) {
+                                    total += effect.points;
+                                }
                             }
                         }
                     }
@@ -46,6 +50,7 @@ pub fn recalculate_score<F: QueryFilter>(
     total
 }
 
+// Original check_condition (no query) - for effects that don't need piece sizes
 pub fn check_condition(
     cond: &EffectCondition,
     target: Option<IVec2>,
@@ -59,14 +64,51 @@ pub fn check_condition(
         }),
         EffectCondition::IsEmpty => target.map_or(false, |cell| !board_cells.contains_key(&cell)),
         EffectCondition::NoColorOnBoard(c) => {
-            // This function is never called directly for NoColorOnBoard because we use the excluding version.
-            // We keep it for completeness, but it will not be used in scoring.
             !board_cells.values().any(|board_color| linear_rgba_near(board_color, c))
+        }
+        EffectCondition::MatchesSize(_) => false,
+    }
+}
+
+// Version that uses piece query for MatchesSize
+pub fn check_condition_with_sizes<F: QueryFilter>(
+    cond: &EffectCondition,
+    target: Option<IVec2>,
+    board_cells: &HashMap<IVec2, LinearRgba>,
+    piece_query: &Query<&Piece, F>,
+) -> bool {
+    match cond {
+        EffectCondition::MatchesColor(c) => target.map_or(false, |cell| {
+            board_cells
+                .get(&cell)
+                .map_or(false, |board_color| linear_rgba_near(board_color, c))
+        }),
+        EffectCondition::IsEmpty => target.map_or(false, |cell| !board_cells.contains_key(&cell)),
+        EffectCondition::NoColorOnBoard(c) => {
+            !board_cells.values().any(|board_color| linear_rgba_near(board_color, c))
+        }
+        EffectCondition::MatchesSize(size) => {
+            if let Some(cell) = target {
+                for piece in piece_query.iter() {
+                    if let Some(pos) = piece.placed_at {
+                        for offset in &piece.shape {
+                            if pos + *offset == cell {
+                                return piece.shape.len() == *size;
+                            }
+                        }
+                    }
+                }
+            }
+            false
         }
     }
 }
 
-pub fn compute_piece_contribution(piece: &Piece, board_cells: &HashMap<IVec2, LinearRgba>) -> i32 {
+pub fn compute_piece_contribution<F: QueryFilter>(
+    piece: &Piece,
+    board_cells: &HashMap<IVec2, LinearRgba>,
+    piece_query: &Query<&Piece, F>,
+) -> i32 {
     let mut total = piece.points;
     if let Some(pos) = piece.placed_at {
         let mut exclude_cells = HashSet::new();
@@ -79,20 +121,24 @@ pub fn compute_piece_contribution(piece: &Piece, board_cells: &HashMap<IVec2, Li
                     for offset in offsets {
                         let target_cell = pos + *offset;
                         if crate::helpers::is_in_bounds(target_cell) {
-                            if check_condition(&effect.condition, Some(target_cell), board_cells) {
+                            if check_condition_with_sizes(&effect.condition, Some(target_cell), board_cells, piece_query) {
                                 total += effect.points;
                             }
                         }
                     }
                 }
                 None => {
-                    if let EffectCondition::NoColorOnBoard(c) = &effect.condition {
-                        if no_color_on_board_excluding(board_cells, c, &exclude_cells) {
-                            total += effect.points;
+                    match &effect.condition {
+                        EffectCondition::NoColorOnBoard(c) => {
+                            if no_color_on_board_excluding(board_cells, c, &exclude_cells) {
+                                total += effect.points;
+                            }
                         }
-                    } else {
-                        if check_condition(&effect.condition, Some(pos), board_cells) {
-                            total += effect.points;
+                        EffectCondition::MatchesSize(_) => {}
+                        _ => {
+                            if check_condition(&effect.condition, Some(pos), board_cells) {
+                                total += effect.points;
+                            }
                         }
                     }
                 }
@@ -118,7 +164,6 @@ fn no_color_on_board_excluding(
     true
 }
 
-// Helper: compare two LinearRgba colours with a small epsilon
 pub fn linear_rgba_near(a: &LinearRgba, b: &LinearRgba) -> bool {
     let eps = 0.001;
     (a.red - b.red).abs() < eps
@@ -137,6 +182,5 @@ pub fn recalculate_duel_score_system(
     opponent_pieces: Query<&Piece, With<OpponentPiece>>,
 ) {
     duel_state.player.score = recalculate_score(&duel_state.player.board_cells, &player_pieces);
-    duel_state.opponent.score =
-        recalculate_score(&duel_state.opponent.board_cells, &opponent_pieces);
+    duel_state.opponent.score = recalculate_score(&duel_state.opponent.board_cells, &opponent_pieces);
 }

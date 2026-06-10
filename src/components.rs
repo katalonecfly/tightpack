@@ -29,6 +29,7 @@ pub enum EffectCondition {
     MatchesColor(LinearRgba),
     IsEmpty,
     NoColorOnBoard(LinearRgba),
+    MatchesSize(usize), // new variant
 }
 
 #[derive(Component)]
@@ -49,7 +50,7 @@ pub struct Dragging;
 pub struct GhostTile;
 #[derive(Component)]
 pub struct StashPosition {
-    pub desired_world_y: f32, // world y where the entity should appear when scroll=0
+    pub desired_world_y: f32,
 }
 
 #[derive(Component)]
@@ -68,7 +69,7 @@ pub struct OpponentPiece;
 pub enum BoardSide {
     Left,
     Right,
-    Single, // Used for non‑duel modes
+    Single,
 }
 
 #[derive(Component)]

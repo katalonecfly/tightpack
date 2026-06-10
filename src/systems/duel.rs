@@ -415,13 +415,12 @@ pub fn on_confirm_click_duel(
             let draft_data: Vec<(Entity, Piece)> = opponent_drafts.iter().filter_map(|e| opponent_pieces.get(e).ok().map(|p| (e, p.clone()))).collect();
             let draft_refs: Vec<(Entity, &Piece)> = draft_data.iter().map(|(e, p)| (*e, p)).collect();
             let opponent_placed: Vec<&Piece> = opponent_pieces.iter().collect();
-
+            
             let placement = if settings.ai_mode == AIType::Greedy {
                 greedy_placement(&draft_refs, &duel_state.opponent, &opponent_placed)
             } else {
                 first_free_placement(&draft_refs, &duel_state.opponent)
-            };
-
+            };            
             if let Some(placement) = placement {
                 let world_pos = grid_to_world_duel(placement.origin, BoardSide::Right);
                 let entity = crate::systems::setup::spawn_draggable_piece(

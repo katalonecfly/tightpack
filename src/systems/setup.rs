@@ -204,6 +204,7 @@ pub fn bake_effects(
                 RawEffectCondition::NoColorOnBoard(name) => EffectCondition::NoColorOnBoard(
                     *color_map.get(name).unwrap_or(&LinearRgba::WHITE),
                 ),
+                RawEffectCondition::MatchesSize(size) => EffectCondition::MatchesSize(*size as usize),
             };
             GameEffect {
                 condition,
@@ -245,6 +246,10 @@ pub fn randomize_piece_properties(
         }
         RawEffectCondition::NoColorOnBoard(name) => {
             EffectCondition::NoColorOnBoard(*color_map.get(name).unwrap_or(&LinearRgba::WHITE))
+        }
+        RawEffectCondition::MatchesSize(_size) => {
+            let random_size = rng.random_range(1..=4);
+            EffectCondition::MatchesSize(random_size)
         }
     };
 

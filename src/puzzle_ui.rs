@@ -385,6 +385,7 @@ pub fn validate_solution(solution: &Solution, puzzle_id: &str) -> bool {
                 RawEffectCondition::NoColorOnBoard(c) => {
                     EffectCondition::NoColorOnBoard(*color_map.get(c).unwrap())
                 }
+                RawEffectCondition::MatchesSize(size) => EffectCondition::MatchesSize(*size as usize),
             };
             rotated_effects.push(GameEffect {
                 condition,
@@ -412,6 +413,14 @@ pub fn validate_solution(solution: &Solution, puzzle_id: &str) -> bool {
     }
 
     // Second pass: compute total score including effects, excluding own cells for NoColorOnBoard
+    // We need piece shapes for size checks. Build a list of (cell, size)
+    let mut piece_cells: HashMap<IVec2, usize> = HashMap::new();
+    for (origin, shape, _color, _, _, _) in &placed {
+        for offset in shape {
+            piece_cells.insert(origin + *offset, shape.len());
+        }
+    }
+
     let mut total_score = 0;
     for (origin, _shape, _color, raw_points, effects, occupied) in &placed {
         total_score += raw_points;
@@ -423,30 +432,31 @@ pub fn validate_solution(solution: &Solution, puzzle_id: &str) -> bool {
                     if target_cell.x >= 0 && target_cell.x < board_size.x
                         && target_cell.y >= 0 && target_cell.y < board_size.y
                     {
-                        if crate::systems::scoring::check_condition(&effect.condition, Some(target_cell), &board_cells) {
+                        let condition_met = match &effect.condition {
+                            EffectCondition::MatchesColor(c) => board_cells.get(&target_cell).map_or(false, |&col| linear_rgba_near(&col, c)),
+                            EffectCondition::IsEmpty => !board_cells.contains_key(&target_cell),
+                            EffectCondition::NoColorOnBoard(_) => false,
+                            EffectCondition::MatchesSize(size) => piece_cells.get(&target_cell).map_or(false, |&s| s == *size),
+                        };                        
+                        if condition_met {
                             total_score += effect.points;
                         }
                     }
                 }
             } else {
-                // Global effect (NoColorOnBoard) – check excluding own cells
+                // Global effect (NoColorOnBoard)
                 if let EffectCondition::NoColorOnBoard(c) = &effect.condition {
                     let mut found_other = false;
                     for (cell, board_color) in board_cells.iter() {
                         if exclude_set.contains(cell) {
                             continue;
                         }
-                        if crate::systems::scoring::linear_rgba_near(board_color, c) {
+                        if linear_rgba_near(board_color, c) {
                             found_other = true;
                             break;
                         }
                     }
                     if !found_other {
-                        total_score += effect.points;
-                    }
-                } else {
-                    // Other global effects (not used currently)
-                    if crate::systems::scoring::check_condition(&effect.condition, Some(*origin), &board_cells) {
                         total_score += effect.points;
                     }
                 }
@@ -455,6 +465,14 @@ pub fn validate_solution(solution: &Solution, puzzle_id: &str) -> bool {
     }
 
     total_score == solution.score
+}
+
+fn linear_rgba_near(a: &LinearRgba, b: &LinearRgba) -> bool {
+    let eps = 0.001;
+    (a.red - b.red).abs() < eps
+        && (a.green - b.green).abs() < eps
+        && (a.blue - b.blue).abs() < eps
+        && (a.alpha - b.alpha).abs() < eps
 }
 
 pub fn get_current_solution(
