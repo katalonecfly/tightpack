@@ -3,7 +3,7 @@ use crate::components::*;
 use crate::config::{RawPieceConfig, EffectDescriptions};
 use crate::helpers::*;
 use crate::resources::{InventoryScroll, StashContentHeight, StashScreenRect, TooltipState};
-use crate::systems::scoring::{check_condition, check_condition_with_sizes, linear_rgba_near, compute_piece_contribution};
+use crate::systems::scoring::{check_condition, check_condition_with_sizes, linear_rgba_near};
 use crate::systems::setup::randomize_piece_properties;
 use crate::puzzle_ui::{
     PuzzleBoardInfo, PuzzleGameState, CurrentPuzzle, SelectedSolution, LastSavedSolution,

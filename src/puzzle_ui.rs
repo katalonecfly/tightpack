@@ -203,6 +203,7 @@ pub mod storage {
             "002".to_string(),
             "003".to_string(),
             "004".to_string(),
+            "005".to_string(),
         ];
         list.sort();
         list
@@ -224,6 +225,10 @@ pub mod storage {
             }
             "004" => {
                 let content = include_str!("../assets/puzzles/004/data.ron");
+                ron::from_str(content).ok()
+            }
+            "005" => {
+                let content = include_str!("../assets/puzzles/005/data.ron");
                 ron::from_str(content).ok()
             }
             _ => None,
