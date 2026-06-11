@@ -88,7 +88,7 @@ fn handle_reset(
     current_state: Res<State<AppState>>,
     mut next_state: ResMut<NextState<AppState>>,
     mut game_state: ResMut<GameState>,
-    _puzzle_state: Option<ResMut<PuzzleGameState>>,
+    puzzle_state: Option<ResMut<PuzzleGameState>>,
     _duel_state: Option<ResMut<DuelState>>,
     _round_counter: Option<ResMut<RoundCounter>>,
     mut piece_query: Query<(&mut Piece, &mut Transform)>,
@@ -112,17 +112,33 @@ fn handle_reset(
                 }
             }
             AppState::Draft => {
-                let state = *current_state.get();
-                next_state.set(state);
+                // Reset draft by re-entering the state
+                next_state.set(AppState::Draft);
             }
             AppState::Duel => {
-                let state = *current_state.get();
-                next_state.set(state);
+                // Reset duel by re-entering the state
+                next_state.set(AppState::Duel);
             }
             AppState::Puzzle => {
-                // Puzzle reset is handled by re-entering the state (simpler)
-                let state = *current_state.get();
-                next_state.set(state);
+                if let Some(mut puzzle_state) = puzzle_state {
+                    // Clear board cells and score, but keep disabled_cells (blocked cells)
+                    puzzle_state.board_cells.clear();
+                    puzzle_state.score = 0;
+                    // Reset all pieces (move back to stash, reset rotation, shape, effects)
+                    for (mut piece, mut transform) in piece_query.iter_mut() {
+                        if piece.placed_at.is_some() {
+                            piece.placed_at = None;
+                            transform.translation = piece.original_pos;
+                            transform.translation.z = piece.original_pos.z;
+                            transform.rotation = Quat::IDENTITY;
+                            piece.shape = piece.original_shape.clone();
+                            piece.effects = piece.original_effects.clone();
+                        }
+                    }
+                } else {
+                    // Fallback: re-enter state if resource missing
+                    next_state.set(AppState::Puzzle);
+                }
             }
             _ => {}
         }
