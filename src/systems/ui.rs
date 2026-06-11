@@ -119,53 +119,31 @@ pub fn update_duel_score_ui(
 pub fn update_effect_previews(
     state: Res<GameState>,
     piece_query: Query<(&Piece, &Children, Has<Hovered>, Has<Dragging>)>,
-    mut preview_query: Query<(&mut Visibility, &mut Sprite, &mut EffectPreview)>,
+    mut preview_query: Query<(&mut Visibility, &mut Sprite, &EffectPreview)>,
     all_pieces: Query<&Piece>,
 ) {
     for (piece, children, is_hovered, is_dragging) in &piece_query {
         let show = is_hovered || is_dragging;
-        if !show {
-            for &child in children {
-                if let Ok((mut visibility, _, _)) = preview_query.get_mut(child) {
-                    *visibility = Visibility::Hidden;
-                }
-            }
-            continue;
-        }
-
-        let mut offset_to_condition = std::collections::HashMap::new();
-        for effect in &piece.effects {
-            if let Some(offsets) = &effect.offsets {
-                for &offset in offsets {
-                    offset_to_condition.insert(offset, effect.condition.clone());
-                }
-            }
-        }
-
         for &child in children {
-            if let Ok((mut visibility, mut sprite, mut preview)) = preview_query.get_mut(child) {
-                *visibility = Visibility::Visible;
-                if let Some(condition) = offset_to_condition.get(&preview.offset) {
-                    preview.condition = condition.clone();
+            if let Ok((mut visibility, mut sprite, preview)) = preview_query.get_mut(child) {
+                if show {
+                    *visibility = Visibility::Visible;
+                    let mut active = false;
+                    if let Some(grid_pos) = piece.placed_at {
+                        let target_cell = grid_pos + preview.offset;
+                        if crate::helpers::is_in_bounds(target_cell) {
+                            active = check_condition_with_sizes(&preview.condition, Some(target_cell), &state.board_cells, &all_pieces);
+                        }
+                    }
+                    if active {
+                        sprite.color = Color::srgb(1.0, 1.0, 0.0).into();
+                        sprite.custom_size = Some(Vec2::splat(12.0));
+                    } else {
+                        sprite.color = Color::srgba(1.0, 1.0, 0.0, 0.4).into();
+                        sprite.custom_size = Some(Vec2::splat(8.0));
+                    }
                 } else {
                     *visibility = Visibility::Hidden;
-                    continue;
-                }
-
-                let mut active = false;
-                if let Some(grid_pos) = piece.placed_at {
-                    let target_cell = grid_pos + preview.offset;
-                    if crate::helpers::is_in_bounds(target_cell) {
-                        active = check_condition_with_sizes(&preview.condition, Some(target_cell), &state.board_cells, &all_pieces);
-                    }
-                }
-
-                if active {
-                    sprite.color = Color::srgb(1.0, 1.0, 0.0).into();
-                    sprite.custom_size = Some(Vec2::splat(12.0));
-                } else {
-                    sprite.color = Color::srgba(1.0, 1.0, 0.0, 0.4).into();
-                    sprite.custom_size = Some(Vec2::splat(8.0));
                 }
             }
         }
@@ -175,59 +153,36 @@ pub fn update_effect_previews(
 pub fn update_duel_effect_previews(
     duel_state: Res<DuelState>,
     piece_query: Query<(&Piece, &Children, Has<Hovered>, Has<Dragging>)>,
-    mut preview_query: Query<(&mut Visibility, &mut Sprite, &mut EffectPreview)>,
+    mut preview_query: Query<(&mut Visibility, &mut Sprite, &EffectPreview)>,
     all_pieces: Query<&Piece>,
 ) {
     for (piece, children, is_hovered, is_dragging) in &piece_query {
         let show = is_hovered || is_dragging;
-        if !show {
-            for &child in children {
-                if let Ok((mut visibility, _, _)) = preview_query.get_mut(child) {
-                    *visibility = Visibility::Hidden;
-                }
-            }
-            continue;
-        }
-
         let board_cells = match piece.board_side {
             BoardSide::Left => &duel_state.player.board_cells,
             BoardSide::Right => &duel_state.opponent.board_cells,
             _ => continue,
         };
-
-        let mut offset_to_condition = std::collections::HashMap::new();
-        for effect in &piece.effects {
-            if let Some(offsets) = &effect.offsets {
-                for &offset in offsets {
-                    offset_to_condition.insert(offset, effect.condition.clone());
-                }
-            }
-        }
-
         for &child in children {
-            if let Ok((mut visibility, mut sprite, mut preview)) = preview_query.get_mut(child) {
-                *visibility = Visibility::Visible;
-                if let Some(condition) = offset_to_condition.get(&preview.offset) {
-                    preview.condition = condition.clone();
+            if let Ok((mut visibility, mut sprite, preview)) = preview_query.get_mut(child) {
+                if show {
+                    *visibility = Visibility::Visible;
+                    let mut active = false;
+                    if let Some(grid_pos) = piece.placed_at {
+                        let target_cell = grid_pos + preview.offset;
+                        if crate::helpers::is_in_bounds(target_cell) {
+                            active = check_condition_with_sizes(&preview.condition, Some(target_cell), board_cells, &all_pieces);
+                        }
+                    }
+                    if active {
+                        sprite.color = Color::srgb(1.0, 1.0, 0.0).into();
+                        sprite.custom_size = Some(Vec2::splat(12.0));
+                    } else {
+                        sprite.color = Color::srgba(1.0, 1.0, 0.0, 0.4).into();
+                        sprite.custom_size = Some(Vec2::splat(8.0));
+                    }
                 } else {
                     *visibility = Visibility::Hidden;
-                    continue;
-                }
-
-                let mut active = false;
-                if let Some(grid_pos) = piece.placed_at {
-                    let target_cell = grid_pos + preview.offset;
-                    if crate::helpers::is_in_bounds(target_cell) {
-                        active = check_condition_with_sizes(&preview.condition, Some(target_cell), board_cells, &all_pieces);
-                    }
-                }
-
-                if active {
-                    sprite.color = Color::srgb(1.0, 1.0, 0.0).into();
-                    sprite.custom_size = Some(Vec2::splat(12.0));
-                } else {
-                    sprite.color = Color::srgba(1.0, 1.0, 0.0, 0.4).into();
-                    sprite.custom_size = Some(Vec2::splat(8.0));
                 }
             }
         }

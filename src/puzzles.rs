@@ -1031,7 +1031,7 @@ pub fn update_puzzle_effect_previews(
     board_info: Res<PuzzleBoardInfo>,
     piece_query: Query<(&Piece, &Children, Has<Hovered>, Has<Dragging>)>,
     mut preview_query: Query<(&mut Visibility, &mut Sprite, &EffectPreview)>,
-    all_pieces: Query<&Piece>, // add this
+    all_pieces: Query<&Piece>,
 ) {
     for (piece, children, is_hovered, is_dragging) in &piece_query {
         let show = is_hovered || is_dragging;
@@ -1043,7 +1043,7 @@ pub fn update_puzzle_effect_previews(
                     if let Some(grid_pos) = piece.placed_at {
                         let target_cell = grid_pos + preview.offset;
                         if is_in_bounds_puzzle(target_cell, &board_info) {
-                            active = check_condition_with_sizes(&preview.condition, Some(target_cell), &puzzle_state.board_cells, &all_pieces);                        
+                            active = check_condition_with_sizes(&preview.condition, Some(target_cell), &puzzle_state.board_cells, &all_pieces);
                         }
                     }
                     if active {
