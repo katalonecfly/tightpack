@@ -2,7 +2,6 @@ use crate::components::*;
 use crate::config::RawPieceConfig;
 use crate::helpers::*;
 use crate::resources::GameState;
-use crate::systems::scoring::check_condition;
 use bevy::prelude::*;
 
 pub struct AIPlacement {
@@ -55,8 +54,14 @@ pub fn greedy_placement(
     opponent_state: &GameState,
     opponent_placed_pieces: &[&Piece],
 ) -> Option<AIPlacement> {
+    use crate::helpers::is_in_bounds;
+    use crate::systems::scoring::recalculate_score_from_vectors;
+
+    let current_pieces: Vec<Piece> = opponent_placed_pieces.iter().map(|&p| p.clone()).collect();
+    let current_score = recalculate_score_from_vectors(&opponent_state.board_cells, &current_pieces);
+
     let mut best_placement: Option<AIPlacement> = None;
-    let mut best_score = -1;
+    let mut best_score = -1_000_000;
 
     for (_entity, piece) in draft_pieces.iter() {
         let mut shape = piece.shape.clone();
@@ -74,58 +79,46 @@ pub fn greedy_placement(
                         continue;
                     }
 
-                    let immediate_self = piece.points;
-                    let mut potential_self = 0;
-                    let mut immediate_other = 0;
-                    let mut penalty_other = 0;
-
-                    let occupied_cells: Vec<IVec2> = shape.iter().map(|off| origin + *off).collect();
-
-                    for existing in opponent_placed_pieces {
-                        if let Some(ex_origin) = existing.placed_at {
-                            for effect in &existing.effects {
-                                if let Some(offsets) = &effect.offsets {
-                                    for offset in offsets {
-                                        let target = ex_origin + *offset;
-                                        if occupied_cells.contains(&target) {
-                                            let condition = &effect.condition;
-                                            let satisfied = match condition {
-                                                EffectCondition::MatchesColor(c) => piece.color == *c,
-                                                EffectCondition::IsEmpty => false,
-                                                EffectCondition::NoColorOnBoard(_) => false,
-                                                EffectCondition::MatchesSize(_) => false,
-                                            };
-                                            if satisfied {
-                                                immediate_other += effect.points;
-                                            } else {
-                                                penalty_other += effect.points;
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
+                    let mut new_board_cells = opponent_state.board_cells.clone();
+                    let mut new_pieces = current_pieces.clone();
+                    let new_piece = Piece {
+                        type_id: piece.type_id,
+                        shape: shape.clone(),
+                        original_shape: piece.original_shape.clone(),
+                        color: piece.color,
+                        points: piece.points,
+                        effects: effects.clone(),
+                        original_effects: piece.original_effects.clone(),
+                        original_pos: piece.original_pos,
+                        placed_at: Some(origin),
+                        board_side: piece.board_side,
+                    };
+                    for offset in &shape {
+                        new_board_cells.insert(origin + *offset, piece.color);
                     }
+                    new_pieces.push(new_piece);
 
+                    let new_score = recalculate_score_from_vectors(&new_board_cells, &new_pieces);
+                    let net_gain = new_score - current_score;
+
+                    // Calculate bonus for effect offsets that are inside the board (potential future activation)
+                    let mut potential_bonus = 0;
                     for effect in &effects {
                         if let Some(offsets) = &effect.offsets {
                             for offset in offsets {
                                 let target = origin + *offset;
-                                if !crate::helpers::is_in_bounds(target) {
-                                    continue;
-                                }
-                                if !check_condition(&effect.condition, Some(target), &opponent_state.board_cells)
-                                    && is_cell_available(target, &opponent_state.board_cells, &opponent_state.disabled_cells)
-                                {
-                                    potential_self += effect.points;
+                                if is_in_bounds(target) {
+                                    potential_bonus += effect.points;
                                 }
                             }
                         }
                     }
 
-                    let total = immediate_self + immediate_other + potential_self - penalty_other;
-                    if total > best_score {
-                        best_score = total;
+                    // Weight net gain heavily, then add potential bonus as tie-breaker
+                    let total_score = net_gain * 10000 + potential_bonus;
+
+                    if total_score > best_score {
+                        best_score = total_score;
                         best_placement = Some(AIPlacement {
                             raw_config: RawPieceConfig {
                                 shape: shape.clone(),

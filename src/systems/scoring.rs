@@ -148,22 +148,6 @@ pub fn compute_piece_contribution<F: QueryFilter>(
     total
 }
 
-fn no_color_on_board_excluding(
-    board_cells: &HashMap<IVec2, LinearRgba>,
-    color: &LinearRgba,
-    exclude_cells: &HashSet<IVec2>,
-) -> bool {
-    for (cell, board_color) in board_cells.iter() {
-        if exclude_cells.contains(cell) {
-            continue;
-        }
-        if linear_rgba_near(board_color, color) {
-            return false;
-        }
-    }
-    true
-}
-
 pub fn linear_rgba_near(a: &LinearRgba, b: &LinearRgba) -> bool {
     let eps = 0.001;
     (a.red - b.red).abs() < eps
@@ -183,4 +167,75 @@ pub fn recalculate_duel_score_system(
 ) {
     duel_state.player.score = recalculate_score(&duel_state.player.board_cells, &player_pieces);
     duel_state.opponent.score = recalculate_score(&duel_state.opponent.board_cells, &opponent_pieces);
+}
+
+pub fn no_color_on_board_excluding(
+    board_cells: &HashMap<IVec2, LinearRgba>,
+    color: &LinearRgba,
+    exclude_cells: &HashSet<IVec2>,
+) -> bool {
+    for (cell, board_color) in board_cells.iter() {
+        if exclude_cells.contains(cell) {
+            continue;
+        }
+        if linear_rgba_near(board_color, color) {
+            return false;
+        }
+    }
+    true
+}
+
+pub fn recalculate_score_from_vectors(
+    board_cells: &HashMap<IVec2, LinearRgba>,
+    pieces: &[Piece],
+) -> i32 {
+    let mut total = 0;
+    for piece in pieces {
+        if let Some(pos) = piece.placed_at {
+            total += piece.points;
+            let mut exclude_cells = HashSet::new();
+            for offset in &piece.shape {
+                exclude_cells.insert(pos + *offset);
+            }
+            for effect in &piece.effects {
+                match &effect.offsets {
+                    Some(offsets) => {
+                        for offset in offsets {
+                            let target_cell = pos + *offset;
+                            if crate::helpers::is_in_bounds(target_cell) {
+                                let cond_met = match &effect.condition {
+                                    EffectCondition::MatchesColor(c) => board_cells.get(&target_cell).map_or(false, |bc| linear_rgba_near(bc, c)),
+                                    EffectCondition::IsEmpty => !board_cells.contains_key(&target_cell),
+                                    EffectCondition::NoColorOnBoard(_) => false,
+                                    EffectCondition::MatchesSize(size) => {
+                                        pieces.iter().find_map(|p| {
+                                            if let Some(p_pos) = p.placed_at {
+                                                if p.shape.iter().any(|off| p_pos + *off == target_cell) {
+                                                    Some(p.shape.len())
+                                                } else { None }
+                                            } else { None }
+                                        }).map_or(false, |s| s == *size)
+                                    }
+                                };
+                                if cond_met {
+                                    total += effect.points;
+                                }
+                            }
+                        }
+                    }
+                    None => {
+                        match &effect.condition {
+                            EffectCondition::NoColorOnBoard(c) => {
+                                if no_color_on_board_excluding(board_cells, c, &exclude_cells) {
+                                    total += effect.points;
+                                }
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+            }
+        }
+    }
+    total
 }
