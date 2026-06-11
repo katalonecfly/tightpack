@@ -209,24 +209,23 @@ pub fn update_tooltip(
             let mut max_y = f32::MIN;
 
             for offset in &piece.shape {
-                let local = Vec3::new(
-                    offset.x as f32 * TILE_SIZE,
-                    offset.y as f32 * TILE_SIZE,
+                let world = Vec3::new(
+                    transform.translation.x + offset.x as f32 * TILE_SIZE,
+                    transform.translation.y + offset.y as f32 * TILE_SIZE,
                     0.0,
                 );
-                let world = transform.transform_point(local);
                 min_x = min_x.min(world.x);
                 max_x = max_x.max(world.x);
                 min_y = min_y.min(world.y);
                 max_y = max_y.max(world.y);
             }
 
-            let right_center = Vec2::new(max_x + TILE_SIZE, (min_y + max_y) / 2.0);
+            // Anchor at bottom-right corner plus one tile down
+            let anchor = Vec2::new(max_x + TILE_SIZE, min_y - TILE_SIZE);
 
             if let Ok((camera, cam_transform)) = camera_query.single() {
                 if let Ok(window) = windows.single() {
-                    if let Some(ndc) = camera.world_to_ndc(cam_transform, right_center.extend(0.0))
-                    {
+                    if let Some(ndc) = camera.world_to_ndc(cam_transform, anchor.extend(0.0)) {
                         let screen_x = (ndc.x + 1.0) * 0.5 * window.width();
                         let screen_y = (1.0 - ndc.y) * 0.5 * window.height();
 
@@ -318,24 +317,22 @@ pub fn update_duel_tooltip(
             let mut max_y = f32::MIN;
 
             for offset in &piece.shape {
-                let local = Vec3::new(
-                    offset.x as f32 * TILE_SIZE,
-                    offset.y as f32 * TILE_SIZE,
+                let world = Vec3::new(
+                    transform.translation.x + offset.x as f32 * TILE_SIZE,
+                    transform.translation.y + offset.y as f32 * TILE_SIZE,
                     0.0,
                 );
-                let world = transform.transform_point(local);
                 min_x = min_x.min(world.x);
                 max_x = max_x.max(world.x);
                 min_y = min_y.min(world.y);
                 max_y = max_y.max(world.y);
             }
 
-            let right_center = Vec2::new(max_x + TILE_SIZE, (min_y + max_y) / 2.0);
+            let anchor = Vec2::new(max_x + TILE_SIZE, min_y - TILE_SIZE);
 
             if let Ok((camera, cam_transform)) = camera_query.single() {
                 if let Ok(window) = windows.single() {
-                    if let Some(ndc) = camera.world_to_ndc(cam_transform, right_center.extend(0.0))
-                    {
+                    if let Some(ndc) = camera.world_to_ndc(cam_transform, anchor.extend(0.0)) {
                         let screen_x = (ndc.x + 1.0) * 0.5 * window.width();
                         let screen_y = (1.0 - ndc.y) * 0.5 * window.height();
 
