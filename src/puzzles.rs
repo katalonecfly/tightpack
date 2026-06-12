@@ -378,20 +378,24 @@ fn color_name_from_rgba(rgba: &LinearRgba) -> &'static str {
 fn get_effect_description(cond: &EffectCondition, descs: &EffectDescriptions) -> String {
     match cond {
         EffectCondition::MatchesColor(c) => {
-            let key = format!("MatchesColor({})", color_name_from_rgba(c));
-            descs.descriptions.get(&key).cloned().unwrap_or_else(|| format!("Unknown effect: {}", key))
+            let key = "MatchesColor(X)";
+            let template = descs.descriptions.get(key).cloned().unwrap_or_else(|| format!("Unknown effect: {}", key));
+            template.replace("{X}", color_name_from_rgba(c))
         }
         EffectCondition::IsEmpty => {
             descs.descriptions.get("IsEmpty").cloned().unwrap_or_else(|| "Unknown effect: IsEmpty".to_string())
         }
         EffectCondition::NoColorOnBoard(c) => {
-            let key = format!("NoColorOnBoard({})", color_name_from_rgba(c));
-            descs.descriptions.get(&key).cloned().unwrap_or_else(|| format!("Unknown effect: {}", key))
+            let key = "NoColorOnBoard(X)";
+            let template = descs.descriptions.get(key).cloned().unwrap_or_else(|| format!("Unknown effect: {}", key));
+            template.replace("{X}", color_name_from_rgba(c))
         }
-        EffectCondition::MatchesSize(_) => {
-            descs.descriptions.get("MatchesSize(X)").cloned().unwrap_or_else(|| {
+        EffectCondition::MatchesSize(size) => {
+            let key = "MatchesSize(X)";
+            let template = descs.descriptions.get(key).cloned().unwrap_or_else(|| {
                 "Unknown effect: MatchesSize(X)".to_string()
-            })
+            });
+            template.replace("{X}", &size.to_string())
         }
     }
 }
@@ -440,19 +444,8 @@ pub fn update_puzzle_tooltip(
                             text.push_str("\n\nEffects:");
                             for effect in &piece.effects {
                                 text.push_str("\n- ");
-                                let desc_template = get_effect_description(&effect.condition, &effect_descs);
-                                let desc = match &effect.condition {
-                                    EffectCondition::MatchesSize(size) => {
-                                        desc_template.replace("{points}", &effect.points.to_string()).replace("{X}", &size.to_string())
-                                    }
-                                    _ => desc_template
-                                        .replace("{points}", &effect.points.to_string())
-                                        .replace("{color}", color_name_from_rgba(match &effect.condition {
-                                            EffectCondition::MatchesColor(c) => c,
-                                            EffectCondition::NoColorOnBoard(c) => c,
-                                            _ => &LinearRgba::WHITE,
-                                        })),
-                                };
+                                let desc = get_effect_description(&effect.condition, &effect_descs)
+                                    .replace("{points}", &effect.points.to_string());
                                 text.push_str(&desc);
                             }
                         }

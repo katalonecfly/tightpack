@@ -231,23 +231,15 @@ pub fn randomize_piece_properties(
         return (color, effects);
     }
 
-    if raw.effects.is_empty() {
-        let color = random_color(color_map);
-        return (color, Vec::new());
-    }
-
     let mut rng = rand::rng();
     let chosen_raw = raw.effects.choose(&mut rng).unwrap();
+    let color = random_color(color_map);
 
     let condition = match &chosen_raw.condition {
         RawEffectCondition::IsEmpty => EffectCondition::IsEmpty,
-        RawEffectCondition::MatchesColor(name) => {
-            EffectCondition::MatchesColor(*color_map.get(name).unwrap_or(&LinearRgba::WHITE))
-        }
-        RawEffectCondition::NoColorOnBoard(name) => {
-            EffectCondition::NoColorOnBoard(*color_map.get(name).unwrap_or(&LinearRgba::WHITE))
-        }
-        RawEffectCondition::MatchesSize(_size) => {
+        RawEffectCondition::MatchesColor(_) => EffectCondition::MatchesColor(color),
+        RawEffectCondition::NoColorOnBoard(_) => EffectCondition::NoColorOnBoard(color),
+        RawEffectCondition::MatchesSize(_) => {
             let random_size = rng.random_range(1..=4);
             EffectCondition::MatchesSize(random_size)
         }
@@ -269,7 +261,6 @@ pub fn randomize_piece_properties(
         offsets: chosen_offsets,
     }];
 
-    let color = random_color(color_map);
     (color, effects)
 }
 
