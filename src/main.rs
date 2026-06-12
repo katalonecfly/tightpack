@@ -8,6 +8,7 @@ mod puzzle_ui;
 
 use bevy::picking::prelude::*;
 use bevy::prelude::*;
+use bevy::window::WindowPlugin;
 use crate::resources::{GameState, DuelState, TooltipState, PieceLibrary, GameSettings, TempSettings, RoundCounter};
 use crate::systems::menu;
 use crate::puzzles::*;
@@ -112,19 +113,15 @@ fn handle_reset(
                 }
             }
             AppState::Draft => {
-                // Reset draft by re-entering the state
                 next_state.set(AppState::Draft);
             }
             AppState::Duel => {
-                // Reset duel by re-entering the state
                 next_state.set(AppState::Duel);
             }
             AppState::Puzzle => {
                 if let Some(mut puzzle_state) = puzzle_state {
-                    // Clear board cells and score, but keep disabled_cells (blocked cells)
                     puzzle_state.board_cells.clear();
                     puzzle_state.score = 0;
-                    // Reset all pieces (move back to stash, reset rotation, shape, effects)
                     for (mut piece, mut transform) in piece_query.iter_mut() {
                         if piece.placed_at.is_some() {
                             piece.placed_at = None;
@@ -136,7 +133,6 @@ fn handle_reset(
                         }
                     }
                 } else {
-                    // Fallback: re-enter state if resource missing
                     next_state.set(AppState::Puzzle);
                 }
             }
@@ -145,9 +141,9 @@ fn handle_reset(
     }
 }
 
-fn main() {
-    App::new()
-        .add_plugins(DefaultPlugins)
+fn build_app(window_plugin: WindowPlugin) -> App {
+    let mut app = App::new();
+    app.add_plugins(DefaultPlugins.set(window_plugin))
         .add_plugins(MeshPickingPlugin)
         .init_resource::<GameState>()
         .init_resource::<TooltipState>()
@@ -237,10 +233,10 @@ fn main() {
         // Controls
         .add_systems(OnEnter(AppState::Controls), systems::controls::setup_controls)
         .add_systems(OnExit(AppState::Controls), cleanup_system)
-        // PuzzlesList state
+        // PuzzlesList
         .add_systems(OnEnter(AppState::PuzzlesList), setup_puzzle_list)
         .add_systems(OnExit(AppState::PuzzlesList), cleanup_system)
-        // Puzzle state
+        // Puzzle
         .add_systems(OnEnter(AppState::Puzzle), setup_puzzle)
         .add_systems(
             Update,
@@ -263,14 +259,14 @@ fn main() {
             update_help_tooltip.run_if(in_state(AppState::PuzzlesList)),
         )
         .add_systems(OnExit(AppState::Puzzle), (cleanup_system, reset_puzzle_state))
-        // Solution list state
+        // Solution list
         .add_systems(OnEnter(AppState::SolutionList), setup_solution_list)
         .add_systems(
             Update,
             solution_list_interaction.run_if(in_state(AppState::SolutionList)),
         )
         .add_systems(OnExit(AppState::SolutionList), cleanup_system)
-        // Solution view state
+        // Solution view
         .add_systems(OnEnter(AppState::SolutionView), setup_solution_view)
         .add_systems(
             Update,
@@ -282,7 +278,7 @@ fn main() {
                 .run_if(in_state(AppState::SolutionView)),
         )        
         .add_systems(OnExit(AppState::SolutionView), (cleanup_system, reset_solution_view))
-        // Global escape handler
+        // Global escape
         .add_systems(Update, handle_escape)
         // Settings
         .add_systems(
@@ -293,6 +289,25 @@ fn main() {
             Update,
             systems::settings::handle_rounds_buttons.run_if(in_state(AppState::Settings)),
         )
-        .add_systems(OnExit(AppState::Settings), (cleanup_system, reset_temp_settings))
-        .run();
+        .add_systems(OnExit(AppState::Settings), (cleanup_system, reset_temp_settings));
+    
+    app
+}
+
+#[cfg(target_arch = "wasm32")]
+fn main() {
+    let window_plugin = WindowPlugin {
+        primary_window: Some(Window {
+            fit_canvas_to_parent: true,
+            ..default()
+        }),
+        ..default()
+    };
+    build_app(window_plugin).run();
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn main() {
+    let window_plugin = WindowPlugin::default();
+    build_app(window_plugin).run();
 }
