@@ -1,10 +1,8 @@
 use crate::Cleanup;
 use crate::components::*;
 use crate::config::*;
-use crate::helpers::BOARD_TOP_Y;
 use crate::helpers::*;
-use crate::resources::PieceLibrary;
-use crate::resources::{InventoryScroll, StashContentHeight, StashScreenRect};
+use crate::resources::{BoardSize, InventoryScroll, PieceLibrary, StashContentHeight, StashScreenRect};
 use crate::systems::draft::DraftConfirmButton;
 use bevy::prelude::*;
 use rand::prelude::*;
@@ -13,7 +11,7 @@ use std::collections::HashMap;
 
 const AVAILABLE_COLORS: &[&str] = &["RED", "BLUE", "GREEN"];
 
-fn spawn_common(commands: &mut Commands) -> Vec<RawPieceConfig> {
+fn spawn_common(commands: &mut Commands, board_size: IVec2) -> Vec<RawPieceConfig> {
     commands.spawn((Camera2d, Cleanup));
 
     let file_content = include_str!("../../assets/pieces.ron");
@@ -22,12 +20,12 @@ fn spawn_common(commands: &mut Commands) -> Vec<RawPieceConfig> {
     commands.insert_resource(PieceLibrary(lib.pieces));
 
     let board_root = commands.spawn((Transform::default(), Cleanup)).id();
-    for x in 0..BOARD_SIZE.x {
-        for y in 0..BOARD_SIZE.y {
+    for x in 0..board_size.x {
+        for y in 0..board_size.y {
             let tile = commands
                 .spawn((
                     Sprite::from_color(Color::srgb(0.2, 0.2, 0.2), Vec2::splat(TILE_SIZE - 2.0)),
-                    Transform::from_translation(grid_to_world(IVec2::new(x, y))),
+                    Transform::from_translation(grid_to_world(IVec2::new(x, y), board_size)),
                 ))
                 .id();
             commands.entity(board_root).add_child(tile);
@@ -40,7 +38,7 @@ fn spawn_common(commands: &mut Commands) -> Vec<RawPieceConfig> {
             font_size: SCORE_FONT_SIZE,
             ..default()
         },
-        Transform::from_translation(score_text_world_pos("Score: 0", SCORE_FONT_SIZE)),
+        Transform::from_translation(score_text_world_pos("Score: 0", SCORE_FONT_SIZE, board_size)),
         ScoreText,
         Cleanup,
     ));
@@ -48,15 +46,16 @@ fn spawn_common(commands: &mut Commands) -> Vec<RawPieceConfig> {
     pieces
 }
 
-pub fn setup_sandbox(mut commands: Commands, windows: Query<&Window>) {
-    let pieces = spawn_common(&mut commands);
+pub fn setup_sandbox(mut commands: Commands, windows: Query<&Window>, board_size: Res<BoardSize>) {
+    let board_size = board_size.0;
+    let pieces = spawn_common(&mut commands, board_size);
     let window = windows.single().expect("Primary window missing");
 
-    let stash_left = stash_left_x();
+    let stash_left = stash_left_x(board_size);
     let stash_width = STASH_WIDTH;
     let stash_visible_height = STASH_VISIBLE_HEIGHT;
 
-    let board_top_y = BOARD_TOP_Y + TILE_SIZE / 2.0;
+    let board_top_y = board_top_edge(board_size);
     let stash_top = board_top_y;
     let stash_bottom = stash_top - stash_visible_height;
     let stash_right = stash_left + stash_width;
@@ -131,6 +130,7 @@ pub fn setup_sandbox(mut commands: Commands, windows: Query<&Window>) {
                 true,
                 true,
                 BoardSide::Single,
+                board_size,
             );
             commands.entity(entity).insert(StashPosition {
                 desired_world_y: base_y,
@@ -159,11 +159,12 @@ pub fn setup_sandbox(mut commands: Commands, windows: Query<&Window>) {
     commands.insert_resource(StashContentHeight(current_y_offset));
 }
 
-pub fn setup_draft(mut commands: Commands) {
-    let _pieces = spawn_common(&mut commands);
+pub fn setup_draft(mut commands: Commands, board_size: Res<BoardSize>) {
+    let board_size = board_size.0;
+    let _pieces = spawn_common(&mut commands, board_size);
 
-    let board_right = board_right_edge(BoardSide::Single);
-    let board_top = board_top_edge();
+    let board_right = board_right_edge(BoardSide::Single, board_size);
+    let board_top = board_top_edge(board_size);
     let score_y = board_top + SCORE_Y_OFFSET;
     let button_pos = Vec3::new(board_right - CONFIRM_BUTTON_WIDTH / 2.0, score_y, 0.0);
     commands
@@ -219,8 +220,6 @@ pub fn bake_effects(
         .collect()
 }
 
-/// For a dynamic piece: randomly choose a color and one effect + non‑empty offset subset.
-/// For a static piece: use the color from the RON and all effects/offsets.
 pub fn randomize_piece_properties(
     raw: &RawPieceConfig,
     color_map: &HashMap<String, LinearRgba>,
@@ -264,7 +263,6 @@ pub fn randomize_piece_properties(
     (color, effects)
 }
 
-/// Pick a random color from the available list.
 pub fn random_color(color_map: &HashMap<String, LinearRgba>) -> LinearRgba {
     let mut rng = rand::rng();
     let color_name = AVAILABLE_COLORS.choose(&mut rng).unwrap();
@@ -283,6 +281,7 @@ pub fn spawn_draggable_piece(
     interactive: bool,
     hoverable: bool,
     board_side: BoardSide,
+    _board_size: IVec2,
 ) -> Entity {
     let entity = commands
         .spawn((

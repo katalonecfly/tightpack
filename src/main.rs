@@ -14,6 +14,7 @@ use crate::systems::menu;
 use crate::puzzles::*;
 use crate::puzzle_ui::*;
 use crate::components::Piece;
+use crate::resources::BoardSize;
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default, States)]
 enum AppState {
@@ -141,9 +142,14 @@ fn handle_reset(
     }
 }
 
+fn sync_board_size_from_settings(settings: Res<GameSettings>, mut board_size: ResMut<BoardSize>) {
+    board_size.0 = IVec2::new(settings.board_width as i32, settings.board_height as i32);
+}
+
 fn build_app(window_plugin: WindowPlugin) -> App {
     let mut app = App::new();
     app.add_plugins(DefaultPlugins.set(window_plugin))
+        .insert_resource(BoardSize::default())
         .add_plugins(MeshPickingPlugin)
         .init_resource::<GameState>()
         .init_resource::<TooltipState>()
@@ -287,9 +293,19 @@ fn build_app(window_plugin: WindowPlugin) -> App {
         )
         .add_systems(
             Update,
-            systems::settings::handle_rounds_buttons.run_if(in_state(AppState::Settings)),
+            (
+                systems::settings::handle_rounds_buttons,
+                systems::settings::handle_width_buttons,
+                systems::settings::handle_height_buttons,
+            )
+            .run_if(in_state(AppState::Settings)),
         )
-        .add_systems(OnExit(AppState::Settings), (cleanup_system, reset_temp_settings));
+        .add_systems(OnExit(AppState::Settings), (cleanup_system, reset_temp_settings))
+        .add_systems(OnExit(AppState::Settings), (
+            cleanup_system,
+            reset_temp_settings,
+            sync_board_size_from_settings,   // new
+        ));
     
     app
 }

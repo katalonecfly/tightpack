@@ -1,6 +1,6 @@
 use crate::AppState;
 use crate::Cleanup;
-use crate::resources::{AIType, GameSettings, TempSettings};
+use crate::resources::{AIType, BoardSize, GameSettings, TempSettings};
 use bevy::prelude::*;
 use bevy::picking::prelude::{Click, Pointer};
 
@@ -27,19 +27,29 @@ enum SettingKey {
 
 #[derive(Component)]
 pub struct RoundsDisplay;
-
 #[derive(Component)]
 pub struct RoundsDecrease;
-
 #[derive(Component)]
 pub struct RoundsIncrease;
 
 #[derive(Component)]
-struct ConfirmationModal;
+pub struct WidthDisplay;
+#[derive(Component)]
+pub struct WidthDecrease;
+#[derive(Component)]
+pub struct WidthIncrease;
 
 #[derive(Component)]
-struct YesButton;
+pub struct HeightDisplay;
+#[derive(Component)]
+pub struct HeightDecrease;
+#[derive(Component)]
+pub struct HeightIncrease;
 
+#[derive(Component)]
+struct ConfirmationModal;
+#[derive(Component)]
+struct YesButton;
 #[derive(Component)]
 struct NoButton;
 
@@ -48,6 +58,8 @@ pub fn setup_settings(mut commands: Commands, settings: Res<GameSettings>) {
         duel_blocking_enabled: settings.duel_blocking_enabled,
         ai_mode: settings.ai_mode,
         rounds: settings.rounds,
+        board_width: settings.board_width,
+        board_height: settings.board_height,
     });
 
     commands.spawn((Camera2d, Cleanup));
@@ -169,7 +181,6 @@ pub fn setup_settings(mut commands: Commands, settings: Res<GameSettings>) {
                         TextColor(Color::WHITE),
                     ));
 
-                    // Dummy button
                     let dummy_color = if settings.ai_mode == AIType::Dummy {
                         Color::srgb(0.4, 0.6, 0.4)
                     } else {
@@ -197,7 +208,6 @@ pub fn setup_settings(mut commands: Commands, settings: Res<GameSettings>) {
                     ))
                     .observe(radio_click);
 
-                    // Greedy button
                     let greedy_color = if settings.ai_mode == AIType::Greedy {
                         Color::srgb(0.4, 0.6, 0.4)
                     } else {
@@ -226,7 +236,7 @@ pub fn setup_settings(mut commands: Commands, settings: Res<GameSettings>) {
                     .observe(radio_click);
                 });
 
-            // Rounds UI (simple buttons)
+            // Rounds UI
             root.spawn((Node {
                 flex_direction: FlexDirection::Row,
                 align_items: AlignItems::Center,
@@ -273,6 +283,116 @@ pub fn setup_settings(mut commands: Commands, settings: Res<GameSettings>) {
                         },
                         BackgroundColor(Color::srgb(0.3, 0.3, 0.3)),
                         RoundsIncrease,
+                    ))
+                    .with_child((
+                        Text::new("+"),
+                        TextFont { font_size: 30.0, ..default() },
+                        TextColor(Color::WHITE),
+                    ));
+                });
+
+            // Board width UI
+            root.spawn((Node {
+                flex_direction: FlexDirection::Row,
+                align_items: AlignItems::Center,
+                column_gap: Val::Px(15.0),
+                ..default()
+            },))
+                .with_children(|row| {
+                    row.spawn((
+                        Text::new("Board Width (7-12):"),
+                        TextFont::default(),
+                        TextColor(Color::WHITE),
+                    ));
+                    row.spawn((
+                        Button,
+                        Node {
+                            width: Val::Px(40.0),
+                            height: Val::Px(40.0),
+                            justify_content: JustifyContent::Center,
+                            align_items: AlignItems::Center,
+                            ..default()
+                        },
+                        BackgroundColor(Color::srgb(0.3, 0.3, 0.3)),
+                        WidthDecrease,
+                    ))
+                    .with_child((
+                        Text::new("-"),
+                        TextFont { font_size: 30.0, ..default() },
+                        TextColor(Color::WHITE),
+                    ));
+                    row.spawn((
+                        Text::new(settings.board_width.to_string()),
+                        TextFont { font_size: 28.0, ..default() },
+                        TextColor(Color::WHITE),
+                        WidthDisplay,
+                    ));
+                    row.spawn((
+                        Button,
+                        Node {
+                            width: Val::Px(40.0),
+                            height: Val::Px(40.0),
+                            justify_content: JustifyContent::Center,
+                            align_items: AlignItems::Center,
+                            ..default()
+                        },
+                        BackgroundColor(Color::srgb(0.3, 0.3, 0.3)),
+                        WidthIncrease,
+                    ))
+                    .with_child((
+                        Text::new("+"),
+                        TextFont { font_size: 30.0, ..default() },
+                        TextColor(Color::WHITE),
+                    ));
+                });
+
+            // Board height UI
+            root.spawn((Node {
+                flex_direction: FlexDirection::Row,
+                align_items: AlignItems::Center,
+                column_gap: Val::Px(15.0),
+                ..default()
+            },))
+                .with_children(|row| {
+                    row.spawn((
+                        Text::new("Board Height (7-12):"),
+                        TextFont::default(),
+                        TextColor(Color::WHITE),
+                    ));
+                    row.spawn((
+                        Button,
+                        Node {
+                            width: Val::Px(40.0),
+                            height: Val::Px(40.0),
+                            justify_content: JustifyContent::Center,
+                            align_items: AlignItems::Center,
+                            ..default()
+                        },
+                        BackgroundColor(Color::srgb(0.3, 0.3, 0.3)),
+                        HeightDecrease,
+                    ))
+                    .with_child((
+                        Text::new("-"),
+                        TextFont { font_size: 30.0, ..default() },
+                        TextColor(Color::WHITE),
+                    ));
+                    row.spawn((
+                        Text::new(settings.board_height.to_string()),
+                        TextFont { font_size: 28.0, ..default() },
+                        TextColor(Color::WHITE),
+                        HeightDisplay,
+                    ));
+                    row.spawn((
+                        Button,
+                        Node {
+                            width: Val::Px(40.0),
+                            height: Val::Px(40.0),
+                            justify_content: JustifyContent::Center,
+                            align_items: AlignItems::Center,
+                            ..default()
+                        },
+                        BackgroundColor(Color::srgb(0.3, 0.3, 0.3)),
+                        HeightIncrease,
                     ))
                     .with_child((
                         Text::new("+"),
@@ -362,15 +482,79 @@ pub fn handle_rounds_buttons(
     }
 }
 
+pub fn handle_width_buttons(
+    mut temp_settings: ResMut<TempSettings>,
+    mut text_query: Query<&mut Text, With<WidthDisplay>>,
+    decrease_button: Query<&Interaction, (With<WidthDecrease>, Changed<Interaction>)>,
+    increase_button: Query<&Interaction, (With<WidthIncrease>, Changed<Interaction>)>,
+) {
+    if let Ok(interaction) = decrease_button.single() {
+        if *interaction == Interaction::Pressed {
+            let new_val = temp_settings.board_width.saturating_sub(1);
+            if new_val >= 7 {
+                temp_settings.board_width = new_val;
+                if let Ok(mut text) = text_query.single_mut() {
+                    text.0 = new_val.to_string();
+                }
+            }
+        }
+    }
+    if let Ok(interaction) = increase_button.single() {
+        if *interaction == Interaction::Pressed {
+            let new_val = temp_settings.board_width.saturating_add(1);
+            if new_val <= 12 {
+                temp_settings.board_width = new_val;
+                if let Ok(mut text) = text_query.single_mut() {
+                    text.0 = new_val.to_string();
+                }
+            }
+        }
+    }
+}
+
+pub fn handle_height_buttons(
+    mut temp_settings: ResMut<TempSettings>,
+    mut text_query: Query<&mut Text, With<HeightDisplay>>,
+    decrease_button: Query<&Interaction, (With<HeightDecrease>, Changed<Interaction>)>,
+    increase_button: Query<&Interaction, (With<HeightIncrease>, Changed<Interaction>)>,
+) {
+    if let Ok(interaction) = decrease_button.single() {
+        if *interaction == Interaction::Pressed {
+            let new_val = temp_settings.board_height.saturating_sub(1);
+            if new_val >= 7 {
+                temp_settings.board_height = new_val;
+                if let Ok(mut text) = text_query.single_mut() {
+                    text.0 = new_val.to_string();
+                }
+            }
+        }
+    }
+    if let Ok(interaction) = increase_button.single() {
+        if *interaction == Interaction::Pressed {
+            let new_val = temp_settings.board_height.saturating_add(1);
+            if new_val <= 12 {
+                temp_settings.board_height = new_val;
+                if let Ok(mut text) = text_query.single_mut() {
+                    text.0 = new_val.to_string();
+                }
+            }
+        }
+    }
+}
+
 fn apply_settings(
     _trigger: On<Pointer<Click>>,
     temp_settings: Res<TempSettings>,
     mut settings: ResMut<GameSettings>,
+    mut board_size: ResMut<BoardSize>,
     mut next_state: ResMut<NextState<AppState>>,
 ) {
     settings.duel_blocking_enabled = temp_settings.duel_blocking_enabled;
     settings.ai_mode = temp_settings.ai_mode;
     settings.rounds = temp_settings.rounds;
+    settings.board_width = temp_settings.board_width;
+    settings.board_height = temp_settings.board_height;
+    board_size.0 = IVec2::new(settings.board_width as i32, settings.board_height as i32);
     next_state.set(AppState::Menu);
 }
 

@@ -1,9 +1,8 @@
 use crate::Cleanup;
 use crate::components::*;
 use crate::config::EffectDescriptions;
-use crate::helpers::TILE_SIZE;
-use crate::helpers::{SCORE_FONT_SIZE, score_text_world_pos, score_text_world_pos_for_side};
-use crate::resources::{DuelState, GameState, TooltipState};
+use crate::helpers::*;
+use crate::resources::{BoardSize, DuelState, GameState, TooltipState};
 use crate::systems::scoring::{check_condition_with_sizes, linear_rgba_near, compute_piece_contribution};
 use bevy::prelude::*;
 use bevy::window::Window;
@@ -82,12 +81,13 @@ pub fn update_stash_labels(
 pub fn update_score_ui(
     state: Res<GameState>,
     mut query: Query<(&mut Text2d, &mut Transform), With<ScoreText>>,
+    board_size: Res<BoardSize>,
 ) {
     if state.is_changed() {
         for (mut text2d, mut transform) in &mut query {
             let score_str = format!("Score: {}", state.score);
             text2d.0 = score_str.clone();
-            transform.translation = score_text_world_pos(&score_str, SCORE_FONT_SIZE);
+            transform.translation = score_text_world_pos(&score_str, SCORE_FONT_SIZE, board_size.0);
         }
     }
 }
@@ -102,18 +102,19 @@ pub fn update_duel_score_ui(
         (&mut Text2d, &mut Transform),
         (With<OpponentScoreText>, Without<PlayerScoreText>),
     >,
+    board_size: Res<BoardSize>,
 ) {
     if duel_state.is_changed() {
         for (mut text, mut transform) in &mut player_query {
             let score_str = format!("Player: {}", duel_state.player.score);
             text.0 = score_str.clone();
             transform.translation =
-                score_text_world_pos_for_side(&score_str, SCORE_FONT_SIZE, BoardSide::Left);
+                score_text_world_pos_for_side(&score_str, SCORE_FONT_SIZE, BoardSide::Left, board_size.0);
         }
         for (mut text, mut transform) in &mut opponent_query {
             let score_str = format!("Opponent: {}", duel_state.opponent.score);
             text.0 = score_str.clone();
-            let mut pos = score_text_world_pos_for_side(&score_str, SCORE_FONT_SIZE, BoardSide::Right);
+            let mut pos = score_text_world_pos_for_side(&score_str, SCORE_FONT_SIZE, BoardSide::Right, board_size.0);
             pos.x += 80.0;
             transform.translation = pos;
         }
@@ -125,6 +126,7 @@ pub fn update_effect_previews(
     piece_query: Query<(&Piece, &Children, Has<Hovered>, Has<Dragging>)>,
     mut preview_query: Query<(&mut Visibility, &mut Sprite, &EffectPreview)>,
     all_pieces: Query<&Piece>,
+    board_size: Res<BoardSize>,
 ) {
     for (piece, children, is_hovered, is_dragging) in &piece_query {
         let show = is_hovered || is_dragging;
@@ -135,7 +137,7 @@ pub fn update_effect_previews(
                     let mut active = false;
                     if let Some(grid_pos) = piece.placed_at {
                         let target_cell = grid_pos + preview.offset;
-                        if crate::helpers::is_in_bounds(target_cell) {
+                        if is_in_bounds(target_cell, board_size.0) {
                             active = check_condition_with_sizes(&preview.condition, Some(target_cell), &state.board_cells, &all_pieces);
                         }
                     }
@@ -159,6 +161,7 @@ pub fn update_duel_effect_previews(
     piece_query: Query<(&Piece, &Children, Has<Hovered>, Has<Dragging>)>,
     mut preview_query: Query<(&mut Visibility, &mut Sprite, &EffectPreview)>,
     all_pieces: Query<&Piece>,
+    board_size: Res<BoardSize>,
 ) {
     for (piece, children, is_hovered, is_dragging) in &piece_query {
         let show = is_hovered || is_dragging;
@@ -174,7 +177,7 @@ pub fn update_duel_effect_previews(
                     let mut active = false;
                     if let Some(grid_pos) = piece.placed_at {
                         let target_cell = grid_pos + preview.offset;
-                        if crate::helpers::is_in_bounds(target_cell) {
+                        if is_in_bounds(target_cell, board_size.0) {
                             active = check_condition_with_sizes(&preview.condition, Some(target_cell), board_cells, &all_pieces);
                         }
                     }
@@ -224,7 +227,6 @@ pub fn update_tooltip(
                 max_y = max_y.max(world.y);
             }
 
-            // Anchor at bottom-right corner plus one tile down
             let anchor = Vec2::new(max_x + TILE_SIZE, min_y - TILE_SIZE);
 
             if let Ok((camera, cam_transform)) = camera_query.single() {
@@ -391,16 +393,16 @@ pub fn update_contributions_system(
     state: Res<GameState>,
     mut piece_query: Query<(Entity, &Piece, &Transform, Option<&mut ContributionDisplay>), Without<OpponentPiece>>,
     all_pieces: Query<&Piece>,
+    board_size: Res<BoardSize>,
 ) {
     for (piece_entity, piece, _transform, display_opt) in piece_query.iter_mut() {
         if let Some(pos) = piece.placed_at {
-            let contribution = compute_piece_contribution(piece, &state.board_cells, &all_pieces);
-            let sign = if contribution >= 0 { "+" } else { "" };
+            let contribution = compute_piece_contribution(piece, &state.board_cells, &all_pieces, board_size.0);            let sign = if contribution >= 0 { "+" } else { "" };
             let text_str = format!("{}{}", sign, contribution);
 
             let first_offset = piece.shape.first().unwrap_or(&IVec2::ZERO);
             let cell_pos = pos + *first_offset;
-            let world_pos = grid_to_world_for_side(cell_pos, piece.board_side).with_z(5.0);
+            let world_pos = grid_to_world_for_side(cell_pos, piece.board_side, board_size.0).with_z(5.0);
             
             if let Some(display) = display_opt {
                 commands.entity(display.0).despawn();
@@ -430,6 +432,7 @@ pub fn update_duel_contributions_system(
     duel_state: Res<DuelState>,
     mut piece_query: Query<(Entity, &Piece, &Transform, Option<&mut ContributionDisplay>)>,
     all_pieces: Query<&Piece>,
+    board_size: Res<BoardSize>,
 ) {
     for (piece_entity, piece, _transform, display_opt) in piece_query.iter_mut() {
         let board_cells = match piece.board_side {
@@ -438,13 +441,12 @@ pub fn update_duel_contributions_system(
             _ => continue,
         };
         if let Some(pos) = piece.placed_at {
-            let contribution = compute_piece_contribution(piece, board_cells, &all_pieces);
-            let sign = if contribution >= 0 { "+" } else { "" };
+            let contribution = compute_piece_contribution(piece, board_cells, &all_pieces, board_size.0);            let sign = if contribution >= 0 { "+" } else { "" };
             let text_str = format!("{}{}", sign, contribution);
 
             let first_offset = piece.shape.first().unwrap_or(&IVec2::ZERO);
             let cell_pos = pos + *first_offset;
-            let world_pos = grid_to_world_for_side(cell_pos, piece.board_side).with_z(5.0);
+            let world_pos = grid_to_world_for_side(cell_pos, piece.board_side, board_size.0).with_z(5.0);
             
             if let Some(display) = display_opt {
                 commands.entity(display.0).despawn();

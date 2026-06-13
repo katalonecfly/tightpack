@@ -1,9 +1,8 @@
 use crate::Cleanup;
-use crate::components::LockedPiece;
 use crate::components::*;
 use crate::config::RawPieceConfig;
 use crate::helpers::*;
-use crate::resources::{GameSettings, PieceLibrary, RoundCounter};
+use crate::resources::{BoardSize, GameSettings, PieceLibrary, RoundCounter};
 use bevy::picking::prelude::{Click, Pointer};
 use bevy::prelude::*;
 use rand::RngExt;
@@ -15,7 +14,7 @@ pub struct DraftConfirmButton;
 #[derive(Component)]
 pub struct RoundText;
 
-pub fn refresh_draft_stash(commands: &mut Commands, library: &PieceLibrary, round_counter: &RoundCounter) {
+pub fn refresh_draft_stash(commands: &mut Commands, library: &PieceLibrary, round_counter: &RoundCounter, board_size: IVec2) {
     if round_counter.is_game_over() {
         return;
     }
@@ -40,7 +39,7 @@ pub fn refresh_draft_stash(commands: &mut Commands, library: &PieceLibrary, roun
         chosen.push(available.remove(idx));
     }
 
-    let board_left = grid_to_world(IVec2::ZERO).x;
+    let board_left = grid_to_world(IVec2::ZERO, board_size).x;
     let mut next_left = board_left;
 
     for (i, raw) in chosen.iter().enumerate() {
@@ -51,7 +50,7 @@ pub fn refresh_draft_stash(commands: &mut Commands, library: &PieceLibrary, roun
 
         let piece_left = next_left;
         let parent_x = piece_left - (min_x as f32) * TILE_SIZE;
-        let parent_y = crate::helpers::stash_y_below_board(max_y);
+        let parent_y = stash_y_below_board(max_y, board_size);
         let pos = Vec3::new(parent_x, parent_y, 1.0);
 
         let label_y = parent_y + (max_y as f32) * TILE_SIZE + TILE_SIZE / 2.0 + 10.0;
@@ -86,16 +85,17 @@ pub fn refresh_draft_stash(commands: &mut Commands, library: &PieceLibrary, roun
             true,
             true,
             BoardSide::Single,
+            board_size,
         );
 
         next_left = piece_left + width + TILE_SIZE;
     }
 }
 
-pub fn generate_draft_stash(mut commands: Commands, library: Res<PieceLibrary>, settings: Res<GameSettings>) {
+pub fn generate_draft_stash(mut commands: Commands, library: Res<PieceLibrary>, settings: Res<GameSettings>, board_size: Res<BoardSize>) {
     let round_counter = RoundCounter::new(settings.rounds);
     commands.insert_resource(round_counter);
-    refresh_draft_stash(&mut commands, &library, &RoundCounter::new(settings.rounds));
+    refresh_draft_stash(&mut commands, &library, &RoundCounter::new(settings.rounds), board_size.0);
 }
 
 pub fn on_confirm_click(
@@ -105,9 +105,9 @@ pub fn on_confirm_click(
     piece_query: Query<&Piece>,
     library: Res<PieceLibrary>,
     mut round_counter: ResMut<RoundCounter>,
+    board_size: Res<BoardSize>,
     _settings: Res<GameSettings>,
 ) {
-    // Disable if game over
     if round_counter.is_game_over() {
         return;
     }
@@ -129,7 +129,7 @@ pub fn on_confirm_click(
 
     round_counter.advance();
     if !round_counter.is_game_over() {
-        refresh_draft_stash(&mut commands, &library, &round_counter);
+        refresh_draft_stash(&mut commands, &library, &round_counter, board_size.0);
     }
 }
 
@@ -141,14 +141,12 @@ pub fn update_draft_round_display(
     transforms: Query<&Transform>,
     mut button_sprite: Query<&mut Sprite, With<DraftConfirmButton>>,
 ) {
-    // Remove old round text
     for entity in existing_text.iter() {
         commands.entity(entity).despawn();
     }
 
     if let Ok(button_entity) = button_query.single() {
         let is_game_over = round_counter.is_game_over();
-        // Update button sprite color
         if let Ok(mut sprite) = button_sprite.get_mut(button_entity) {
             sprite.color = if is_game_over {
                 Color::srgb(0.5, 0.5, 0.5)
@@ -157,7 +155,6 @@ pub fn update_draft_round_display(
             };
         }
 
-        // Always show round text, cap current at total for display
         let displayed_current = round_counter.current.min(round_counter.total);
         if let Ok(button_transform) = transforms.get(button_entity) {
             let text_pos = button_transform.translation + Vec3::new(CONFIRM_BUTTON_WIDTH / 2.0 + 60.0, 0.0, 0.0);

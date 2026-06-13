@@ -33,6 +33,15 @@ pub struct StashScreenRect {
     pub height: f32,
 }
 
+#[derive(Resource)]
+pub struct BoardSize(pub IVec2);   // new: dynamic board dimensions
+
+impl Default for BoardSize {
+    fn default() -> Self {
+        Self(IVec2::new(10, 10))
+    }
+}
+
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum DuelMode {
     Basic,
@@ -80,7 +89,9 @@ pub enum AIType {
 pub struct GameSettings {
     pub duel_blocking_enabled: bool,
     pub ai_mode: AIType,
-    pub rounds: u32, // 1..99
+    pub rounds: u32,
+    pub board_width: u32,   // new
+    pub board_height: u32,  // new
 }
 
 impl Default for GameSettings {
@@ -89,6 +100,8 @@ impl Default for GameSettings {
             duel_blocking_enabled: true,
             ai_mode: AIType::default(),
             rounds: 20,
+            board_width: 10,
+            board_height: 10,
         }
     }
 }
@@ -98,6 +111,8 @@ pub struct TempSettings {
     pub duel_blocking_enabled: bool,
     pub ai_mode: AIType,
     pub rounds: u32,
+    pub board_width: u32,
+    pub board_height: u32,
 }
 
 #[derive(Resource)]

@@ -13,11 +13,6 @@ use bevy::picking::prelude::*;
 use bevy::prelude::*;
 use std::collections::{HashMap, HashSet};
 
-
-// -----------------------------------------------------------------------------
-// Puzzle gameplay (shared)
-// -----------------------------------------------------------------------------
-
 const PUZZLE_STASH_GAP: f32 = 60.0;
 
 fn board_anchor_for_size(size: IVec2) -> Vec3 {
@@ -342,12 +337,13 @@ pub fn handle_puzzle_rotation(
 pub fn update_puzzle_score_ui(
     puzzle_state: Res<PuzzleGameState>,
     mut query: Query<(&mut Text2d, &mut Transform), With<ScoreText>>,
+    board_info: Res<PuzzleBoardInfo>,
 ) {
     if puzzle_state.is_changed() {
         for (mut text, mut transform) in &mut query {
             let score_str = format!("Score: {}", puzzle_state.score);
             text.0 = score_str.clone();
-            transform.translation = score_text_world_pos(&score_str, SCORE_FONT_SIZE);
+            transform.translation = score_text_world_pos(&score_str, SCORE_FONT_SIZE, board_info.size);
         }
     }
 }
@@ -564,7 +560,7 @@ pub fn update_puzzle_contributions_system(
 ) {
     for (piece_entity, piece, _transform, display_opt) in piece_query.iter_mut() {
         if let Some(pos) = piece.placed_at {
-            let contribution = crate::systems::scoring::compute_piece_contribution(piece, &puzzle_state.board_cells, &all_pieces);
+            let contribution = crate::systems::scoring::compute_piece_contribution(piece, &puzzle_state.board_cells, &all_pieces, board_info.size);
             let sign = if contribution >= 0 { "+" } else { "" };
             let text_str = format!("{}{}", sign, contribution);
 
@@ -645,7 +641,7 @@ pub fn setup_puzzle(
             font_size: SCORE_FONT_SIZE,
             ..default()
         },
-        Transform::from_translation(score_text_world_pos("Score: 0", SCORE_FONT_SIZE)),
+        Transform::from_translation(score_text_world_pos("Score: 0", SCORE_FONT_SIZE, board_info.size)),
         ScoreText,
         Cleanup,
     ));
@@ -852,7 +848,7 @@ pub fn setup_solution_view(mut commands: Commands, selected: Res<SelectedSolutio
             font_size: SCORE_FONT_SIZE,
             ..default()
         },
-        Transform::from_translation(score_text_world_pos(&format!("Solution Score: {}", selected.solution.score), SCORE_FONT_SIZE)),
+        Transform::from_translation(score_text_world_pos(&format!("Solution Score: {}", selected.solution.score), SCORE_FONT_SIZE, board_info.size)),
         ScoreText,
         Cleanup,
     ));
@@ -879,7 +875,6 @@ pub fn setup_solution_view(mut commands: Commands, selected: Res<SelectedSolutio
             shape = shape.iter().map(|&v| IVec2::new(v.y, -v.x)).collect();
         }
 
-        // Build rotated effects
         let raw_effects = piece_data.effects.clone();
         let mut rotated_effects = Vec::new();
         for re in raw_effects {
@@ -914,7 +909,7 @@ pub fn setup_solution_view(mut commands: Commands, selected: Res<SelectedSolutio
             world_pos,
             placement.pos,
             piece_data.points,
-            rotated_effects,  // now passing effects
+            rotated_effects,
         );
         for offset in &shape {
             board_cells.insert(placement.pos + *offset, color);
@@ -961,10 +956,8 @@ fn spawn_solution_piece(
         .observe(crate::systems::interaction::on_hover_out)
         .id();
 
-    // Create visual tiles (bridges, perimeters) – this also creates the main sprites
     crate::systems::visuals::refresh_piece_visuals(commands, entity, &shape, color);
 
-    // Add effect preview sprites (yellow squares)
     for effect in &effects {
         if let Some(offsets) = &effect.offsets {
             for offset in offsets {

@@ -1,12 +1,13 @@
 use crate::components::*;
-use crate::resources::{DuelState, GameState};
+use crate::resources::{BoardSize, DuelState, GameState};
 use bevy::ecs::query::QueryFilter;
 use bevy::prelude::*;
 use std::collections::{HashMap, HashSet};
 
-pub fn recalculate_score<F: QueryFilter>(
+pub fn recalculate_score_with_size<F: QueryFilter>(
     board_cells: &HashMap<IVec2, LinearRgba>,
     piece_query: &Query<&Piece, F>,
+    board_size: IVec2,
 ) -> i32 {
     let mut total = 0;
     for piece in piece_query.iter() {
@@ -21,7 +22,7 @@ pub fn recalculate_score<F: QueryFilter>(
                     Some(offsets) => {
                         for offset in offsets {
                             let target_cell = pos + *offset;
-                            if crate::helpers::is_in_bounds(target_cell) {
+                            if crate::helpers::is_in_bounds(target_cell, board_size) {
                                 if check_condition_with_sizes(&effect.condition, Some(target_cell), board_cells, piece_query) {
                                     total += effect.points;
                                 }
@@ -50,7 +51,6 @@ pub fn recalculate_score<F: QueryFilter>(
     total
 }
 
-// Original check_condition (no query) - for effects that don't need piece sizes
 pub fn check_condition(
     cond: &EffectCondition,
     target: Option<IVec2>,
@@ -70,7 +70,6 @@ pub fn check_condition(
     }
 }
 
-// Version that uses piece query for MatchesSize
 pub fn check_condition_with_sizes<F: QueryFilter>(
     cond: &EffectCondition,
     target: Option<IVec2>,
@@ -108,6 +107,7 @@ pub fn compute_piece_contribution<F: QueryFilter>(
     piece: &Piece,
     board_cells: &HashMap<IVec2, LinearRgba>,
     piece_query: &Query<&Piece, F>,
+    board_size: IVec2,
 ) -> i32 {
     let mut total = piece.points;
     if let Some(pos) = piece.placed_at {
@@ -120,7 +120,7 @@ pub fn compute_piece_contribution<F: QueryFilter>(
                 Some(offsets) => {
                     for offset in offsets {
                         let target_cell = pos + *offset;
-                        if crate::helpers::is_in_bounds(target_cell) {
+                        if crate::helpers::is_in_bounds(target_cell, board_size) {
                             if check_condition_with_sizes(&effect.condition, Some(target_cell), board_cells, piece_query) {
                                 total += effect.points;
                             }
@@ -156,17 +156,18 @@ pub fn linear_rgba_near(a: &LinearRgba, b: &LinearRgba) -> bool {
         && (a.alpha - b.alpha).abs() < eps
 }
 
-pub fn recalculate_score_system(mut state: ResMut<GameState>, piece_query: Query<&Piece>) {
-    state.score = recalculate_score(&state.board_cells, &piece_query);
+pub fn recalculate_score_system(mut state: ResMut<GameState>, piece_query: Query<&Piece>, board_size: Res<BoardSize>) {
+    state.score = recalculate_score_with_size(&state.board_cells, &piece_query, board_size.0);
 }
 
 pub fn recalculate_duel_score_system(
     mut duel_state: ResMut<DuelState>,
     player_pieces: Query<&Piece, With<PlayerPiece>>,
     opponent_pieces: Query<&Piece, With<OpponentPiece>>,
+    board_size: Res<BoardSize>,
 ) {
-    duel_state.player.score = recalculate_score(&duel_state.player.board_cells, &player_pieces);
-    duel_state.opponent.score = recalculate_score(&duel_state.opponent.board_cells, &opponent_pieces);
+    duel_state.player.score = recalculate_score_with_size(&duel_state.player.board_cells, &player_pieces, board_size.0);
+    duel_state.opponent.score = recalculate_score_with_size(&duel_state.opponent.board_cells, &opponent_pieces, board_size.0);
 }
 
 pub fn no_color_on_board_excluding(
@@ -188,6 +189,7 @@ pub fn no_color_on_board_excluding(
 pub fn recalculate_score_from_vectors(
     board_cells: &HashMap<IVec2, LinearRgba>,
     pieces: &[Piece],
+    board_size: IVec2,
 ) -> i32 {
     let mut total = 0;
     for piece in pieces {
@@ -202,7 +204,7 @@ pub fn recalculate_score_from_vectors(
                     Some(offsets) => {
                         for offset in offsets {
                             let target_cell = pos + *offset;
-                            if crate::helpers::is_in_bounds(target_cell) {
+                            if crate::helpers::is_in_bounds(target_cell, board_size) {
                                 let cond_met = match &effect.condition {
                                     EffectCondition::MatchesColor(c) => board_cells.get(&target_cell).map_or(false, |bc| linear_rgba_near(bc, c)),
                                     EffectCondition::IsEmpty => !board_cells.contains_key(&target_cell),
