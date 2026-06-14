@@ -23,6 +23,7 @@ struct RadioState {
 enum SettingKey {
     DuelBlocking,
     AIMode,
+    SamePieceSet,
 }
 
 #[derive(Component)]
@@ -60,6 +61,7 @@ pub fn setup_settings(mut commands: Commands, settings: Res<GameSettings>) {
         rounds: settings.rounds,
         board_width: settings.board_width,
         board_height: settings.board_height,
+        same_piece_set: settings.same_piece_set,
     });
 
     commands.spawn((Camera2d, Cleanup));
@@ -161,7 +163,47 @@ pub fn setup_settings(mut commands: Commands, settings: Res<GameSettings>) {
                     })
                     .observe(toggle_checkbox);
                     row.spawn((
-                        Text::new("Block opponent's cells (Destroy mode)"),
+                        Text::new("Block an opponent's cell after each round (Duel)"),
+                        TextFont::default(),
+                        TextColor(Color::WHITE),
+                    ));
+                });
+
+            // New checkbox row (Same piece set)
+            root.spawn((Node {
+                flex_direction: FlexDirection::Row,
+                align_items: AlignItems::Center,
+                column_gap: Val::Px(10.0),
+                ..default()
+            },))
+                .with_children(|row| {
+                    let checkbox_text = if settings.same_piece_set { "[x]" } else { "[ ]" };
+                    row.spawn((
+                        Button,
+                        Node {
+                            width: Val::Px(30.0),
+                            height: Val::Px(30.0),
+                            justify_content: JustifyContent::Center,
+                            align_items: AlignItems::Center,
+                            ..default()
+                        },
+                        BackgroundColor(Color::srgb(0.3, 0.3, 0.3)),
+                    ))
+                    .with_child((
+                        Text::new(checkbox_text),
+                        TextFont {
+                            font_size: 20.0,
+                            ..default()
+                        },
+                        TextColor(Color::WHITE),
+                    ))
+                    .insert(CheckboxState {
+                        value: settings.same_piece_set,
+                        setting_key: SettingKey::SamePieceSet,
+                    })
+                    .observe(toggle_checkbox);
+                    row.spawn((
+                        Text::new("Same piece set for both players each round (Duel)"),
                         TextFont::default(),
                         TextColor(Color::WHITE),
                     ));
@@ -413,8 +455,10 @@ fn toggle_checkbox(
     let entity = trigger.event_target();
     if let Ok((mut state, children)) = checkbox_query.get_mut(entity) {
         state.value = !state.value;
-        if state.setting_key == SettingKey::DuelBlocking {
-            temp_settings.duel_blocking_enabled = state.value;
+        match state.setting_key {
+            SettingKey::DuelBlocking => temp_settings.duel_blocking_enabled = state.value,
+            SettingKey::SamePieceSet => temp_settings.same_piece_set = state.value,
+            SettingKey::AIMode => {} // handled elsewhere
         }
         for &child in children {
             if let Ok(mut text) = text_query.get_mut(child) {
@@ -554,6 +598,7 @@ fn apply_settings(
     settings.rounds = temp_settings.rounds;
     settings.board_width = temp_settings.board_width;
     settings.board_height = temp_settings.board_height;
+    settings.same_piece_set = temp_settings.same_piece_set;   // new
     board_size.0 = IVec2::new(settings.board_width as i32, settings.board_height as i32);
     next_state.set(AppState::Menu);
 }

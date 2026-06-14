@@ -48,7 +48,13 @@ fn score_text_pos_duel(side: BoardSide, board_size: IVec2) -> Vec3 {
     Vec3::new(board_left, score_y, 0.0)
 }
 
-pub fn generate_duel_stash(commands: &mut Commands, library: &PieceLibrary, round_counter: &RoundCounter, board_size: IVec2) {
+pub fn generate_duel_stash(
+    commands: &mut Commands,
+    library: &PieceLibrary,
+    round_counter: &RoundCounter,
+    board_size: IVec2,
+    same_piece_set: bool,
+) {
     if round_counter.is_game_over() {
         return;
     }
@@ -61,8 +67,10 @@ pub fn generate_duel_stash(commands: &mut Commands, library: &PieceLibrary, roun
 
     let all_pieces = &library.0;
     let mut rng = rand::rng();
+
+    // Generate one set (for both players or just for left)
+    let mut chosen = Vec::new();
     let mut available: Vec<&RawPieceConfig> = all_pieces.iter().collect();
-    let mut chosen = Vec::with_capacity(3);
     for _ in 0..3 {
         if available.is_empty() {
             break;
@@ -71,14 +79,36 @@ pub fn generate_duel_stash(commands: &mut Commands, library: &PieceLibrary, roun
         chosen.push(available.remove(idx));
     }
 
-    let mut piece_data = Vec::new();
+    let mut piece_data_left = Vec::new();
     for raw in &chosen {
         let (color, effects) = crate::systems::setup::randomize_piece_properties(raw, &color_map);
-        piece_data.push((*raw, color, effects));
+        piece_data_left.push((*raw, color, effects));
     }
 
-    spawn_side_pieces(commands, &piece_data, BoardSide::Left, true, board_size);
-    spawn_side_pieces(commands, &piece_data, BoardSide::Right, false, board_size);
+    if same_piece_set {
+        // Right side gets identical set
+        let piece_data_right = piece_data_left.clone();
+        spawn_side_pieces(commands, &piece_data_left, BoardSide::Left, true, board_size);
+        spawn_side_pieces(commands, &piece_data_right, BoardSide::Right, false, board_size);
+    } else {
+        // Generate independent set for right side
+        let mut piece_data_right = Vec::new();
+        let mut available_right: Vec<&RawPieceConfig> = all_pieces.iter().collect();
+        let mut chosen_right = Vec::new();
+        for _ in 0..3 {
+            if available_right.is_empty() {
+                break;
+            }
+            let idx = rng.random_range(0..available_right.len());
+            chosen_right.push(available_right.remove(idx));
+        }
+        for raw in &chosen_right {
+            let (color, effects) = crate::systems::setup::randomize_piece_properties(raw, &color_map);
+            piece_data_right.push((*raw, color, effects));
+        }
+        spawn_side_pieces(commands, &piece_data_left, BoardSide::Left, true, board_size);
+        spawn_side_pieces(commands, &piece_data_right, BoardSide::Right, false, board_size);
+    }
 }
 
 fn spawn_side_pieces(
@@ -446,8 +476,7 @@ pub fn on_confirm_click_duel(
             } else {
                 round_counter.advance();
                 if !round_counter.is_game_over() {
-                    generate_duel_stash(&mut commands, &library, &round_counter, board_size.0);
-                }
+                    generate_duel_stash(&mut commands, &library, &round_counter, board_size.0, settings.same_piece_set);                }
             }
         }
         DuelTurn::Destroy => {
@@ -474,8 +503,7 @@ pub fn on_confirm_click_duel(
             duel_state.pending_disable_preview = None;
             round_counter.advance();
             if !round_counter.is_game_over() {
-                generate_duel_stash(&mut commands, &library, &round_counter, board_size.0);
-            }
+                generate_duel_stash(&mut commands, &library, &round_counter, board_size.0, settings.same_piece_set);            }
         }
     }
 }
@@ -574,8 +602,7 @@ pub fn setup_duel(mut commands: Commands, settings: Res<GameSettings>, board_siz
     commands.insert_resource(DuelState { mode: duel_mode, ..default() });
 
     let round_counter = RoundCounter::new(settings.rounds);
-    generate_duel_stash(&mut commands, &PieceLibrary(pieces), &round_counter, board_size_val);
-    commands.insert_resource(round_counter);
+    generate_duel_stash(&mut commands, &PieceLibrary(pieces), &round_counter, board_size_val, settings.same_piece_set);    commands.insert_resource(round_counter);
 }
 
 fn spawn_board(commands: &mut Commands, side: BoardSide, board_size: IVec2) {

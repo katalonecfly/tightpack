@@ -90,8 +90,9 @@ pub struct GameSettings {
     pub duel_blocking_enabled: bool,
     pub ai_mode: AIType,
     pub rounds: u32,
-    pub board_width: u32,   // new
-    pub board_height: u32,  // new
+    pub board_width: u32,
+    pub board_height: u32,
+    pub same_piece_set: bool,
 }
 
 impl Default for GameSettings {
@@ -102,6 +103,7 @@ impl Default for GameSettings {
             rounds: 20,
             board_width: 10,
             board_height: 10,
+            same_piece_set: true,
         }
     }
 }
@@ -113,6 +115,7 @@ pub struct TempSettings {
     pub rounds: u32,
     pub board_width: u32,
     pub board_height: u32,
+    pub same_piece_set: bool,
 }
 
 #[derive(Resource)]
