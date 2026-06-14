@@ -303,7 +303,7 @@ pub fn update_contributions_system(
             let text_entity = commands
                 .spawn((
                     Text2d::new(text_str),
-                    TextFont { font_size: 18.0, ..default() },
+                    TextFont { font_size: 15.0, ..default() },
                     TextColor(Color::WHITE),
                     Transform::from_translation(world_pos),
                     Cleanup,
@@ -348,7 +348,7 @@ pub fn update_duel_contributions_system(
             let text_entity = commands
                 .spawn((
                     Text2d::new(text_str),
-                    TextFont { font_size: 18.0, ..default() },
+                    TextFont { font_size: 15.0, ..default() },
                     TextColor(Color::WHITE),
                     Transform::from_translation(world_pos),
                     Cleanup,
