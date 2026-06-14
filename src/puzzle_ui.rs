@@ -264,6 +264,14 @@ pub mod storage {
                 let content = include_str!("../assets/puzzles/004/solutions/base.ron");
                 ron::from_str(content).ok()
             }
+            "005" => {
+                let content = include_str!("../assets/puzzles/005/solutions/base.ron");
+                ron::from_str(content).ok()
+            }
+            "006" => {
+                let content = include_str!("../assets/puzzles/006/solutions/base.ron");
+                ron::from_str(content).ok()
+            }
             _ => None,
         };
         if let Some(solution) = base_solution_opt {
