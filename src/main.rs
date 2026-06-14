@@ -222,7 +222,7 @@ fn build_app(window_plugin: WindowPlugin) -> App {
                 systems::ui::update_duel_score_ui,
                 systems::ui::update_stash_labels,
                 systems::ui::update_duel_effect_previews,
-                systems::ui::update_duel_tooltip,
+                systems::ui::update_tooltip,                // unified tooltip
                 systems::interaction::handle_rotation,
                 systems::scoring::recalculate_duel_score_system,
                 systems::ui::update_duel_contributions_system,
@@ -250,7 +250,7 @@ fn build_app(window_plugin: WindowPlugin) -> App {
                 update_puzzle_score_ui,
                 update_puzzle_stash_labels,
                 update_puzzle_effect_previews,
-                update_puzzle_tooltip,
+                systems::ui::update_tooltip,                // unified tooltip
                 handle_puzzle_rotation,
                 recalculate_puzzle_score_system,
                 update_puzzle_contributions_system,
@@ -277,7 +277,7 @@ fn build_app(window_plugin: WindowPlugin) -> App {
         .add_systems(
             Update,
             (
-                update_puzzle_tooltip,
+                systems::ui::update_tooltip,                // unified tooltip
                 update_puzzle_effect_previews,
                 update_puzzle_contributions_system,
             )
@@ -304,7 +304,7 @@ fn build_app(window_plugin: WindowPlugin) -> App {
         .add_systems(OnExit(AppState::Settings), (
             cleanup_system,
             reset_temp_settings,
-            sync_board_size_from_settings,   // new
+            sync_board_size_from_settings,
         ));
     
     app

@@ -1,8 +1,8 @@
 use crate::Cleanup;
 use crate::components::*;
-use crate::config::{RawPieceConfig, EffectDescriptions};
+use crate::config::RawPieceConfig;
 use crate::helpers::*;
-use crate::resources::{InventoryScroll, StashContentHeight, StashScreenRect, TooltipState};
+use crate::resources::{InventoryScroll, StashContentHeight, StashScreenRect};
 use crate::systems::scoring::{check_condition, check_condition_with_sizes, linear_rgba_near};
 use crate::systems::setup::randomize_piece_properties;
 use crate::puzzle_ui::{
@@ -358,123 +358,6 @@ pub fn update_puzzle_stash_labels(
             .filter(|p| p.type_id == label.0 && p.placed_at.is_none() && p.board_side == BoardSide::Single)
             .count();
         text.0 = format!("x{}", count);
-    }
-}
-
-fn color_name_from_rgba(rgba: &LinearRgba) -> &'static str {
-    let red = Color::srgb_u8(216, 46, 63).to_linear();
-    let blue = Color::srgb_u8(53, 129, 216).to_linear();
-    let green = Color::srgb_u8(40, 204, 45).to_linear();
-    if linear_rgba_near(rgba, &red) { "RED" }
-    else if linear_rgba_near(rgba, &blue) { "BLUE" }
-    else if linear_rgba_near(rgba, &green) { "GREEN" }
-    else { "UNKNOWN" }
-}
-
-fn get_effect_description(cond: &EffectCondition, descs: &EffectDescriptions) -> String {
-    match cond {
-        EffectCondition::MatchesColor(c) => {
-            let key = "MatchesColor(X)";
-            let template = descs.descriptions.get(key).cloned().unwrap_or_else(|| format!("Unknown effect: {}", key));
-            template.replace("{X}", color_name_from_rgba(c))
-        }
-        EffectCondition::IsEmpty => {
-            descs.descriptions.get("IsEmpty").cloned().unwrap_or_else(|| "Unknown effect: IsEmpty".to_string())
-        }
-        EffectCondition::NoColorOnBoard(c) => {
-            let key = "NoColorOnBoard(X)";
-            let template = descs.descriptions.get(key).cloned().unwrap_or_else(|| format!("Unknown effect: {}", key));
-            template.replace("{X}", color_name_from_rgba(c))
-        }
-        EffectCondition::MatchesSize(size) => {
-            let key = "MatchesSize(X)";
-            let template = descs.descriptions.get(key).cloned().unwrap_or_else(|| {
-                "Unknown effect: MatchesSize(X)".to_string()
-            });
-            template.replace("{X}", &size.to_string())
-        }
-    }
-}
-
-pub fn update_puzzle_tooltip(
-    mut commands: Commands,
-    mut tooltip_state: ResMut<TooltipState>,
-    piece_query: Query<(&Piece, &Transform, Has<Hovered>, Has<Dragging>)>,
-    camera_query: Query<(&Camera, &GlobalTransform)>,
-    windows: Query<&Window>,
-    effect_descs: Res<EffectDescriptions>,
-) {
-    // Despawn existing tooltip
-    if let Some(entity) = tooltip_state.entity.take() {
-        commands.entity(entity).despawn();
-    }
-
-    let hovered_piece = piece_query
-        .iter()
-        .find(|(_, _, hovered, dragging)| *hovered && !*dragging);
-
-    if let Some((piece, transform, _, _)) = hovered_piece {
-        // Find leftmost and bottommost cell centers
-        let mut min_x = f32::MAX;
-        let mut min_y = f32::MAX;
-
-        for offset in &piece.shape {
-            let world = Vec3::new(
-                transform.translation.x + offset.x as f32 * TILE_SIZE,
-                transform.translation.y + offset.y as f32 * TILE_SIZE,
-                0.0,
-            );
-            min_x = min_x.min(world.x);
-            min_y = min_y.min(world.y);
-        }
-
-        // Shift by 1.5 * TILE_SIZE left and down from the leftmost cell center
-        let shift = 1.5 * TILE_SIZE;
-        let anchor = Vec2::new(min_x - shift, min_y - shift);
-
-        if let Ok((camera, cam_transform)) = camera_query.single() {
-            if let Ok(window) = windows.single() {
-                if let Some(ndc) = camera.world_to_ndc(cam_transform, anchor.extend(0.0)) {
-                    let screen_x = (ndc.x + 1.0) * 0.5 * window.width();
-                    let screen_y = (1.0 - ndc.y) * 0.5 * window.height();
-
-                    let mut text = format!("Gain {} points.", piece.points);
-                    if !piece.effects.is_empty() {
-                        text.push_str("\nEffects:");
-                        for effect in &piece.effects {
-                            text.push_str("\n- ");
-                            let desc = get_effect_description(&effect.condition, &effect_descs)
-                                .replace("{points}", &effect.points.to_string());
-                            text.push_str(&desc);
-                        }
-                    }
-
-                    let entity = commands
-                        .spawn((
-                            Node {
-                                position_type: PositionType::Absolute,
-                                left: Val::Px(screen_x),
-                                top: Val::Px(screen_y),
-                                max_width: Val::Px(300.0),
-                                padding: UiRect::all(Val::Px(10.0)),
-                                border: UiRect::all(Val::Px(1.0)),
-                                ..default()
-                            },
-                            BackgroundColor(Color::srgba(0.1, 0.1, 0.1, 0.9)),
-                            BorderColor::all(Color::WHITE),
-                            GlobalZIndex(20),
-                            Text::new(text),
-                            TextFont {
-                                font_size: 14.0,
-                                ..default()
-                            },
-                            Cleanup,
-                        ))
-                        .id();
-                    tooltip_state.entity = Some(entity);
-                }
-            }
-        }
     }
 }
 
