@@ -6,7 +6,6 @@ use crate::resources::{BoardSize, GameSettings, PieceLibrary, RoundCounter};
 use bevy::picking::prelude::{Click, Pointer};
 use bevy::prelude::*;
 use rand::RngExt;
-use std::collections::HashMap;
 
 #[derive(Component)]
 pub struct DraftConfirmButton;
@@ -18,13 +17,8 @@ pub fn refresh_draft_stash(commands: &mut Commands, library: &PieceLibrary, roun
     if round_counter.is_game_over() {
         return;
     }
-    let color_map: HashMap<String, LinearRgba> = [
-        ("RED".to_string(), Color::srgb_u8(216, 46, 63).to_linear()),
-        ("BLUE".to_string(), Color::srgb_u8(53, 129, 216).to_linear()),
-        ("GREEN".to_string(), Color::srgb_u8(40, 204, 45).to_linear()),
-        ("YELLOW".to_string(), Color::srgb_u8(255, 225, 53).to_linear()),
-    ]
-    .into();
+    
+    let color_map = crate::colors::get_color_map();
 
     let mut rng = rand::rng();
     let all_pieces = &library.0;

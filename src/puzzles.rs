@@ -532,13 +532,7 @@ pub fn setup_puzzle(
         ))
         .observe(on_save_button_click);
 
-    let color_map: HashMap<String, LinearRgba> = [
-        ("RED".to_string(), Color::srgb_u8(216, 46, 63).to_linear()),
-        ("BLUE".to_string(), Color::srgb_u8(53, 129, 216).to_linear()),
-        ("GREEN".to_string(), Color::srgb_u8(40, 204, 45).to_linear()),
-        ("YELLOW".to_string(), Color::srgb_u8(255, 225, 53).to_linear()),
-    ]
-    .into();
+    let color_map = crate::colors::get_color_map();
 
     let stash_left = stash_left_x_puzzle(&board_info);
     let stash_width = STASH_WIDTH;
@@ -714,13 +708,7 @@ pub fn setup_solution_view(mut commands: Commands, selected: Res<SelectedSolutio
         Cleanup,
     ));
 
-    let color_map: HashMap<String, LinearRgba> = [
-        ("RED".to_string(), Color::srgb_u8(216, 46, 63).to_linear()),
-        ("BLUE".to_string(), Color::srgb_u8(53, 129, 216).to_linear()),
-        ("GREEN".to_string(), Color::srgb_u8(40, 204, 45).to_linear()),
-        ("YELLOW".to_string(), Color::srgb_u8(255, 225, 53).to_linear()),
-    ]
-    .into();
+    let color_map = crate::colors::get_color_map();
 
     let mut board_cells = HashMap::new();
     for placement in &selected.solution.placements {

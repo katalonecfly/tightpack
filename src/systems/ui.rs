@@ -1,27 +1,13 @@
 use crate::Cleanup;
+use crate::colors::color_name_from_rgba;          // removed COLOR_LIST
 use crate::components::*;
 use crate::config::EffectDescriptions;
 use crate::helpers::*;
 use crate::resources::{BoardSize, DuelState, GameState, TooltipState};
-use crate::systems::scoring::{check_condition_with_sizes, linear_rgba_near, compute_piece_contribution};
+use crate::systems::scoring::{check_condition_with_sizes, compute_piece_contribution};  // removed linear_rgba_near
 use bevy::prelude::*;
 use bevy::window::Window;
 use crate::helpers::grid_to_world_for_side;
-
-fn color_name_from_rgba(rgba: &LinearRgba) -> &'static str {
-    let red = Color::srgb_u8(216, 46, 63).to_linear();
-    let blue = Color::srgb_u8(53, 129, 216).to_linear();
-    let green = Color::srgb_u8(40, 204, 45).to_linear();
-    if linear_rgba_near(rgba, &red) {
-        "RED"
-    } else if linear_rgba_near(rgba, &blue) {
-        "BLUE"
-    } else if linear_rgba_near(rgba, &green) {
-        "GREEN"
-    } else {
-        "UNKNOWN"
-    }
-}
 
 fn get_effect_description(cond: &EffectCondition, descs: &EffectDescriptions) -> String {
     match cond {

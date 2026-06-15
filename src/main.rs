@@ -5,6 +5,7 @@ mod resources;
 mod systems;
 mod puzzles;
 mod puzzle_ui;
+mod colors;
 
 use bevy::picking::prelude::*;
 use bevy::prelude::*;

@@ -363,12 +363,7 @@ pub fn validate_solution(solution: &Solution, puzzle_id: &str) -> bool {
     let mut board_cells: HashMap<IVec2, LinearRgba> = HashMap::new();
     let mut placed = Vec::new(); // stores (origin, shape, color, points, effects, occupied_cells)
 
-    let color_map: HashMap<String, LinearRgba> = [
-        ("RED".to_string(), Color::srgb_u8(216, 46, 63).to_linear()),
-        ("BLUE".to_string(), Color::srgb_u8(53, 129, 216).to_linear()),
-        ("GREEN".to_string(), Color::srgb_u8(40, 204, 45).to_linear()),
-    ]
-    .into();
+    let color_map = crate::colors::get_color_map();
 
     // First pass: validate placements and build board
     for placement in &solution.placements {

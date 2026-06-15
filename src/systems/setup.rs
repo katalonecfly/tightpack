@@ -8,8 +8,7 @@ use bevy::prelude::*;
 use rand::prelude::*;
 use rand::seq::SliceRandom;
 use std::collections::HashMap;
-
-const AVAILABLE_COLORS: &[&str] = &["RED", "BLUE", "GREEN"];
+use crate::colors::{AVAILABLE_COLORS};
 
 fn spawn_common(commands: &mut Commands, board_size: IVec2) -> Vec<RawPieceConfig> {
     commands.spawn((Camera2d, Cleanup));
@@ -92,13 +91,7 @@ pub fn setup_sandbox(mut commands: Commands, windows: Query<&Window>, board_size
             ));
         });
 
-    let color_map: HashMap<String, LinearRgba> = [
-        ("RED".into(), Color::srgb_u8(216, 46, 63).to_linear()),
-        ("BLUE".into(), Color::srgb_u8(53, 129, 216).to_linear()),
-        ("GREEN".into(), Color::srgb_u8(40, 204, 45).to_linear()),
-        ("YELLOW".into(), Color::srgb_u8(255, 225, 53).to_linear()),
-    ]
-    .into();
+    let color_map = crate::colors::get_color_map();
 
     let mut current_y_offset = 0.0f32;
     for (type_id, raw) in pieces.iter().enumerate() {
