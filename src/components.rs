@@ -34,7 +34,7 @@ pub enum EffectCondition {
 
 #[derive(Component)]
 pub struct EffectPreview {
-    pub condition: EffectCondition, // offset removed – computed from transform
+    pub condition: EffectCondition,
 }
 
 #[derive(Component)]

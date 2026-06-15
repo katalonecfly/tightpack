@@ -173,7 +173,7 @@ pub fn setup_settings(mut commands: Commands, settings: Res<GameSettings>) {
                     ));
                 });
 
-            // New checkbox row (Same piece set)
+            // Checkbox row (Same piece set)
             root.spawn((Node {
                 flex_direction: FlexDirection::Row,
                 align_items: AlignItems::Center,
@@ -660,7 +660,7 @@ fn apply_settings(
     settings.rounds = temp_settings.rounds;
     settings.board_width = temp_settings.board_width;
     settings.board_height = temp_settings.board_height;
-    settings.same_piece_set = temp_settings.same_piece_set; // new
+    settings.same_piece_set = temp_settings.same_piece_set;
     board_size.0 = IVec2::new(settings.board_width as i32, settings.board_height as i32);
     next_state.set(AppState::Menu);
 }
@@ -715,7 +715,7 @@ fn open_reset_confirmation(
                     ))
                     .with_children(|dialog| {
                         dialog.spawn((
-                            Text::new("⚠️ Are you sure?\nAll your saved puzzle solutions will be permanently deleted."),
+                            Text::new("Are you sure?\nAll your saved puzzle solutions will be permanently deleted."),
                             TextFont {
                                 font_size: 20.0,
                                 ..default()

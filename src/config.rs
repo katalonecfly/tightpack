@@ -49,7 +49,7 @@ pub enum RawEffectCondition {
     MatchesColor(String),
     IsEmpty,
     NoColorOnBoard(String),
-    MatchesSize(u32), // new variant
+    MatchesSize(u32),
 }
 
 #[derive(Resource, Deserialize, Clone, Default)]

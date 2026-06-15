@@ -1,11 +1,11 @@
 use crate::Cleanup;
-use crate::colors::color_name_from_rgba; // removed COLOR_LIST
+use crate::colors::color_name_from_rgba;
 use crate::components::*;
 use crate::config::EffectDescriptions;
 use crate::helpers::grid_to_world_for_side;
 use crate::helpers::*;
 use crate::resources::{BoardSize, DuelState, GameState, TooltipState};
-use crate::systems::scoring::{check_condition_with_sizes, compute_piece_contribution}; // removed linear_rgba_near
+use crate::systems::scoring::{check_condition_with_sizes, compute_piece_contribution};
 use bevy::prelude::*;
 use bevy::window::Window;
 
