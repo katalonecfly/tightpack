@@ -686,19 +686,24 @@ pub fn setup_puzzle_list(mut commands: Commands) {
 pub fn update_help_tooltip(
     mut commands: Commands,
     mut tooltip_state: ResMut<TooltipState>,
-    help_query: Query<&Interaction>,
+    help_button_query: Query<&Interaction, With<HelpButton>>,
     windows: Query<&Window>,
 ) {
-    let hovering = help_query
+    let hovering = help_button_query
         .iter()
         .any(|interaction| *interaction == Interaction::Hovered);
+
     if hovering {
+        // If tooltip already exists, do nothing (prevents flicker)
+        if tooltip_state.entity.is_some() {
+            return;
+        }
         if let Ok(window) = windows.single() {
             let tooltip_x = window.width() - 230.0;
             let tooltip_y = 70.0;
             let text = "Left-click to solve puzzle\nRight-click to view solutions";
-            if let Some(entity) = tooltip_state.entity {
-                commands.entity(entity).insert((
+            let entity = commands
+                .spawn((
                     Node {
                         position_type: PositionType::Absolute,
                         left: Val::Px(tooltip_x),
@@ -708,29 +713,14 @@ pub fn update_help_tooltip(
                         border: UiRect::all(Val::Px(1.0)),
                         ..default()
                     },
+                    BackgroundColor(Color::srgba(0.1, 0.1, 0.1, 0.9)),
+                    BorderColor::all(Color::WHITE),
+                    GlobalZIndex(100),
                     Text::new(text),
-                ));
-            } else {
-                let entity = commands
-                    .spawn((
-                        Node {
-                            position_type: PositionType::Absolute,
-                            left: Val::Px(tooltip_x),
-                            top: Val::Px(tooltip_y),
-                            max_width: Val::Px(250.0),
-                            padding: UiRect::all(Val::Px(10.0)),
-                            border: UiRect::all(Val::Px(1.0)),
-                            ..default()
-                        },
-                        BackgroundColor(Color::srgba(0.1, 0.1, 0.1, 0.9)),
-                        BorderColor::all(Color::WHITE),
-                        GlobalZIndex(100),
-                        Text::new(text),
-                        Cleanup,
-                    ))
-                    .id();
-                tooltip_state.entity = Some(entity);
-            }
+                    Cleanup,
+                ))
+                .id();
+            tooltip_state.entity = Some(entity);
         }
     } else if let Some(entity) = tooltip_state.entity.take() {
         commands.entity(entity).despawn();
