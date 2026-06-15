@@ -2,13 +2,13 @@ use crate::Cleanup;
 use crate::components::*;
 use crate::config::RawPieceConfig;
 use crate::helpers::*;
+use crate::puzzle_ui::{
+    CurrentPuzzle, LastSavedSolution, PuzzleBoardInfo, PuzzleGameState, SelectedSolution,
+    get_current_solution, storage,
+};
 use crate::resources::{InventoryScroll, StashContentHeight, StashScreenRect};
 use crate::systems::scoring::{check_condition, check_condition_with_sizes, linear_rgba_near};
 use crate::systems::setup::randomize_piece_properties;
-use crate::puzzle_ui::{
-    PuzzleBoardInfo, PuzzleGameState, CurrentPuzzle, SelectedSolution, LastSavedSolution,
-    storage, get_current_solution,
-};
 use bevy::picking::prelude::*;
 use bevy::prelude::*;
 use std::collections::{HashMap, HashSet};
@@ -23,7 +23,12 @@ fn board_anchor_for_size(size: IVec2) -> Vec3 {
 }
 
 fn grid_to_world_puzzle(grid: IVec2, board: &PuzzleBoardInfo) -> Vec3 {
-    board.anchor + Vec3::new(grid.x as f32 * board.tile_size, grid.y as f32 * board.tile_size, 0.0)
+    board.anchor
+        + Vec3::new(
+            grid.x as f32 * board.tile_size,
+            grid.y as f32 * board.tile_size,
+            0.0,
+        )
 }
 
 fn world_to_grid_puzzle(world: Vec3, board: &PuzzleBoardInfo) -> IVec2 {
@@ -44,7 +49,9 @@ fn is_cell_available_puzzle(
     disabled_cells: &HashSet<IVec2>,
     board_info: &PuzzleBoardInfo,
 ) -> bool {
-    is_in_bounds_puzzle(grid, board_info) && !board_cells.contains_key(&grid) && !disabled_cells.contains(&grid)
+    is_in_bounds_puzzle(grid, board_info)
+        && !board_cells.contains_key(&grid)
+        && !disabled_cells.contains(&grid)
 }
 
 fn stash_left_x_puzzle(board_info: &PuzzleBoardInfo) -> f32 {
@@ -87,7 +94,8 @@ fn spawn_puzzle_piece(
         ))
         .id();
 
-    commands.entity(entity)
+    commands
+        .entity(entity)
         .observe(on_puzzle_drag_start)
         .observe(on_puzzle_drag)
         .observe(on_puzzle_drag_end)
@@ -104,7 +112,8 @@ fn spawn_puzzle_piece(
                 Transform::from_translation(offset.as_vec2().extend(0.0) * TILE_SIZE),
                 Pickable::default(),
             ));
-            child.observe(crate::systems::interaction::on_child_hover_in)
+            child
+                .observe(crate::systems::interaction::on_child_hover_in)
                 .observe(crate::systems::interaction::on_child_hover_out)
                 .observe(on_puzzle_drag_start)
                 .observe(on_puzzle_drag)
@@ -126,7 +135,8 @@ fn spawn_puzzle_piece(
                             condition: effect.condition.clone(),
                         },
                     ));
-                    preview.insert(Pickable::default())
+                    preview
+                        .insert(Pickable::default())
                         .observe(crate::systems::interaction::on_child_hover_in)
                         .observe(crate::systems::interaction::on_child_hover_out)
                         .observe(on_puzzle_drag_start)
@@ -168,8 +178,12 @@ pub fn on_puzzle_drag_start(
     )>,
 ) {
     let target = on.event_target();
-    let Some(piece_entity) = get_piece_entity(target, &piece_query, &child_of_query) else { return };
-    if locked_query.contains(piece_entity) { return; }
+    let Some(piece_entity) = get_piece_entity(target, &piece_query, &child_of_query) else {
+        return;
+    };
+    if locked_query.contains(piece_entity) {
+        return;
+    }
 
     if let Ok((mut transform, mut piece, _)) = param_set.p0().get_mut(piece_entity) {
         commands.entity(piece_entity).insert(Dragging);
@@ -195,8 +209,12 @@ pub fn on_puzzle_drag(
     board_info: Res<PuzzleBoardInfo>,
 ) {
     let target = on.event_target();
-    let Some(piece_entity) = get_piece_entity(target, &piece_query, &child_of_query) else { return };
-    if locked_query.contains(piece_entity) { return; }
+    let Some(piece_entity) = get_piece_entity(target, &piece_query, &child_of_query) else {
+        return;
+    };
+    if locked_query.contains(piece_entity) {
+        return;
+    }
     if let Ok((mut transform, piece)) = drag_piece_query.get_mut(piece_entity) {
         transform.translation.x += on.delta.x;
         transform.translation.y -= on.delta.y;
@@ -208,7 +226,12 @@ pub fn on_puzzle_drag(
         let mut can_place = true;
         for offset in &piece.shape {
             let tile = grid_pos + *offset;
-            if !is_cell_available_puzzle(tile, &puzzle_state.board_cells, &puzzle_state.disabled_cells, &board_info) {
+            if !is_cell_available_puzzle(
+                tile,
+                &puzzle_state.board_cells,
+                &puzzle_state.disabled_cells,
+                &board_info,
+            ) {
                 can_place = false;
                 break;
             }
@@ -218,7 +241,9 @@ pub fn on_puzzle_drag(
             for offset in &piece.shape {
                 commands.spawn((
                     Sprite::from_color(ghost_color, Vec2::splat(TILE_SIZE - 2.0)),
-                    Transform::from_translation(grid_to_world_puzzle(grid_pos + *offset, &board_info).with_z(1.0)),
+                    Transform::from_translation(
+                        grid_to_world_puzzle(grid_pos + *offset, &board_info).with_z(1.0),
+                    ),
                     GhostTile,
                 ));
             }
@@ -242,8 +267,12 @@ pub fn on_puzzle_drag_end(
     }
 
     let target = on.event_target();
-    let Some(piece_entity) = get_piece_entity(target, &piece_query, &child_of_query) else { return };
-    if locked_query.contains(piece_entity) { return; }
+    let Some(piece_entity) = get_piece_entity(target, &piece_query, &child_of_query) else {
+        return;
+    };
+    if locked_query.contains(piece_entity) {
+        return;
+    }
     commands.entity(piece_entity).remove::<Dragging>();
 
     if let Ok((mut transform, mut piece, _children)) = drag_piece_query.get_mut(piece_entity) {
@@ -251,7 +280,12 @@ pub fn on_puzzle_drag_end(
         let mut can_place = true;
         for offset in &piece.shape {
             let cell = grid_pos + *offset;
-            if !is_cell_available_puzzle(cell, &puzzle_state.board_cells, &puzzle_state.disabled_cells, &board_info) {
+            if !is_cell_available_puzzle(
+                cell,
+                &puzzle_state.board_cells,
+                &puzzle_state.disabled_cells,
+                &board_info,
+            ) {
                 can_place = false;
                 break;
             }
@@ -261,7 +295,9 @@ pub fn on_puzzle_drag_end(
             transform.translation = grid_to_world_puzzle(grid_pos, &board_info).with_z(1.0);
             piece.placed_at = Some(grid_pos);
             for offset in &piece.shape {
-                puzzle_state.board_cells.insert(grid_pos + *offset, piece.color);
+                puzzle_state
+                    .board_cells
+                    .insert(grid_pos + *offset, piece.color);
             }
         } else {
             transform.translation = piece.original_pos;
@@ -307,7 +343,12 @@ pub fn handle_puzzle_rotation(
             let mut can_place = true;
             for offset in &piece.shape {
                 let tile = grid_pos + *offset;
-                if !is_cell_available_puzzle(tile, &puzzle_state.board_cells, &puzzle_state.disabled_cells, &board_info) {
+                if !is_cell_available_puzzle(
+                    tile,
+                    &puzzle_state.board_cells,
+                    &puzzle_state.disabled_cells,
+                    &board_info,
+                ) {
                     can_place = false;
                     break;
                 }
@@ -317,7 +358,9 @@ pub fn handle_puzzle_rotation(
                 for offset in &piece.shape {
                     commands.spawn((
                         Sprite::from_color(ghost_color, Vec2::splat(TILE_SIZE - 2.0)),
-                        Transform::from_translation(grid_to_world_puzzle(grid_pos + *offset, &board_info).with_z(1.0)),
+                        Transform::from_translation(
+                            grid_to_world_puzzle(grid_pos + *offset, &board_info).with_z(1.0),
+                        ),
                         GhostTile,
                     ));
                 }
@@ -335,7 +378,8 @@ pub fn update_puzzle_score_ui(
         for (mut text, mut transform) in &mut query {
             let score_str = format!("Score: {}", puzzle_state.score);
             text.0 = score_str.clone();
-            transform.translation = score_text_world_pos(&score_str, SCORE_FONT_SIZE, board_info.size);
+            transform.translation =
+                score_text_world_pos(&score_str, SCORE_FONT_SIZE, board_info.size);
         }
     }
 }
@@ -347,7 +391,9 @@ pub fn update_puzzle_stash_labels(
     for (mut text, label) in &mut label_query {
         let count = piece_query
             .iter()
-            .filter(|p| p.type_id == label.0 && p.placed_at.is_none() && p.board_side == BoardSide::Single)
+            .filter(|p| {
+                p.type_id == label.0 && p.placed_at.is_none() && p.board_side == BoardSide::Single
+            })
             .count();
         text.0 = format!("x{}", count);
     }
@@ -358,7 +404,8 @@ pub fn recalculate_puzzle_score_system(
     piece_query: Query<&Piece>,
     board_info: Res<PuzzleBoardInfo>,
 ) {
-    puzzle_state.score = recalculate_puzzle_score(&puzzle_state.board_cells, &piece_query, &board_info);
+    puzzle_state.score =
+        recalculate_puzzle_score(&puzzle_state.board_cells, &piece_query, &board_info);
 }
 
 fn recalculate_puzzle_score(
@@ -380,7 +427,12 @@ fn recalculate_puzzle_score(
                     for offset in offsets {
                         let target_cell = pos + *offset;
                         if is_in_bounds_puzzle(target_cell, board_info) {
-                            if check_condition_with_sizes(&effect.condition, Some(target_cell), board_cells, piece_query) {
+                            if check_condition_with_sizes(
+                                &effect.condition,
+                                Some(target_cell),
+                                board_cells,
+                                piece_query,
+                            ) {
                                 total += effect.points;
                             }
                         }
@@ -390,13 +442,17 @@ fn recalculate_puzzle_score(
                         EffectCondition::NoColorOnBoard(c) => {
                             let mut found_other = false;
                             for (cell, board_color) in board_cells.iter() {
-                                if exclude_cells.contains(cell) { continue; }
+                                if exclude_cells.contains(cell) {
+                                    continue;
+                                }
                                 if linear_rgba_near(board_color, c) {
                                     found_other = true;
                                     break;
                                 }
                             }
-                            if !found_other { total += effect.points; }
+                            if !found_other {
+                                total += effect.points;
+                            }
                         }
                         EffectCondition::MatchesSize(_) => {}
                         _ => {
@@ -421,42 +477,52 @@ pub fn update_puzzle_contributions_system(
 ) {
     for (piece_entity, piece, _transform, display_opt) in piece_query.iter_mut() {
         if let Some(pos) = piece.placed_at {
-            let contribution = crate::systems::scoring::compute_piece_contribution(piece, &puzzle_state.board_cells, &all_pieces, board_info.size);
+            let contribution = crate::systems::scoring::compute_piece_contribution(
+                piece,
+                &puzzle_state.board_cells,
+                &all_pieces,
+                board_info.size,
+            );
             let sign = if contribution >= 0 { "+" } else { "" };
             let text_str = format!("{}{}", sign, contribution);
 
             let first_offset = piece.shape.first().unwrap_or(&IVec2::ZERO);
             let cell_pos = pos + *first_offset;
             let world_pos = grid_to_world_puzzle(cell_pos, &board_info).with_z(5.0);
-            
+
             if let Some(display) = display_opt {
                 commands.entity(display.0).despawn();
-                commands.entity(piece_entity).remove::<ContributionDisplay>();
+                commands
+                    .entity(piece_entity)
+                    .remove::<ContributionDisplay>();
             }
             let text_entity = commands
                 .spawn((
                     Text2d::new(text_str),
-                    TextFont { font_size: 15.0, ..default() },
+                    TextFont {
+                        font_size: 15.0,
+                        ..default()
+                    },
                     TextColor(Color::WHITE),
                     Transform::from_translation(world_pos),
                     Cleanup,
                 ))
                 .id();
-            commands.entity(piece_entity).insert(ContributionDisplay(text_entity));
+            commands
+                .entity(piece_entity)
+                .insert(ContributionDisplay(text_entity));
         } else {
             if let Some(display) = display_opt {
                 commands.entity(display.0).despawn();
-                commands.entity(piece_entity).remove::<ContributionDisplay>();
+                commands
+                    .entity(piece_entity)
+                    .remove::<ContributionDisplay>();
             }
         }
     }
 }
 
-pub fn setup_puzzle(
-    mut commands: Commands,
-    puzzle: Res<CurrentPuzzle>,
-    windows: Query<&Window>,
-) {
+pub fn setup_puzzle(mut commands: Commands, puzzle: Res<CurrentPuzzle>, windows: Query<&Window>) {
     let data = &puzzle.data;
     let board_size = data.board_size;
     let anchor = board_anchor_for_size(board_size);
@@ -477,7 +543,10 @@ pub fn setup_puzzle(
             let tile = commands
                 .spawn((
                     Sprite::from_color(Color::srgb(0.2, 0.2, 0.2), Vec2::splat(TILE_SIZE - 2.0)),
-                    Transform::from_translation(grid_to_world_puzzle(IVec2::new(x, y), &board_info)),
+                    Transform::from_translation(grid_to_world_puzzle(
+                        IVec2::new(x, y),
+                        &board_info,
+                    )),
                 ))
                 .id();
             commands.entity(board_root).add_child(tile);
@@ -502,12 +571,17 @@ pub fn setup_puzzle(
             font_size: SCORE_FONT_SIZE,
             ..default()
         },
-        Transform::from_translation(score_text_world_pos("Score: 0", SCORE_FONT_SIZE, board_info.size)),
+        Transform::from_translation(score_text_world_pos(
+            "Score: 0",
+            SCORE_FONT_SIZE,
+            board_info.size,
+        )),
         ScoreText,
         Cleanup,
     ));
 
-    let board_center_x = board_info.anchor.x + (board_info.size.x as f32 - 1.0) * board_info.tile_size / 2.0;
+    let board_center_x =
+        board_info.anchor.x + (board_info.size.x as f32 - 1.0) * board_info.tile_size / 2.0;
     let board_bottom = board_info.anchor.y - board_info.tile_size / 2.0;
     let button_pos = Vec3::new(board_center_x, board_bottom - 50.0, 0.0);
     commands
@@ -550,7 +624,11 @@ pub fn setup_puzzle(
             ));
             parent.spawn((
                 Sprite::from_color(outline_color, Vec2::new(thickness, stash_visible_height)),
-                Transform::from_xyz(stash_left + stash_width, (stash_top + stash_bottom) / 2.0, 0.5),
+                Transform::from_xyz(
+                    stash_left + stash_width,
+                    (stash_top + stash_bottom) / 2.0,
+                    0.5,
+                ),
             ));
             parent.spawn((
                 Sprite::from_color(outline_color, Vec2::new(stash_width, thickness)),
@@ -683,7 +761,10 @@ pub fn setup_solution_view(mut commands: Commands, selected: Res<SelectedSolutio
             let tile = commands
                 .spawn((
                     Sprite::from_color(Color::srgb(0.2, 0.2, 0.2), Vec2::splat(TILE_SIZE - 2.0)),
-                    Transform::from_translation(grid_to_world_puzzle(IVec2::new(x, y), &board_info)),
+                    Transform::from_translation(grid_to_world_puzzle(
+                        IVec2::new(x, y),
+                        &board_info,
+                    )),
                 ))
                 .id();
             commands.entity(board_root).add_child(tile);
@@ -702,7 +783,11 @@ pub fn setup_solution_view(mut commands: Commands, selected: Res<SelectedSolutio
             font_size: SCORE_FONT_SIZE,
             ..default()
         },
-        Transform::from_translation(score_text_world_pos(&format!("Solution Score: {}", selected.solution.score), SCORE_FONT_SIZE, board_info.size)),
+        Transform::from_translation(score_text_world_pos(
+            &format!("Solution Score: {}", selected.solution.score),
+            SCORE_FONT_SIZE,
+            board_info.size,
+        )),
         ScoreText,
         Cleanup,
     ));
@@ -716,7 +801,9 @@ pub fn setup_solution_view(mut commands: Commands, selected: Res<SelectedSolutio
             continue;
         }
         let piece_data = &data.pieces[piece_index];
-        let color = *color_map.get(&piece_data.color).unwrap_or(&LinearRgba::WHITE);
+        let color = *color_map
+            .get(&piece_data.color)
+            .unwrap_or(&LinearRgba::WHITE);
         let mut shape = piece_data.shape.clone();
         let rot = placement.rot % 4;
         for _ in 0..rot {
@@ -745,7 +832,11 @@ pub fn setup_solution_view(mut commands: Commands, selected: Res<SelectedSolutio
             rotated_effects.push(GameEffect {
                 condition,
                 points: re.points,
-                offsets: if offsets.is_empty() { None } else { Some(offsets) },
+                offsets: if offsets.is_empty() {
+                    None
+                } else {
+                    Some(offsets)
+                },
             });
         }
 
@@ -879,7 +970,9 @@ pub fn update_puzzle_effect_previews(
     for (piece, piece_transform, children, is_hovered, is_dragging) in &piece_query {
         let show = is_hovered || is_dragging;
         for &child in children {
-            if let Ok((mut visibility, mut sprite, preview, child_local_transform)) = preview_query.get_mut(child) {
+            if let Ok((mut visibility, mut sprite, preview, child_local_transform)) =
+                preview_query.get_mut(child)
+            {
                 if show {
                     *visibility = Visibility::Visible;
                     let mut active = false;
@@ -889,7 +982,12 @@ pub fn update_puzzle_effect_previews(
                         let offset = (world_offset.truncate() / TILE_SIZE).round().as_ivec2();
                         let target_cell = grid_pos + offset;
                         if is_in_bounds_puzzle(target_cell, &board_info) {
-                            active = check_condition_with_sizes(&preview.condition, Some(target_cell), &puzzle_state.board_cells, &all_pieces);
+                            active = check_condition_with_sizes(
+                                &preview.condition,
+                                Some(target_cell),
+                                &puzzle_state.board_cells,
+                                &all_pieces,
+                            );
                         }
                     }
                     if active {

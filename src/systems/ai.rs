@@ -1,9 +1,9 @@
-use rand::RngExt;
 use crate::components::*;
 use crate::config::RawPieceConfig;
 use crate::helpers::*;
 use crate::resources::GameState;
 use bevy::prelude::*;
+use rand::RngExt;
 
 pub struct AIPlacement {
     pub raw_config: RawPieceConfig,
@@ -61,7 +61,8 @@ pub fn greedy_placement(
     use crate::systems::scoring::recalculate_score_from_vectors;
 
     let current_pieces: Vec<Piece> = opponent_placed_pieces.iter().map(|&p| p.clone()).collect();
-    let current_score = recalculate_score_from_vectors(&opponent_state.board_cells, &current_pieces, board_size);
+    let current_score =
+        recalculate_score_from_vectors(&opponent_state.board_cells, &current_pieces, board_size);
 
     let mut best_placement: Option<AIPlacement> = None;
     let mut best_score = -1_000_000;
@@ -101,7 +102,8 @@ pub fn greedy_placement(
                     }
                     new_pieces.push(new_piece);
 
-                    let new_score = recalculate_score_from_vectors(&new_board_cells, &new_pieces, board_size);
+                    let new_score =
+                        recalculate_score_from_vectors(&new_board_cells, &new_pieces, board_size);
                     let net_gain = new_score - current_score;
 
                     let mut potential_bonus = 0;
@@ -152,7 +154,12 @@ pub fn greedy_block_cell(
     for y in 0..board_size.y {
         for x in 0..board_size.x {
             let cell = IVec2::new(x, y);
-            if !is_cell_available(cell, &player_state.board_cells, &player_state.disabled_cells, board_size) {
+            if !is_cell_available(
+                cell,
+                &player_state.board_cells,
+                &player_state.disabled_cells,
+                board_size,
+            ) {
                 continue;
             }
 
@@ -253,15 +260,17 @@ pub fn random_placement(
     }
 }
 
-pub fn random_block_cell(
-    player_state: &GameState,
-    board_size: IVec2,
-) -> Option<IVec2> {
+pub fn random_block_cell(player_state: &GameState, board_size: IVec2) -> Option<IVec2> {
     let mut empty_cells = Vec::new();
     for y in 0..board_size.y {
         for x in 0..board_size.x {
             let cell = IVec2::new(x, y);
-            if is_cell_available(cell, &player_state.board_cells, &player_state.disabled_cells, board_size) {
+            if is_cell_available(
+                cell,
+                &player_state.board_cells,
+                &player_state.disabled_cells,
+                board_size,
+            ) {
                 empty_cells.push(cell);
             }
         }

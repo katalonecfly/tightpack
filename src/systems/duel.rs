@@ -2,8 +2,12 @@ use crate::Cleanup;
 use crate::components::*;
 use crate::config::RawPieceConfig;
 use crate::helpers::*;
-use crate::resources::{AIType, BoardSize, DuelMode, DuelState, DuelTurn, GameSettings, PieceLibrary, RoundCounter};
-use crate::systems::ai::{first_free_placement, greedy_block_cell, greedy_placement, random_placement, random_block_cell};
+use crate::resources::{
+    AIType, BoardSize, DuelMode, DuelState, DuelTurn, GameSettings, PieceLibrary, RoundCounter,
+};
+use crate::systems::ai::{
+    first_free_placement, greedy_block_cell, greedy_placement, random_block_cell, random_placement,
+};
 use crate::systems::draft::DraftConfirmButton;
 use bevy::picking::prelude::*;
 use bevy::prelude::*;
@@ -30,7 +34,8 @@ fn duel_board_anchor(side: BoardSide, board_size: IVec2) -> Vec3 {
 }
 
 fn grid_to_world_duel(grid: IVec2, side: BoardSide, board_size: IVec2) -> Vec3 {
-    duel_board_anchor(side, board_size) + Vec3::new(grid.x as f32 * TILE_SIZE, grid.y as f32 * TILE_SIZE, 0.0)
+    duel_board_anchor(side, board_size)
+        + Vec3::new(grid.x as f32 * TILE_SIZE, grid.y as f32 * TILE_SIZE, 0.0)
 }
 
 fn world_to_grid_duel(world: Vec3, side: BoardSide, board_size: IVec2) -> IVec2 {
@@ -58,7 +63,7 @@ pub fn generate_duel_stash(
     if round_counter.is_game_over() {
         return;
     }
-    
+
     let color_map = crate::colors::get_color_map();
 
     let all_pieces = &library.0;
@@ -84,8 +89,20 @@ pub fn generate_duel_stash(
     if same_piece_set {
         // Right side gets identical set
         let piece_data_right = piece_data_left.clone();
-        spawn_side_pieces(commands, &piece_data_left, BoardSide::Left, true, board_size);
-        spawn_side_pieces(commands, &piece_data_right, BoardSide::Right, false, board_size);
+        spawn_side_pieces(
+            commands,
+            &piece_data_left,
+            BoardSide::Left,
+            true,
+            board_size,
+        );
+        spawn_side_pieces(
+            commands,
+            &piece_data_right,
+            BoardSide::Right,
+            false,
+            board_size,
+        );
     } else {
         // Generate independent set for right side
         let mut piece_data_right = Vec::new();
@@ -99,11 +116,24 @@ pub fn generate_duel_stash(
             chosen_right.push(available_right.remove(idx));
         }
         for raw in &chosen_right {
-            let (color, effects) = crate::systems::setup::randomize_piece_properties(raw, &color_map);
+            let (color, effects) =
+                crate::systems::setup::randomize_piece_properties(raw, &color_map);
             piece_data_right.push((*raw, color, effects));
         }
-        spawn_side_pieces(commands, &piece_data_left, BoardSide::Left, true, board_size);
-        spawn_side_pieces(commands, &piece_data_right, BoardSide::Right, false, board_size);
+        spawn_side_pieces(
+            commands,
+            &piece_data_left,
+            BoardSide::Left,
+            true,
+            board_size,
+        );
+        spawn_side_pieces(
+            commands,
+            &piece_data_right,
+            BoardSide::Right,
+            false,
+            board_size,
+        );
     }
 }
 
@@ -130,11 +160,22 @@ fn spawn_side_pieces(
         let pos = Vec3::new(parent_x, parent_y, 1.0);
 
         let entity = crate::systems::setup::spawn_draggable_piece(
-            commands, type_id, raw.shape.clone(), *color, raw.points,
-            effects.clone(), pos, false, false, true, side, board_size,
+            commands,
+            type_id,
+            raw.shape.clone(),
+            *color,
+            raw.points,
+            effects.clone(),
+            pos,
+            false,
+            false,
+            true,
+            side,
+            board_size,
         );
         if interactive {
-            commands.entity(entity)
+            commands
+                .entity(entity)
                 .observe(on_drag_start_duel)
                 .observe(on_drag_duel)
                 .observe(on_drag_end_duel)
@@ -148,7 +189,8 @@ fn spawn_side_pieces(
 
         if interactive {
             commands.entity(entity).insert(Pickable::default());
-            commands.entity(entity)
+            commands
+                .entity(entity)
                 .observe(on_drag_start_duel)
                 .observe(on_drag_duel)
                 .observe(on_drag_end_duel)
@@ -186,8 +228,16 @@ fn spawn_side_pieces(
     }
 }
 
-fn get_piece_entity(target: Entity, piece_query: &Query<(), With<Piece>>, child_of: &Query<&ChildOf>) -> Option<Entity> {
-    if piece_query.contains(target) { Some(target) } else { child_of.get(target).ok().map(|c| c.parent()) }
+fn get_piece_entity(
+    target: Entity,
+    piece_query: &Query<(), With<Piece>>,
+    child_of: &Query<&ChildOf>,
+) -> Option<Entity> {
+    if piece_query.contains(target) {
+        Some(target)
+    } else {
+        child_of.get(target).ok().map(|c| c.parent())
+    }
 }
 
 fn on_drag_start_duel(
@@ -201,14 +251,23 @@ fn on_drag_start_duel(
     cameras: Query<(&Camera, &GlobalTransform)>,
     mut param_set: ParamSet<(
         Query<(&mut Transform, &mut Piece, &Children), (Without<LockedPiece>, With<PlayerPiece>)>,
-        Query<(Entity, &mut Piece, &mut Transform), (With<PlayerPiece>, With<DraftPiece>, Without<LockedPiece>)>,
+        Query<
+            (Entity, &mut Piece, &mut Transform),
+            (With<PlayerPiece>, With<DraftPiece>, Without<LockedPiece>),
+        >,
     )>,
     _board_size: Res<BoardSize>,
 ) {
-    if duel_state.turn != DuelTurn::Place { return; }
+    if duel_state.turn != DuelTurn::Place {
+        return;
+    }
     let target = on.event_target();
-    let Some(piece_entity) = get_piece_entity(target, &piece_query, &child_of_query) else { return; };
-    if locked_query.contains(piece_entity) { return; }
+    let Some(piece_entity) = get_piece_entity(target, &piece_query, &child_of_query) else {
+        return;
+    };
+    if locked_query.contains(piece_entity) {
+        return;
+    }
 
     for (other_entity, mut other_piece, mut other_transform) in param_set.p1().iter_mut() {
         if other_entity != piece_entity && other_piece.placed_at.is_some() {
@@ -235,8 +294,12 @@ fn on_drag_start_duel(
             }
             piece.placed_at = None;
         }
-        let Ok(window) = windows.single() else { return; };
-        let Ok((camera, cam_transform)) = cameras.single() else { return; };
+        let Ok(window) = windows.single() else {
+            return;
+        };
+        let Ok((camera, cam_transform)) = cameras.single() else {
+            return;
+        };
         if let Some(cursor_pos) = window.cursor_position() {
             if let Ok(world_pos) = camera.viewport_to_world(cam_transform, cursor_pos) {
                 let offset = world_pos.origin.truncate() - transform.translation.truncate();
@@ -259,15 +322,25 @@ fn on_drag_duel(
     cameras: Query<(&Camera, &GlobalTransform)>,
     board_size: Res<BoardSize>,
 ) {
-    if duel_state.turn != DuelTurn::Place { return; }
+    if duel_state.turn != DuelTurn::Place {
+        return;
+    }
     let target = on.event_target();
-    let Some(piece_entity) = get_piece_entity(target, &piece_query, &child_of_query) else { return; };
-    if locked_query.contains(piece_entity) { return; }
+    let Some(piece_entity) = get_piece_entity(target, &piece_query, &child_of_query) else {
+        return;
+    };
+    if locked_query.contains(piece_entity) {
+        return;
+    }
 
     if let Ok((mut transform, piece, drag_offset_opt)) = drag_piece_query.get_mut(piece_entity) {
         if let Some(drag_offset) = drag_offset_opt {
-            let Ok(window) = windows.single() else { return; };
-            let Ok((camera, cam_transform)) = cameras.single() else { return; };
+            let Ok(window) = windows.single() else {
+                return;
+            };
+            let Ok((camera, cam_transform)) = cameras.single() else {
+                return;
+            };
             if let Some(cursor_pos) = window.cursor_position() {
                 if let Ok(world_pos) = camera.viewport_to_world(cam_transform, cursor_pos) {
                     let new_pos = world_pos.origin.truncate() - drag_offset.0;
@@ -280,13 +353,21 @@ fn on_drag_duel(
             transform.translation.y -= on.delta.y;
         }
 
-        for entity in &ghost_query { let _ = commands.entity(entity).try_despawn(); }
+        for entity in &ghost_query {
+            let _ = commands.entity(entity).try_despawn();
+        }
         let grid_pos = world_to_grid_duel(transform.translation, piece.board_side, board_size.0);
         let mut can_place = true;
         for offset in &piece.shape {
             let tile = grid_pos + *offset;
-            if !is_cell_available(tile, &duel_state.player.board_cells, &duel_state.player.disabled_cells, board_size.0) {
-                can_place = false; break;
+            if !is_cell_available(
+                tile,
+                &duel_state.player.board_cells,
+                &duel_state.player.disabled_cells,
+                board_size.0,
+            ) {
+                can_place = false;
+                break;
             }
         }
         if can_place {
@@ -294,7 +375,10 @@ fn on_drag_duel(
             for offset in &piece.shape {
                 commands.spawn((
                     Sprite::from_color(ghost_color, Vec2::splat(TILE_SIZE - 2.0)),
-                    Transform::from_translation(grid_to_world_duel(grid_pos + *offset, piece.board_side, board_size.0).with_z(1.0)),
+                    Transform::from_translation(
+                        grid_to_world_duel(grid_pos + *offset, piece.board_side, board_size.0)
+                            .with_z(1.0),
+                    ),
                     GhostTile,
                 ));
             }
@@ -315,33 +399,56 @@ fn on_drag_end_duel(
     ghost_query: Query<Entity, With<GhostTile>>,
     board_size: Res<BoardSize>,
 ) {
-    for entity in &ghost_query { let _ = commands.entity(entity).try_despawn(); }
+    for entity in &ghost_query {
+        let _ = commands.entity(entity).try_despawn();
+    }
     let target = on.event_target();
-    let Some(piece_entity) = get_piece_entity(target, &piece_query, &child_of_query) else { return; };
-    if locked_query.contains(piece_entity) { return; }
+    let Some(piece_entity) = get_piece_entity(target, &piece_query, &child_of_query) else {
+        return;
+    };
+    if locked_query.contains(piece_entity) {
+        return;
+    }
 
     commands.entity(piece_entity).remove::<Dragging>();
     commands.entity(piece_entity).remove::<DragOffset>();
 
     if let Ok((mut transform, mut piece, _children)) = drag_piece_query.get_mut(piece_entity) {
-        if piece.placed_at.is_some() { return; }
+        if piece.placed_at.is_some() {
+            return;
+        }
         let grid_pos = world_to_grid_duel(transform.translation, piece.board_side, board_size.0);
         let mut can_place = true;
         for offset in &piece.shape {
             let cell = grid_pos + *offset;
-            if !is_cell_available(cell, &duel_state.player.board_cells, &duel_state.player.disabled_cells, board_size.0) {
-                can_place = false; break;
+            if !is_cell_available(
+                cell,
+                &duel_state.player.board_cells,
+                &duel_state.player.disabled_cells,
+                board_size.0,
+            ) {
+                can_place = false;
+                break;
             }
         }
         if can_place {
-            transform.translation = grid_to_world_duel(grid_pos, piece.board_side, board_size.0).with_z(1.0);
+            transform.translation =
+                grid_to_world_duel(grid_pos, piece.board_side, board_size.0).with_z(1.0);
             piece.placed_at = Some(grid_pos);
             for offset in &piece.shape {
-                duel_state.player.board_cells.insert(grid_pos + *offset, piece.color);
+                duel_state
+                    .player
+                    .board_cells
+                    .insert(grid_pos + *offset, piece.color);
             }
             if draft_check.contains(piece_entity) {
                 for other in &piece_entities {
-                    if other != piece_entity && draft_check.contains(other) && drag_piece_query.get(other).map_or(false, |(_, p, _)| p.placed_at.is_some()) {
+                    if other != piece_entity
+                        && draft_check.contains(other)
+                        && drag_piece_query
+                            .get(other)
+                            .map_or(false, |(_, p, _)| p.placed_at.is_some())
+                    {
                         if let Ok((mut t, mut p, _)) = drag_piece_query.get_mut(other) {
                             if let Some(old) = p.placed_at {
                                 for off in &p.shape {
@@ -368,8 +475,12 @@ fn on_drag_end_duel(
     }
 }
 
-fn on_hover_in_duel(on: On<Pointer<Over>>, mut commands: Commands) { commands.entity(on.event_target()).insert(Hovered); }
-fn on_hover_out_duel(on: On<Pointer<Out>>, mut commands: Commands) { commands.entity(on.event_target()).remove::<Hovered>(); }
+fn on_hover_in_duel(on: On<Pointer<Over>>, mut commands: Commands) {
+    commands.entity(on.event_target()).insert(Hovered);
+}
+fn on_hover_out_duel(on: On<Pointer<Out>>, mut commands: Commands) {
+    commands.entity(on.event_target()).remove::<Hovered>();
+}
 
 pub fn handle_destroy_input(
     buttons: Res<ButtonInput<MouseButton>>,
@@ -379,21 +490,39 @@ pub fn handle_destroy_input(
     mut commands: Commands,
     board_size: Res<BoardSize>,
 ) {
-    if duel_state.turn != DuelTurn::Destroy { return; }
-    if !buttons.just_pressed(MouseButton::Left) { return; }
-    let Ok(window) = windows.single() else { return; };
-    let Ok((camera, cam_transform)) = camera_q.single() else { return; };
+    if duel_state.turn != DuelTurn::Destroy {
+        return;
+    }
+    if !buttons.just_pressed(MouseButton::Left) {
+        return;
+    }
+    let Ok(window) = windows.single() else {
+        return;
+    };
+    let Ok((camera, cam_transform)) = camera_q.single() else {
+        return;
+    };
     if let Some(cursor) = window.cursor_position() {
         if let Ok(ray) = camera.viewport_to_world(cam_transform, cursor) {
             let world_pos = ray.origin;
             let grid = world_to_grid_duel(world_pos, BoardSide::Right, board_size.0);
-            if is_in_bounds(grid, board_size.0) && !duel_state.opponent.board_cells.contains_key(&grid) && !duel_state.opponent.disabled_cells.contains(&grid) {
+            if is_in_bounds(grid, board_size.0)
+                && !duel_state.opponent.board_cells.contains_key(&grid)
+                && !duel_state.opponent.disabled_cells.contains(&grid)
+            {
                 if let Some((old1, old2)) = duel_state.pending_disable_preview.take() {
                     commands.entity(old1).despawn();
                     commands.entity(old2).despawn();
                 }
                 duel_state.pending_disable = Some(grid);
-                let (line1, line2) = spawn_disabled_visual(&mut commands, grid, BoardSide::Right, board_size.0, TILE_SIZE * 0.6, 2.0);
+                let (line1, line2) = spawn_disabled_visual(
+                    &mut commands,
+                    grid,
+                    BoardSide::Right,
+                    board_size.0,
+                    TILE_SIZE * 0.6,
+                    2.0,
+                );
                 duel_state.pending_disable_preview = Some((line1, line2));
             }
         }
@@ -423,7 +552,10 @@ pub fn on_confirm_click_duel(
             for entity in &player_drafts {
                 if let Ok(piece) = player_pieces.get(entity) {
                     if piece.placed_at.is_some() {
-                        commands.entity(entity).remove::<DraftPiece>().insert(LockedPiece);
+                        commands
+                            .entity(entity)
+                            .remove::<DraftPiece>()
+                            .insert(LockedPiece);
                     } else {
                         commands.entity(entity).despawn();
                     }
@@ -431,50 +563,102 @@ pub fn on_confirm_click_duel(
                     commands.entity(entity).despawn();
                 }
             }
-            for label in &player_labels { commands.entity(label).despawn(); }
+            for label in &player_labels {
+                commands.entity(label).despawn();
+            }
 
-            let draft_data: Vec<(Entity, Piece)> = opponent_drafts.iter().filter_map(|e| opponent_pieces.get(e).ok().map(|p| (e, p.clone()))).collect();
-            let draft_refs: Vec<(Entity, &Piece)> = draft_data.iter().map(|(e, p)| (*e, p)).collect();
+            let draft_data: Vec<(Entity, Piece)> = opponent_drafts
+                .iter()
+                .filter_map(|e| opponent_pieces.get(e).ok().map(|p| (e, p.clone())))
+                .collect();
+            let draft_refs: Vec<(Entity, &Piece)> =
+                draft_data.iter().map(|(e, p)| (*e, p)).collect();
             let opponent_placed: Vec<&Piece> = opponent_pieces.iter().collect();
-            
+
             let placement = if settings.ai_mode == AIType::Greedy {
-                greedy_placement(&draft_refs, &duel_state.opponent, &opponent_placed, board_size.0)
+                greedy_placement(
+                    &draft_refs,
+                    &duel_state.opponent,
+                    &opponent_placed,
+                    board_size.0,
+                )
             } else if settings.ai_mode == AIType::Random {
                 random_placement(&draft_refs, &duel_state.opponent, board_size.0)
             } else {
                 first_free_placement(&draft_refs, &duel_state.opponent, board_size.0)
-            };           
+            };
             if let Some(placement) = placement {
-                let world_pos = grid_to_world_duel(placement.origin, BoardSide::Right, board_size.0);
+                let world_pos =
+                    grid_to_world_duel(placement.origin, BoardSide::Right, board_size.0);
                 let entity = crate::systems::setup::spawn_draggable_piece(
-                    &mut commands, 0, placement.shape.clone(), placement.color,
-                    placement.raw_config.points, placement.effects.clone(),
-                    world_pos.with_z(1.0), false, false, true, BoardSide::Right, board_size.0,
+                    &mut commands,
+                    0,
+                    placement.shape.clone(),
+                    placement.color,
+                    placement.raw_config.points,
+                    placement.effects.clone(),
+                    world_pos.with_z(1.0),
+                    false,
+                    false,
+                    true,
+                    BoardSide::Right,
+                    board_size.0,
                 );
-                commands.entity(entity).insert(LockedPiece).insert(OpponentPiece);
+                commands
+                    .entity(entity)
+                    .insert(LockedPiece)
+                    .insert(OpponentPiece);
                 let placed = Piece {
-                    type_id: 0, shape: placement.shape.clone(), original_shape: placement.shape.clone(),
-                    color: placement.color, points: placement.raw_config.points,
-                    effects: placement.effects.clone(), original_effects: placement.effects.clone(),
-                    original_pos: world_pos.with_z(1.0), placed_at: Some(placement.origin), board_side: BoardSide::Right,
+                    type_id: 0,
+                    shape: placement.shape.clone(),
+                    original_shape: placement.shape.clone(),
+                    color: placement.color,
+                    points: placement.raw_config.points,
+                    effects: placement.effects.clone(),
+                    original_effects: placement.effects.clone(),
+                    original_pos: world_pos.with_z(1.0),
+                    placed_at: Some(placement.origin),
+                    board_side: BoardSide::Right,
                 };
                 commands.entity(entity).insert(placed);
                 for off in &placement.shape {
-                    duel_state.opponent.board_cells.insert(placement.origin + *off, placement.color);
+                    duel_state
+                        .opponent
+                        .board_cells
+                        .insert(placement.origin + *off, placement.color);
                 }
             }
-            for entity in &opponent_drafts { commands.entity(entity).despawn(); }
-            for label in &opponent_labels { commands.entity(label).despawn(); }
+            for entity in &opponent_drafts {
+                commands.entity(entity).despawn();
+            }
+            for label in &opponent_labels {
+                commands.entity(label).despawn();
+            }
 
-            duel_state.player.score = crate::systems::scoring::recalculate_score_with_size(&duel_state.player.board_cells, &player_pieces, board_size.0);
-            duel_state.opponent.score = crate::systems::scoring::recalculate_score_with_size(&duel_state.opponent.board_cells, &opponent_pieces, board_size.0);
+            duel_state.player.score = crate::systems::scoring::recalculate_score_with_size(
+                &duel_state.player.board_cells,
+                &player_pieces,
+                board_size.0,
+            );
+            duel_state.opponent.score = crate::systems::scoring::recalculate_score_with_size(
+                &duel_state.opponent.board_cells,
+                &opponent_pieces,
+                board_size.0,
+            );
             if duel_state.mode == DuelMode::Destroy {
                 duel_state.turn = DuelTurn::Destroy;
                 duel_state.pending_disable = None;
             } else {
                 round_counter.advance();
                 if !round_counter.is_game_over() {
-                    generate_duel_stash(&mut commands, &library, &round_counter, board_size.0, settings.same_piece_set);                }
+                    generate_duel_stash(
+                        &mut commands,
+                        &library,
+                        &round_counter,
+                        board_size.0,
+                        settings.same_piece_set,
+                    );
+                }
             }
         }
         DuelTurn::Destroy => {
@@ -484,7 +668,14 @@ pub fn on_confirm_click_duel(
                     commands.entity(preview1).despawn();
                     commands.entity(preview2).despawn();
                 }
-                spawn_disabled_visual(&mut commands, cell, BoardSide::Right, board_size.0, TILE_SIZE * 0.8, 4.0);
+                spawn_disabled_visual(
+                    &mut commands,
+                    cell,
+                    BoardSide::Right,
+                    board_size.0,
+                    TILE_SIZE * 0.8,
+                    4.0,
+                );
             }
 
             let ai_cell = if settings.ai_mode == AIType::Greedy {
@@ -492,18 +683,36 @@ pub fn on_confirm_click_duel(
             } else if settings.ai_mode == AIType::Random {
                 random_block_cell(&duel_state.player, board_size.0)
             } else {
-                pick_first_free(&duel_state.player.board_cells, &duel_state.player.disabled_cells, board_size.0)
+                pick_first_free(
+                    &duel_state.player.board_cells,
+                    &duel_state.player.disabled_cells,
+                    board_size.0,
+                )
             };
             if let Some(cell) = ai_cell {
                 duel_state.player.disabled_cells.insert(cell);
-                spawn_disabled_visual(&mut commands, cell, BoardSide::Left, board_size.0, TILE_SIZE * 0.8, 4.0);
+                spawn_disabled_visual(
+                    &mut commands,
+                    cell,
+                    BoardSide::Left,
+                    board_size.0,
+                    TILE_SIZE * 0.8,
+                    4.0,
+                );
             }
 
             duel_state.turn = DuelTurn::Place;
             duel_state.pending_disable_preview = None;
             round_counter.advance();
             if !round_counter.is_game_over() {
-                generate_duel_stash(&mut commands, &library, &round_counter, board_size.0, settings.same_piece_set);            }
+                generate_duel_stash(
+                    &mut commands,
+                    &library,
+                    &round_counter,
+                    board_size.0,
+                    settings.same_piece_set,
+                );
+            }
         }
     }
 }
@@ -530,11 +739,15 @@ pub fn update_duel_round_display(
         }
         let displayed_current = round_counter.current.min(round_counter.total);
         if let Ok(button_transform) = transforms.get(button_entity) {
-            let text_pos = button_transform.translation + Vec3::new(CONFIRM_BUTTON_WIDTH / 2.0 + 80.0, 0.0, 0.0);
+            let text_pos = button_transform.translation
+                + Vec3::new(CONFIRM_BUTTON_WIDTH / 2.0 + 80.0, 0.0, 0.0);
             let text_content = format!("Round:\n{}/{}", displayed_current, round_counter.total);
             commands.spawn((
                 Text2d::new(text_content),
-                TextFont { font_size: 20.0, ..default() },
+                TextFont {
+                    font_size: 20.0,
+                    ..default()
+                },
                 TextColor(Color::WHITE),
                 Transform::from_translation(text_pos),
                 RoundTextDuel,
@@ -544,7 +757,11 @@ pub fn update_duel_round_display(
     }
 }
 
-fn pick_first_free(board_cells: &HashMap<IVec2, LinearRgba>, disabled: &HashSet<IVec2>, board_size: IVec2) -> Option<IVec2> {
+fn pick_first_free(
+    board_cells: &HashMap<IVec2, LinearRgba>,
+    disabled: &HashSet<IVec2>,
+    board_size: IVec2,
+) -> Option<IVec2> {
     for y in 0..board_size.y {
         for x in 0..board_size.x {
             let grid = IVec2::new(x, y);
@@ -556,21 +773,41 @@ fn pick_first_free(board_cells: &HashMap<IVec2, LinearRgba>, disabled: &HashSet<
     None
 }
 
-fn spawn_disabled_visual(commands: &mut Commands, grid: IVec2, side: BoardSide, board_size: IVec2, size: f32, thickness: f32) -> (Entity, Entity) {
+fn spawn_disabled_visual(
+    commands: &mut Commands,
+    grid: IVec2,
+    side: BoardSide,
+    board_size: IVec2,
+    size: f32,
+    thickness: f32,
+) -> (Entity, Entity) {
     let center = grid_to_world_duel(grid, side, board_size).with_z(3.0);
     let color = Color::BLACK;
     let angle1 = -std::f32::consts::FRAC_PI_4;
     let angle2 = std::f32::consts::FRAC_PI_4;
     let line_sprite = Sprite::from_color(color, Vec2::new(size, thickness));
-    let e1 = commands.spawn((Transform::from_translation(center).with_rotation(Quat::from_rotation_z(angle1)), line_sprite.clone(), Cleanup)).id();
-    let e2 = commands.spawn((Transform::from_translation(center).with_rotation(Quat::from_rotation_z(angle2)), line_sprite, Cleanup)).id();
+    let e1 = commands
+        .spawn((
+            Transform::from_translation(center).with_rotation(Quat::from_rotation_z(angle1)),
+            line_sprite.clone(),
+            Cleanup,
+        ))
+        .id();
+    let e2 = commands
+        .spawn((
+            Transform::from_translation(center).with_rotation(Quat::from_rotation_z(angle2)),
+            line_sprite,
+            Cleanup,
+        ))
+        .id();
     (e1, e2)
 }
 
 pub fn setup_duel(mut commands: Commands, settings: Res<GameSettings>, board_size: Res<BoardSize>) {
     commands.spawn((Camera2d, Cleanup));
     let file_content = include_str!("../../assets/pieces.ron");
-    let lib: crate::config::RawPieceLibrary = ron::from_str(&file_content).expect("Failed to parse RON");
+    let lib: crate::config::RawPieceLibrary =
+        ron::from_str(&file_content).expect("Failed to parse RON");
     let pieces = lib.pieces.clone();
     commands.insert_resource(PieceLibrary(pieces.clone()));
 
@@ -581,15 +818,24 @@ pub fn setup_duel(mut commands: Commands, settings: Res<GameSettings>, board_siz
 
     commands.spawn((
         Text2d::new("Player: 0"),
-        TextFont { font_size: SCORE_FONT_SIZE, ..default() },
+        TextFont {
+            font_size: SCORE_FONT_SIZE,
+            ..default()
+        },
         Transform::from_translation(score_text_pos_duel(BoardSide::Left, board_size_val)),
-        ScoreText, PlayerScoreText, Cleanup,
+        ScoreText,
+        PlayerScoreText,
+        Cleanup,
     ));
-    let mut opponent_transform = Transform::from_translation(score_text_pos_duel(BoardSide::Right, board_size_val));
+    let mut opponent_transform =
+        Transform::from_translation(score_text_pos_duel(BoardSide::Right, board_size_val));
     opponent_transform.translation.x += 580.0;
     commands.spawn((
         Text2d::new("Opponent: 0"),
-        TextFont { font_size: SCORE_FONT_SIZE, ..default() },
+        TextFont {
+            font_size: SCORE_FONT_SIZE,
+            ..default()
+        },
         opponent_transform,
         ScoreText,
         OpponentScoreText,
@@ -598,34 +844,58 @@ pub fn setup_duel(mut commands: Commands, settings: Res<GameSettings>, board_siz
 
     spawn_confirm_button(&mut commands, BoardSide::Left, board_size_val);
 
-    let duel_mode = if settings.duel_blocking_enabled { DuelMode::Destroy } else { DuelMode::Basic };
-    commands.insert_resource(DuelState { mode: duel_mode, ..default() });
+    let duel_mode = if settings.duel_blocking_enabled {
+        DuelMode::Destroy
+    } else {
+        DuelMode::Basic
+    };
+    commands.insert_resource(DuelState {
+        mode: duel_mode,
+        ..default()
+    });
 
     let round_counter = RoundCounter::new(settings.rounds);
-    generate_duel_stash(&mut commands, &PieceLibrary(pieces), &round_counter, board_size_val, settings.same_piece_set);    commands.insert_resource(round_counter);
+    generate_duel_stash(
+        &mut commands,
+        &PieceLibrary(pieces),
+        &round_counter,
+        board_size_val,
+        settings.same_piece_set,
+    );
+    commands.insert_resource(round_counter);
 }
 
 fn spawn_board(commands: &mut Commands, side: BoardSide, board_size: IVec2) {
     let board_root = commands.spawn((Transform::default(), Cleanup)).id();
     for x in 0..board_size.x {
         for y in 0..board_size.y {
-            let tile = commands.spawn((
-                Sprite::from_color(Color::srgb(0.2, 0.2, 0.2), Vec2::splat(TILE_SIZE - 2.0)),
-                Transform::from_translation(grid_to_world_duel(IVec2::new(x, y), side, board_size)),
-            )).id();
+            let tile = commands
+                .spawn((
+                    Sprite::from_color(Color::srgb(0.2, 0.2, 0.2), Vec2::splat(TILE_SIZE - 2.0)),
+                    Transform::from_translation(grid_to_world_duel(
+                        IVec2::new(x, y),
+                        side,
+                        board_size,
+                    )),
+                ))
+                .id();
             commands.entity(board_root).add_child(tile);
         }
     }
 }
 
 fn spawn_confirm_button(commands: &mut Commands, side: BoardSide, board_size: IVec2) {
-    let board_right = duel_board_anchor(side, board_size).x + (board_size.x as f32 - 0.5) * TILE_SIZE;
+    let board_right =
+        duel_board_anchor(side, board_size).x + (board_size.x as f32 - 0.5) * TILE_SIZE;
     let board_top = BOARD_TOP_Y + TILE_SIZE / 2.0;
     let score_y = board_top + SCORE_Y_OFFSET;
     let button_pos = Vec3::new(board_right - CONFIRM_BUTTON_WIDTH / 2.0, score_y, 0.0);
     commands
         .spawn((
-            Sprite::from_color(Color::srgb(0.3, 0.8, 0.3), Vec2::new(CONFIRM_BUTTON_WIDTH, CONFIRM_BUTTON_HEIGHT)),
+            Sprite::from_color(
+                Color::srgb(0.3, 0.8, 0.3),
+                Vec2::new(CONFIRM_BUTTON_WIDTH, CONFIRM_BUTTON_HEIGHT),
+            ),
             Transform::from_translation(button_pos),
             Pickable::default(),
             DraftConfirmButton,
@@ -633,7 +903,10 @@ fn spawn_confirm_button(commands: &mut Commands, side: BoardSide, board_size: IV
         ))
         .with_child((
             Text2d::new("Confirm"),
-            TextFont { font_size: CONFIRM_BUTTON_FONT_SIZE, ..default() },
+            TextFont {
+                font_size: CONFIRM_BUTTON_FONT_SIZE,
+                ..default()
+            },
             TextColor(Color::WHITE),
             Transform::default(),
         ))

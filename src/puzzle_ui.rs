@@ -1,20 +1,20 @@
+use crate::AppState;
 use crate::Cleanup;
 use crate::components::*;
 use crate::resources::TooltipState;
-use crate::AppState;
 use bevy::picking::prelude::*;
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, HashSet};
 use std::collections::hash_map::DefaultHasher;
+use std::collections::{HashMap, HashSet};
 use std::hash::{Hash, Hasher};
 
 #[cfg(not(target_arch = "wasm32"))]
-use std::fs::{self};
+use chrono::Local;
 #[cfg(target_arch = "wasm32")]
 use js_sys;
 #[cfg(not(target_arch = "wasm32"))]
-use chrono::Local;
+use std::fs::{self};
 
 // -----------------------------------------------------------------------------
 // Puzzle data structures (shared)
@@ -123,7 +123,9 @@ pub mod storage {
 
     pub fn load_puzzle_data(id: &str) -> Option<PuzzleData> {
         let path = format!("assets/puzzles/{}/data.ron", id);
-        fs::read_to_string(&path).ok().and_then(|content| ron::from_str(&content).ok())
+        fs::read_to_string(&path)
+            .ok()
+            .and_then(|content| ron::from_str(&content).ok())
     }
 
     pub fn get_solutions(puzzle_id: &str) -> Vec<(String, Solution)> {
@@ -153,7 +155,8 @@ pub mod storage {
         let _ = fs::create_dir_all(&solutions_dir);
         let filename = format!("{}.ron", solution.timestamp);
         let path = format!("{}/{}", solutions_dir, filename);
-        let content = match ron::ser::to_string_pretty(solution, ron::ser::PrettyConfig::default()) {
+        let content = match ron::ser::to_string_pretty(solution, ron::ser::PrettyConfig::default())
+        {
             Ok(c) => c,
             Err(_) => return false,
         };
@@ -173,7 +176,10 @@ pub mod storage {
                             for file_entry in solution_files.flatten() {
                                 let path = file_entry.path();
                                 if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
-                                    let pattern = regex::Regex::new(r"^\d{4}-\d{2}-\d{2}-\d{2}-\d{2}-\d{2}\.ron$").unwrap();
+                                    let pattern = regex::Regex::new(
+                                        r"^\d{4}-\d{2}-\d{2}-\d{2}-\d{2}-\d{2}\.ron$",
+                                    )
+                                    .unwrap();
                                     if pattern.is_match(name) && fs::remove_file(&path).is_ok() {
                                         deleted_count += 1;
                                     }
@@ -191,7 +197,7 @@ pub mod storage {
 #[cfg(target_arch = "wasm32")]
 pub mod storage {
     use super::*;
-    use web_sys::{window, Storage};
+    use web_sys::{Storage, window};
 
     fn local_storage() -> Option<Storage> {
         window()?.local_storage().ok()?
@@ -325,7 +331,9 @@ pub mod storage {
             None => return Ok(0),
         };
         let mut deleted = 0;
-        let len = storage.length().map_err(|_| "failed to get length".to_string())?;
+        let len = storage
+            .length()
+            .map_err(|_| "failed to get length".to_string())?;
         let mut to_remove = Vec::new();
         for i in 0..len {
             if let Ok(Some(key)) = storage.key(i) {
@@ -398,12 +406,18 @@ pub fn validate_solution(solution: &Solution, puzzle_id: &str) -> bool {
                 RawEffectCondition::NoColorOnBoard(c) => {
                     EffectCondition::NoColorOnBoard(*color_map.get(c).unwrap())
                 }
-                RawEffectCondition::MatchesSize(size) => EffectCondition::MatchesSize(*size as usize),
+                RawEffectCondition::MatchesSize(size) => {
+                    EffectCondition::MatchesSize(*size as usize)
+                }
             };
             rotated_effects.push(GameEffect {
                 condition,
                 points: re.points,
-                offsets: if offsets.is_empty() { None } else { Some(offsets) },
+                offsets: if offsets.is_empty() {
+                    None
+                } else {
+                    Some(offsets)
+                },
             });
         }
 
@@ -422,7 +436,14 @@ pub fn validate_solution(solution: &Solution, puzzle_id: &str) -> bool {
             board_cells.insert(cell, color);
             occupied.push(cell);
         }
-        placed.push((placement.pos, shape, color, piece_def.points, rotated_effects, occupied));
+        placed.push((
+            placement.pos,
+            shape,
+            color,
+            piece_def.points,
+            rotated_effects,
+            occupied,
+        ));
     }
 
     // Second pass: compute total score including effects, excluding own cells for NoColorOnBoard
@@ -442,15 +463,21 @@ pub fn validate_solution(solution: &Solution, puzzle_id: &str) -> bool {
             if let Some(offsets) = &effect.offsets {
                 for offset in offsets {
                     let target_cell = *origin + *offset;
-                    if target_cell.x >= 0 && target_cell.x < board_size.x
-                        && target_cell.y >= 0 && target_cell.y < board_size.y
+                    if target_cell.x >= 0
+                        && target_cell.x < board_size.x
+                        && target_cell.y >= 0
+                        && target_cell.y < board_size.y
                     {
                         let condition_met = match &effect.condition {
-                            EffectCondition::MatchesColor(c) => board_cells.get(&target_cell).map_or(false, |&col| linear_rgba_near(&col, c)),
+                            EffectCondition::MatchesColor(c) => board_cells
+                                .get(&target_cell)
+                                .map_or(false, |&col| linear_rgba_near(&col, c)),
                             EffectCondition::IsEmpty => !board_cells.contains_key(&target_cell),
                             EffectCondition::NoColorOnBoard(_) => false,
-                            EffectCondition::MatchesSize(size) => piece_cells.get(&target_cell).map_or(false, |&s| s == *size),
-                        };                        
+                            EffectCondition::MatchesSize(size) => {
+                                piece_cells.get(&target_cell).map_or(false, |&s| s == *size)
+                            }
+                        };
                         if condition_met {
                             total_score += effect.points;
                         }
@@ -517,7 +544,10 @@ pub fn get_current_solution(
     #[cfg(not(target_arch = "wasm32"))]
     let timestamp = Local::now().format("%Y-%m-%d-%H-%M-%S").to_string();
     #[cfg(target_arch = "wasm32")]
-    let timestamp = js_sys::Date::new_0().to_iso_string().as_string().unwrap_or_else(|| "unknown".to_string());
+    let timestamp = js_sys::Date::new_0()
+        .to_iso_string()
+        .as_string()
+        .unwrap_or_else(|| "unknown".to_string());
 
     let solution = Solution {
         score: puzzle_state.score,
@@ -532,13 +562,16 @@ pub fn get_current_solution(
 
 fn compute_rotation(original: &[IVec2], current: &[IVec2]) -> u32 {
     for rot in 0..4 {
-        let mut rotated: Vec<IVec2> = original.iter().map(|&v| {
-            let mut r = v;
-            for _ in 0..rot {
-                r = IVec2::new(r.y, -r.x);
-            }
-            r
-        }).collect();
+        let mut rotated: Vec<IVec2> = original
+            .iter()
+            .map(|&v| {
+                let mut r = v;
+                for _ in 0..rot {
+                    r = IVec2::new(r.y, -r.x);
+                }
+                r
+            })
+            .collect();
         rotated.sort_by_key(|v| (v.x, v.y));
         let mut curr = current.to_vec();
         curr.sort_by_key(|v| (v.x, v.y));
@@ -580,14 +613,12 @@ pub fn setup_puzzle_list(mut commands: Commands) {
         ))
         .with_children(|parent| {
             parent
-                .spawn((
-                    Node {
-                        flex_direction: FlexDirection::Row,
-                        align_items: AlignItems::Center,
-                        column_gap: Val::Px(10.0),
-                        ..default()
-                    },
-                ))
+                .spawn((Node {
+                    flex_direction: FlexDirection::Row,
+                    align_items: AlignItems::Center,
+                    column_gap: Val::Px(10.0),
+                    ..default()
+                },))
                 .with_children(|header| {
                     header.spawn((
                         Text::new("Select a Puzzle"),
@@ -633,7 +664,9 @@ pub fn setup_puzzle_list(mut commands: Commands) {
                             ..default()
                         },
                         BackgroundColor(Color::srgb(0.3, 0.3, 0.3)),
-                        PuzzleButton { puzzle_id: id.clone() },
+                        PuzzleButton {
+                            puzzle_id: id.clone(),
+                        },
                         Pickable::default(),
                     ))
                     .with_child((
@@ -656,7 +689,9 @@ pub fn update_help_tooltip(
     help_query: Query<&Interaction, With<HelpButton>>,
     windows: Query<&Window>,
 ) {
-    let hovering = help_query.iter().any(|interaction| *interaction == Interaction::Hovered);
+    let hovering = help_query
+        .iter()
+        .any(|interaction| *interaction == Interaction::Hovered);
     if hovering {
         if let Ok(window) = windows.single() {
             let tooltip_x = window.width() - 230.0;

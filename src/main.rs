@@ -1,21 +1,23 @@
+mod colors;
 mod components;
 mod config;
 mod helpers;
+mod puzzle_ui;
+mod puzzles;
 mod resources;
 mod systems;
-mod puzzles;
-mod puzzle_ui;
-mod colors;
 
+use crate::components::Piece;
+use crate::puzzle_ui::*;
+use crate::puzzles::*;
+use crate::resources::BoardSize;
+use crate::resources::{
+    DuelState, GameSettings, GameState, PieceLibrary, RoundCounter, TempSettings, TooltipState,
+};
+use crate::systems::menu;
 use bevy::picking::prelude::*;
 use bevy::prelude::*;
 use bevy::window::WindowPlugin;
-use crate::resources::{GameState, DuelState, TooltipState, PieceLibrary, GameSettings, TempSettings, RoundCounter};
-use crate::systems::menu;
-use crate::puzzles::*;
-use crate::puzzle_ui::*;
-use crate::components::Piece;
-use crate::resources::BoardSize;
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default, States)]
 enum AppState {
@@ -213,7 +215,12 @@ fn build_app(window_plugin: WindowPlugin) -> App {
         )
         .add_systems(
             OnExit(AppState::Draft),
-            (cleanup_system, reset_game_state, reset_tooltip_state, reset_round_counter),
+            (
+                cleanup_system,
+                reset_game_state,
+                reset_tooltip_state,
+                reset_round_counter,
+            ),
         )
         // Duel
         .add_systems(OnEnter(AppState::Duel), systems::duel::setup_duel)
@@ -223,7 +230,7 @@ fn build_app(window_plugin: WindowPlugin) -> App {
                 systems::ui::update_duel_score_ui,
                 systems::ui::update_stash_labels,
                 systems::ui::update_duel_effect_previews,
-                systems::ui::update_tooltip,                // unified tooltip
+                systems::ui::update_tooltip, // unified tooltip
                 systems::interaction::handle_rotation,
                 systems::scoring::recalculate_duel_score_system,
                 systems::ui::update_duel_contributions_system,
@@ -235,10 +242,18 @@ fn build_app(window_plugin: WindowPlugin) -> App {
         )
         .add_systems(
             OnExit(AppState::Duel),
-            (cleanup_system, reset_duel_state, reset_tooltip_state, reset_round_counter),
+            (
+                cleanup_system,
+                reset_duel_state,
+                reset_tooltip_state,
+                reset_round_counter,
+            ),
         )
         // Controls
-        .add_systems(OnEnter(AppState::Controls), systems::controls::setup_controls)
+        .add_systems(
+            OnEnter(AppState::Controls),
+            systems::controls::setup_controls,
+        )
         .add_systems(OnExit(AppState::Controls), cleanup_system)
         // PuzzlesList
         .add_systems(OnEnter(AppState::PuzzlesList), setup_puzzle_list)
@@ -251,7 +266,7 @@ fn build_app(window_plugin: WindowPlugin) -> App {
                 update_puzzle_score_ui,
                 update_puzzle_stash_labels,
                 update_puzzle_effect_previews,
-                systems::ui::update_tooltip,                // unified tooltip
+                systems::ui::update_tooltip, // unified tooltip
                 handle_puzzle_rotation,
                 recalculate_puzzle_score_system,
                 update_puzzle_contributions_system,
@@ -265,7 +280,10 @@ fn build_app(window_plugin: WindowPlugin) -> App {
             Update,
             update_help_tooltip.run_if(in_state(AppState::PuzzlesList)),
         )
-        .add_systems(OnExit(AppState::Puzzle), (cleanup_system, reset_puzzle_state))
+        .add_systems(
+            OnExit(AppState::Puzzle),
+            (cleanup_system, reset_puzzle_state),
+        )
         // Solution list
         .add_systems(OnEnter(AppState::SolutionList), setup_solution_list)
         .add_systems(
@@ -278,13 +296,16 @@ fn build_app(window_plugin: WindowPlugin) -> App {
         .add_systems(
             Update,
             (
-                systems::ui::update_tooltip,                // unified tooltip
+                systems::ui::update_tooltip, // unified tooltip
                 update_puzzle_effect_previews,
                 update_puzzle_contributions_system,
             )
                 .run_if(in_state(AppState::SolutionView)),
-        )        
-        .add_systems(OnExit(AppState::SolutionView), (cleanup_system, reset_solution_view))
+        )
+        .add_systems(
+            OnExit(AppState::SolutionView),
+            (cleanup_system, reset_solution_view),
+        )
         // Global escape
         .add_systems(Update, handle_escape)
         // Settings
@@ -299,15 +320,21 @@ fn build_app(window_plugin: WindowPlugin) -> App {
                 systems::settings::handle_width_buttons,
                 systems::settings::handle_height_buttons,
             )
-            .run_if(in_state(AppState::Settings)),
+                .run_if(in_state(AppState::Settings)),
         )
-        .add_systems(OnExit(AppState::Settings), (cleanup_system, reset_temp_settings))
-        .add_systems(OnExit(AppState::Settings), (
-            cleanup_system,
-            reset_temp_settings,
-            sync_board_size_from_settings,
-        ));
-    
+        .add_systems(
+            OnExit(AppState::Settings),
+            (cleanup_system, reset_temp_settings),
+        )
+        .add_systems(
+            OnExit(AppState::Settings),
+            (
+                cleanup_system,
+                reset_temp_settings,
+                sync_board_size_from_settings,
+            ),
+        );
+
     app
 }
 

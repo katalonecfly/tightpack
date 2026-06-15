@@ -1,34 +1,46 @@
 use crate::Cleanup;
-use crate::colors::color_name_from_rgba;          // removed COLOR_LIST
+use crate::colors::color_name_from_rgba; // removed COLOR_LIST
 use crate::components::*;
 use crate::config::EffectDescriptions;
+use crate::helpers::grid_to_world_for_side;
 use crate::helpers::*;
 use crate::resources::{BoardSize, DuelState, GameState, TooltipState};
-use crate::systems::scoring::{check_condition_with_sizes, compute_piece_contribution};  // removed linear_rgba_near
+use crate::systems::scoring::{check_condition_with_sizes, compute_piece_contribution}; // removed linear_rgba_near
 use bevy::prelude::*;
 use bevy::window::Window;
-use crate::helpers::grid_to_world_for_side;
 
 fn get_effect_description(cond: &EffectCondition, descs: &EffectDescriptions) -> String {
     match cond {
         EffectCondition::MatchesColor(c) => {
             let key = "MatchesColor(X)";
-            let template = descs.descriptions.get(key).cloned().unwrap_or_else(|| format!("Unknown effect: {}", key));
+            let template = descs
+                .descriptions
+                .get(key)
+                .cloned()
+                .unwrap_or_else(|| format!("Unknown effect: {}", key));
             template.replace("{X}", color_name_from_rgba(c))
         }
-        EffectCondition::IsEmpty => {
-            descs.descriptions.get("IsEmpty").cloned().unwrap_or_else(|| "Unknown effect: IsEmpty".to_string())
-        }
+        EffectCondition::IsEmpty => descs
+            .descriptions
+            .get("IsEmpty")
+            .cloned()
+            .unwrap_or_else(|| "Unknown effect: IsEmpty".to_string()),
         EffectCondition::NoColorOnBoard(c) => {
             let key = "NoColorOnBoard(X)";
-            let template = descs.descriptions.get(key).cloned().unwrap_or_else(|| format!("Unknown effect: {}", key));
+            let template = descs
+                .descriptions
+                .get(key)
+                .cloned()
+                .unwrap_or_else(|| format!("Unknown effect: {}", key));
             template.replace("{X}", color_name_from_rgba(c))
         }
         EffectCondition::MatchesSize(size) => {
             let key = "MatchesSize(X)";
-            let template = descs.descriptions.get(key).cloned().unwrap_or_else(|| {
-                "Unknown effect: MatchesSize(X)".to_string()
-            });
+            let template = descs
+                .descriptions
+                .get(key)
+                .cloned()
+                .unwrap_or_else(|| "Unknown effect: MatchesSize(X)".to_string());
             template.replace("{X}", &size.to_string())
         }
     }
@@ -94,13 +106,22 @@ pub fn update_duel_score_ui(
         for (mut text, mut transform) in &mut player_query {
             let score_str = format!("Player: {}", duel_state.player.score);
             text.0 = score_str.clone();
-            transform.translation =
-                score_text_world_pos_for_side(&score_str, SCORE_FONT_SIZE, BoardSide::Left, board_size.0);
+            transform.translation = score_text_world_pos_for_side(
+                &score_str,
+                SCORE_FONT_SIZE,
+                BoardSide::Left,
+                board_size.0,
+            );
         }
         for (mut text, mut transform) in &mut opponent_query {
             let score_str = format!("Opponent: {}", duel_state.opponent.score);
             text.0 = score_str.clone();
-            let mut pos = score_text_world_pos_for_side(&score_str, SCORE_FONT_SIZE, BoardSide::Right, board_size.0);
+            let mut pos = score_text_world_pos_for_side(
+                &score_str,
+                SCORE_FONT_SIZE,
+                BoardSide::Right,
+                board_size.0,
+            );
             pos.x += 80.0;
             transform.translation = pos;
         }
@@ -117,7 +138,9 @@ pub fn update_effect_previews(
     for (piece, piece_transform, children, is_hovered, is_dragging) in &piece_query {
         let show = is_hovered || is_dragging;
         for &child in children {
-            if let Ok((mut visibility, mut sprite, preview, child_local_transform)) = preview_query.get_mut(child) {
+            if let Ok((mut visibility, mut sprite, preview, child_local_transform)) =
+                preview_query.get_mut(child)
+            {
                 if show {
                     *visibility = Visibility::Visible;
                     let mut active = false;
@@ -127,7 +150,12 @@ pub fn update_effect_previews(
                         let offset = (world_offset.truncate() / TILE_SIZE).round().as_ivec2();
                         let target_cell = grid_pos + offset;
                         if is_in_bounds(target_cell, board_size.0) {
-                            active = check_condition_with_sizes(&preview.condition, Some(target_cell), &state.board_cells, &all_pieces);
+                            active = check_condition_with_sizes(
+                                &preview.condition,
+                                Some(target_cell),
+                                &state.board_cells,
+                                &all_pieces,
+                            );
                         }
                     }
                     if active {
@@ -160,7 +188,9 @@ pub fn update_duel_effect_previews(
             _ => continue,
         };
         for &child in children {
-            if let Ok((mut visibility, mut sprite, preview, child_local_transform)) = preview_query.get_mut(child) {
+            if let Ok((mut visibility, mut sprite, preview, child_local_transform)) =
+                preview_query.get_mut(child)
+            {
                 if show {
                     *visibility = Visibility::Visible;
                     let mut active = false;
@@ -170,7 +200,12 @@ pub fn update_duel_effect_previews(
                         let offset = (world_offset.truncate() / TILE_SIZE).round().as_ivec2();
                         let target_cell = grid_pos + offset;
                         if is_in_bounds(target_cell, board_size.0) {
-                            active = check_condition_with_sizes(&preview.condition, Some(target_cell), board_cells, &all_pieces);
+                            active = check_condition_with_sizes(
+                                &preview.condition,
+                                Some(target_cell),
+                                board_cells,
+                                &all_pieces,
+                            );
                         }
                     }
                     if active {
@@ -274,38 +309,52 @@ pub fn update_tooltip(
 pub fn update_contributions_system(
     mut commands: Commands,
     state: Res<GameState>,
-    mut piece_query: Query<(Entity, &Piece, &Transform, Option<&mut ContributionDisplay>), Without<OpponentPiece>>,
+    mut piece_query: Query<
+        (Entity, &Piece, &Transform, Option<&mut ContributionDisplay>),
+        Without<OpponentPiece>,
+    >,
     all_pieces: Query<&Piece>,
     board_size: Res<BoardSize>,
 ) {
     for (piece_entity, piece, _transform, display_opt) in piece_query.iter_mut() {
         if let Some(pos) = piece.placed_at {
-            let contribution = compute_piece_contribution(piece, &state.board_cells, &all_pieces, board_size.0);
+            let contribution =
+                compute_piece_contribution(piece, &state.board_cells, &all_pieces, board_size.0);
             let sign = if contribution >= 0 { "+" } else { "" };
             let text_str = format!("{}{}", sign, contribution);
 
             let first_offset = piece.shape.first().unwrap_or(&IVec2::ZERO);
             let cell_pos = pos + *first_offset;
-            let world_pos = grid_to_world_for_side(cell_pos, piece.board_side, board_size.0).with_z(5.0);
-            
+            let world_pos =
+                grid_to_world_for_side(cell_pos, piece.board_side, board_size.0).with_z(5.0);
+
             if let Some(display) = display_opt {
                 commands.entity(display.0).despawn();
-                commands.entity(piece_entity).remove::<ContributionDisplay>();
+                commands
+                    .entity(piece_entity)
+                    .remove::<ContributionDisplay>();
             }
             let text_entity = commands
                 .spawn((
                     Text2d::new(text_str),
-                    TextFont { font_size: 15.0, ..default() },
+                    TextFont {
+                        font_size: 15.0,
+                        ..default()
+                    },
                     TextColor(Color::WHITE),
                     Transform::from_translation(world_pos),
                     Cleanup,
                 ))
                 .id();
-            commands.entity(piece_entity).insert(ContributionDisplay(text_entity));
+            commands
+                .entity(piece_entity)
+                .insert(ContributionDisplay(text_entity));
         } else {
             if let Some(display) = display_opt {
                 commands.entity(display.0).despawn();
-                commands.entity(piece_entity).remove::<ContributionDisplay>();
+                commands
+                    .entity(piece_entity)
+                    .remove::<ContributionDisplay>();
             }
         }
     }
@@ -325,32 +374,43 @@ pub fn update_duel_contributions_system(
             _ => continue,
         };
         if let Some(pos) = piece.placed_at {
-            let contribution = compute_piece_contribution(piece, board_cells, &all_pieces, board_size.0);
+            let contribution =
+                compute_piece_contribution(piece, board_cells, &all_pieces, board_size.0);
             let sign = if contribution >= 0 { "+" } else { "" };
             let text_str = format!("{}{}", sign, contribution);
 
             let first_offset = piece.shape.first().unwrap_or(&IVec2::ZERO);
             let cell_pos = pos + *first_offset;
-            let world_pos = grid_to_world_for_side(cell_pos, piece.board_side, board_size.0).with_z(5.0);
-            
+            let world_pos =
+                grid_to_world_for_side(cell_pos, piece.board_side, board_size.0).with_z(5.0);
+
             if let Some(display) = display_opt {
                 commands.entity(display.0).despawn();
-                commands.entity(piece_entity).remove::<ContributionDisplay>();
+                commands
+                    .entity(piece_entity)
+                    .remove::<ContributionDisplay>();
             }
             let text_entity = commands
                 .spawn((
                     Text2d::new(text_str),
-                    TextFont { font_size: 15.0, ..default() },
+                    TextFont {
+                        font_size: 15.0,
+                        ..default()
+                    },
                     TextColor(Color::WHITE),
                     Transform::from_translation(world_pos),
                     Cleanup,
                 ))
                 .id();
-            commands.entity(piece_entity).insert(ContributionDisplay(text_entity));
+            commands
+                .entity(piece_entity)
+                .insert(ContributionDisplay(text_entity));
         } else {
             if let Some(display) = display_opt {
                 commands.entity(display.0).despawn();
-                commands.entity(piece_entity).remove::<ContributionDisplay>();
+                commands
+                    .entity(piece_entity)
+                    .remove::<ContributionDisplay>();
             }
         }
     }

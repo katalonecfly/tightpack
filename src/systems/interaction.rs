@@ -1,8 +1,8 @@
 use crate::components::*;
 use crate::helpers::*;
-use crate::resources::{BoardSize, GameState};
 use crate::puzzle_ui::PuzzleGameState;
 use crate::resources::DuelState;
+use crate::resources::{BoardSize, GameState};
 use bevy::prelude::*;
 
 fn get_piece_entity(
@@ -100,7 +100,8 @@ pub fn on_drag(
         for entity in &ghost_query {
             let _ = commands.entity(entity).try_despawn();
         }
-        let grid_pos = world_to_grid_for_side(transform.translation, piece.board_side, board_size.0);
+        let grid_pos =
+            world_to_grid_for_side(transform.translation, piece.board_side, board_size.0);
         let mut can_place = true;
         for offset in &piece.shape {
             let tile_pos = grid_pos + *offset;
@@ -115,7 +116,8 @@ pub fn on_drag(
                 commands.spawn((
                     Sprite::from_color(ghost_color, Vec2::splat(TILE_SIZE - 2.0)),
                     Transform::from_translation(
-                        grid_to_world_for_side(grid_pos + *offset, piece.board_side, board_size.0).with_z(1.0),
+                        grid_to_world_for_side(grid_pos + *offset, piece.board_side, board_size.0)
+                            .with_z(1.0),
                     ),
                     GhostTile,
                 ));
@@ -155,7 +157,8 @@ pub fn on_drag_end(
 
     commands.entity(piece_entity).remove::<Dragging>();
     if let Ok((mut transform, mut piece, _children)) = drag_piece_query.get_mut(piece_entity) {
-        let grid_pos = world_to_grid_for_side(transform.translation, piece.board_side, board_size.0);
+        let grid_pos =
+            world_to_grid_for_side(transform.translation, piece.board_side, board_size.0);
         let mut can_place = true;
         for offset in &piece.shape {
             let cell = grid_pos + *offset;
@@ -171,7 +174,8 @@ pub fn on_drag_end(
         }
 
         if can_place {
-            transform.translation = grid_to_world_for_side(grid_pos, piece.board_side, board_size.0).with_z(1.0);
+            transform.translation =
+                grid_to_world_for_side(grid_pos, piece.board_side, board_size.0).with_z(1.0);
             piece.placed_at = Some(grid_pos);
             for offset in &piece.shape {
                 state.board_cells.insert(grid_pos + *offset, piece.color);
@@ -246,11 +250,17 @@ pub fn handle_rotation(
             for entity in ghost_query.iter() {
                 let _ = commands.entity(entity).try_despawn();
             }
-            let grid_pos = world_to_grid_for_side(transform.translation, piece.board_side, board_size.0);
+            let grid_pos =
+                world_to_grid_for_side(transform.translation, piece.board_side, board_size.0);
             let mut can_place = true;
             for offset in &piece.shape {
                 let tile = grid_pos + *offset;
-                if !is_cell_available(tile, &state.board_cells, &state.disabled_cells, board_size.0) {
+                if !is_cell_available(
+                    tile,
+                    &state.board_cells,
+                    &state.disabled_cells,
+                    board_size.0,
+                ) {
                     can_place = false;
                     break;
                 }
@@ -261,8 +271,12 @@ pub fn handle_rotation(
                     commands.spawn((
                         Sprite::from_color(ghost_color, Vec2::splat(TILE_SIZE - 2.0)),
                         Transform::from_translation(
-                            grid_to_world_for_side(grid_pos + *offset, piece.board_side, board_size.0)
-                                .with_z(1.0),
+                            grid_to_world_for_side(
+                                grid_pos + *offset,
+                                piece.board_side,
+                                board_size.0,
+                            )
+                            .with_z(1.0),
                         ),
                         GhostTile,
                     ));
@@ -338,7 +352,9 @@ pub fn on_right_click_unplace(
         }
     }
 
-    let Ok((mut piece, mut transform, _)) = piece_query.get_mut(piece_entity) else { return };
+    let Ok((mut piece, mut transform, _)) = piece_query.get_mut(piece_entity) else {
+        return;
+    };
 
     if let Some(old_pos) = piece.placed_at {
         for offset in &piece.shape {

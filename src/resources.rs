@@ -34,7 +34,7 @@ pub struct StashScreenRect {
 }
 
 #[derive(Resource)]
-pub struct BoardSize(pub IVec2);   // new: dynamic board dimensions
+pub struct BoardSize(pub IVec2); // new: dynamic board dimensions
 
 impl Default for BoardSize {
     fn default() -> Self {

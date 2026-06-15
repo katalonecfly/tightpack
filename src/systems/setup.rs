@@ -1,14 +1,16 @@
 use crate::Cleanup;
+use crate::colors::AVAILABLE_COLORS;
 use crate::components::*;
 use crate::config::*;
 use crate::helpers::*;
-use crate::resources::{BoardSize, InventoryScroll, PieceLibrary, StashContentHeight, StashScreenRect};
+use crate::resources::{
+    BoardSize, InventoryScroll, PieceLibrary, StashContentHeight, StashScreenRect,
+};
 use crate::systems::draft::DraftConfirmButton;
 use bevy::prelude::*;
 use rand::prelude::*;
 use rand::seq::SliceRandom;
 use std::collections::HashMap;
-use crate::colors::{AVAILABLE_COLORS};
 
 fn spawn_common(commands: &mut Commands, board_size: IVec2) -> Vec<RawPieceConfig> {
     commands.spawn((Camera2d, Cleanup));
@@ -37,7 +39,11 @@ fn spawn_common(commands: &mut Commands, board_size: IVec2) -> Vec<RawPieceConfi
             font_size: SCORE_FONT_SIZE,
             ..default()
         },
-        Transform::from_translation(score_text_world_pos("Score: 0", SCORE_FONT_SIZE, board_size)),
+        Transform::from_translation(score_text_world_pos(
+            "Score: 0",
+            SCORE_FONT_SIZE,
+            board_size,
+        )),
         ScoreText,
         Cleanup,
     ));
@@ -198,7 +204,9 @@ pub fn bake_effects(
                 RawEffectCondition::NoColorOnBoard(name) => EffectCondition::NoColorOnBoard(
                     *color_map.get(name).unwrap_or(&LinearRgba::WHITE),
                 ),
-                RawEffectCondition::MatchesSize(size) => EffectCondition::MatchesSize(*size as usize),
+                RawEffectCondition::MatchesSize(size) => {
+                    EffectCondition::MatchesSize(*size as usize)
+                }
             };
             GameEffect {
                 condition,

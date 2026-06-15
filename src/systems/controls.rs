@@ -1,5 +1,5 @@
-use crate::Cleanup;
 use crate::AppState;
+use crate::Cleanup;
 use bevy::prelude::*;
 
 pub fn setup_controls(mut commands: Commands) {
@@ -24,16 +24,31 @@ pub fn setup_controls(mut commands: Commands) {
             // Title
             parent.spawn((
                 Text::new("Controls & Shortcuts"),
-                TextFont { font_size: 48.0, ..default() },
+                TextFont {
+                    font_size: 48.0,
+                    ..default()
+                },
                 TextColor(Color::WHITE),
             ));
 
             // Table container (grid-like)
             let controls = vec![
-                ("Left click on a piece and drag", "Pick up a piece from stash or board and move it around"),
-                ("Release (drop)", "Place on board; valid placement is highlighted"),
-                ("Right click on a piece (or invalid drop)", "Piece returns to stash"),
-                ("R key (while dragging)", "Rotate piece 90 degrees clockwise"),
+                (
+                    "Left click on a piece and drag",
+                    "Pick up a piece from stash or board and move it around",
+                ),
+                (
+                    "Release (drop)",
+                    "Place on board; valid placement is highlighted",
+                ),
+                (
+                    "Right click on a piece (or invalid drop)",
+                    "Piece returns to stash",
+                ),
+                (
+                    "R key (while dragging)",
+                    "Rotate piece 90 degrees clockwise",
+                ),
                 ("Hover over a piece", "Show its info (points, effects)"),
                 ("ESC", "Go back to previous screen"),
                 ("Ctrl + N", "Reset current puzzle / game mode"),
@@ -41,32 +56,34 @@ pub fn setup_controls(mut commands: Commands) {
 
             for (action, description) in controls {
                 parent
-                    .spawn((
-                        Node {
-                            width: Val::Px(1100.0),      // total width
-                            flex_direction: FlexDirection::Row,
-                            align_items: AlignItems::Center,
-                            column_gap: Val::Px(20.0),
-                            ..default()
-                        },
-                    ))
+                    .spawn((Node {
+                        width: Val::Px(1100.0), // total width
+                        flex_direction: FlexDirection::Row,
+                        align_items: AlignItems::Center,
+                        column_gap: Val::Px(20.0),
+                        ..default()
+                    },))
                     .with_children(|row| {
                         // Fixed width for the action column (250px)
-                        row.spawn((
-                            Node {
-                                width: Val::Px(450.0),
-                                ..default()
-                            },
-                        ))
-                        .with_child((
-                            Text::new(action),
-                            TextFont { font_size: 18.0, ..default() },
-                            TextColor(Color::WHITE),
-                        ));
+                        row.spawn((Node {
+                            width: Val::Px(450.0),
+                            ..default()
+                        },))
+                            .with_child((
+                                Text::new(action),
+                                TextFont {
+                                    font_size: 18.0,
+                                    ..default()
+                                },
+                                TextColor(Color::WHITE),
+                            ));
                         // Remaining space for description (left‑aligned)
                         row.spawn((
                             Text::new(description),
-                            TextFont { font_size: 18.0, ..default() },
+                            TextFont {
+                                font_size: 18.0,
+                                ..default()
+                            },
                             TextColor(Color::WHITE),
                         ));
                     });
@@ -88,11 +105,16 @@ pub fn setup_controls(mut commands: Commands) {
                 ))
                 .with_child((
                     Text::new("Back to Menu"),
-                    TextFont { font_size: 28.0, ..default() },
+                    TextFont {
+                        font_size: 28.0,
+                        ..default()
+                    },
                     TextColor(Color::WHITE),
                 ))
-                .observe(|_trigger: On<Pointer<Click>>, mut next_state: ResMut<NextState<AppState>>| {
-                    next_state.set(AppState::Menu);
-                });
+                .observe(
+                    |_trigger: On<Pointer<Click>>, mut next_state: ResMut<NextState<AppState>>| {
+                        next_state.set(AppState::Menu);
+                    },
+                );
         });
 }

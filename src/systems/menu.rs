@@ -31,7 +31,10 @@ pub fn setup_menu(mut commands: Commands) {
                 },
                 TextColor(TEXT_COLOR),
             ));
-                for label in &["Sandbox", "Draft", "Duel", "Puzzles", "Settings", "Controls"] {                parent
+            for label in &[
+                "Sandbox", "Draft", "Duel", "Puzzles", "Settings", "Controls",
+            ] {
+                parent
                     .spawn((
                         Button,
                         Node {

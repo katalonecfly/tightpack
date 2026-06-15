@@ -39,7 +39,8 @@ pub fn board_top_edge(_board_size: IVec2) -> f32 {
 }
 
 pub fn grid_to_world_for_side(grid: IVec2, side: BoardSide, board_size: IVec2) -> Vec3 {
-    board_anchor(side, board_size) + Vec3::new(grid.x as f32 * TILE_SIZE, grid.y as f32 * TILE_SIZE, 0.0)
+    board_anchor(side, board_size)
+        + Vec3::new(grid.x as f32 * TILE_SIZE, grid.y as f32 * TILE_SIZE, 0.0)
 }
 
 pub fn grid_to_world(grid: IVec2, board_size: IVec2) -> Vec3 {
@@ -64,10 +65,17 @@ pub fn is_cell_available(
     disabled_cells: &HashSet<IVec2>,
     board_size: IVec2,
 ) -> bool {
-    is_in_bounds(grid, board_size) && !board_cells.contains_key(&grid) && !disabled_cells.contains(&grid)
+    is_in_bounds(grid, board_size)
+        && !board_cells.contains_key(&grid)
+        && !disabled_cells.contains(&grid)
 }
 
-pub fn score_text_world_pos_for_side(text: &str, font_size: f32, side: BoardSide, board_size: IVec2) -> Vec3 {
+pub fn score_text_world_pos_for_side(
+    text: &str,
+    font_size: f32,
+    side: BoardSide,
+    board_size: IVec2,
+) -> Vec3 {
     let board_left = board_anchor(side, board_size).x - TILE_SIZE / 2.0;
     let score_y = board_top_edge(board_size) + SCORE_Y_OFFSET;
     let half_width = text.len() as f32 * font_size * 0.25;

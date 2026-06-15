@@ -13,11 +13,16 @@ pub struct DraftConfirmButton;
 #[derive(Component)]
 pub struct RoundText;
 
-pub fn refresh_draft_stash(commands: &mut Commands, library: &PieceLibrary, round_counter: &RoundCounter, board_size: IVec2) {
+pub fn refresh_draft_stash(
+    commands: &mut Commands,
+    library: &PieceLibrary,
+    round_counter: &RoundCounter,
+    board_size: IVec2,
+) {
     if round_counter.is_game_over() {
         return;
     }
-    
+
     let color_map = crate::colors::get_color_map();
 
     let mut rng = rand::rng();
@@ -86,10 +91,20 @@ pub fn refresh_draft_stash(commands: &mut Commands, library: &PieceLibrary, roun
     }
 }
 
-pub fn generate_draft_stash(mut commands: Commands, library: Res<PieceLibrary>, settings: Res<GameSettings>, board_size: Res<BoardSize>) {
+pub fn generate_draft_stash(
+    mut commands: Commands,
+    library: Res<PieceLibrary>,
+    settings: Res<GameSettings>,
+    board_size: Res<BoardSize>,
+) {
     let round_counter = RoundCounter::new(settings.rounds);
     commands.insert_resource(round_counter);
-    refresh_draft_stash(&mut commands, &library, &RoundCounter::new(settings.rounds), board_size.0);
+    refresh_draft_stash(
+        &mut commands,
+        &library,
+        &RoundCounter::new(settings.rounds),
+        board_size.0,
+    );
 }
 
 pub fn on_confirm_click(
@@ -151,11 +166,15 @@ pub fn update_draft_round_display(
 
         let displayed_current = round_counter.current.min(round_counter.total);
         if let Ok(button_transform) = transforms.get(button_entity) {
-            let text_pos = button_transform.translation + Vec3::new(CONFIRM_BUTTON_WIDTH / 2.0 + 60.0, 0.0, 0.0);
+            let text_pos = button_transform.translation
+                + Vec3::new(CONFIRM_BUTTON_WIDTH / 2.0 + 60.0, 0.0, 0.0);
             let text_content = format!("Round:\n{}/{}", displayed_current, round_counter.total);
             commands.spawn((
                 Text2d::new(text_content),
-                TextFont { font_size: 20.0, ..default() },
+                TextFont {
+                    font_size: 20.0,
+                    ..default()
+                },
                 TextColor(Color::WHITE),
                 Transform::from_translation(text_pos),
                 RoundText,

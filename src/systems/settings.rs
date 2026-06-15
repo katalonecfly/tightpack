@@ -1,8 +1,8 @@
 use crate::AppState;
 use crate::Cleanup;
 use crate::resources::{AIType, BoardSize, GameSettings, TempSettings};
-use bevy::prelude::*;
 use bevy::picking::prelude::{Click, Pointer};
+use bevy::prelude::*;
 
 #[derive(Component)]
 struct SettingsRoot;
@@ -137,7 +137,11 @@ pub fn setup_settings(mut commands: Commands, settings: Res<GameSettings>) {
                 ..default()
             },))
                 .with_children(|row| {
-                    let checkbox_text = if settings.duel_blocking_enabled { "[x]" } else { "[ ]" };
+                    let checkbox_text = if settings.duel_blocking_enabled {
+                        "[x]"
+                    } else {
+                        "[ ]"
+                    };
                     row.spawn((
                         Button,
                         Node {
@@ -177,7 +181,11 @@ pub fn setup_settings(mut commands: Commands, settings: Res<GameSettings>) {
                 ..default()
             },))
                 .with_children(|row| {
-                    let checkbox_text = if settings.same_piece_set { "[x]" } else { "[ ]" };
+                    let checkbox_text = if settings.same_piece_set {
+                        "[x]"
+                    } else {
+                        "[ ]"
+                    };
                     row.spawn((
                         Button,
                         Node {
@@ -216,94 +224,94 @@ pub fn setup_settings(mut commands: Commands, settings: Res<GameSettings>) {
                 column_gap: Val::Px(20.0),
                 ..default()
             },))
-            .with_children(|row| {
-                row.spawn((
-                    Text::new("AI Mode:"),
-                    TextFont::default(),
-                    TextColor(Color::WHITE),
-                ));
+                .with_children(|row| {
+                    row.spawn((
+                        Text::new("AI Mode:"),
+                        TextFont::default(),
+                        TextColor(Color::WHITE),
+                    ));
 
-                let dummy_color = if settings.ai_mode == AIType::Dummy {
-                    Color::srgb(0.4, 0.6, 0.4)
-                } else {
-                    Color::srgb(0.3, 0.3, 0.3)
-                };
-                row.spawn((
-                    Button,
-                    Node {
-                        width: Val::Px(100.0),
-                        height: Val::Px(30.0),
-                        justify_content: JustifyContent::Center,
-                        align_items: AlignItems::Center,
-                        ..default()
-                    },
-                    BackgroundColor(dummy_color),
-                    RadioState {
-                        value: AIType::Dummy,
-                        setting_key: SettingKey::AIMode,
-                    },
-                ))
-                .with_child((
-                    Text::new("Dummy"),
-                    TextFont::default(),
-                    TextColor(Color::WHITE),
-                ))
-                .observe(radio_click);
+                    let dummy_color = if settings.ai_mode == AIType::Dummy {
+                        Color::srgb(0.4, 0.6, 0.4)
+                    } else {
+                        Color::srgb(0.3, 0.3, 0.3)
+                    };
+                    row.spawn((
+                        Button,
+                        Node {
+                            width: Val::Px(100.0),
+                            height: Val::Px(30.0),
+                            justify_content: JustifyContent::Center,
+                            align_items: AlignItems::Center,
+                            ..default()
+                        },
+                        BackgroundColor(dummy_color),
+                        RadioState {
+                            value: AIType::Dummy,
+                            setting_key: SettingKey::AIMode,
+                        },
+                    ))
+                    .with_child((
+                        Text::new("Dummy"),
+                        TextFont::default(),
+                        TextColor(Color::WHITE),
+                    ))
+                    .observe(radio_click);
 
-                let random_color = if settings.ai_mode == AIType::Random {
-                    Color::srgb(0.4, 0.6, 0.4)
-                } else {
-                    Color::srgb(0.3, 0.3, 0.3)
-                };
-                row.spawn((
-                    Button,
-                    Node {
-                        width: Val::Px(100.0),
-                        height: Val::Px(30.0),
-                        justify_content: JustifyContent::Center,
-                        align_items: AlignItems::Center,
-                        ..default()
-                    },
-                    BackgroundColor(random_color),
-                    RadioState {
-                        value: AIType::Random,
-                        setting_key: SettingKey::AIMode,
-                    },
-                ))
-                .with_child((
-                    Text::new("Random"),
-                    TextFont::default(),
-                    TextColor(Color::WHITE),
-                ))
-                .observe(radio_click);
+                    let random_color = if settings.ai_mode == AIType::Random {
+                        Color::srgb(0.4, 0.6, 0.4)
+                    } else {
+                        Color::srgb(0.3, 0.3, 0.3)
+                    };
+                    row.spawn((
+                        Button,
+                        Node {
+                            width: Val::Px(100.0),
+                            height: Val::Px(30.0),
+                            justify_content: JustifyContent::Center,
+                            align_items: AlignItems::Center,
+                            ..default()
+                        },
+                        BackgroundColor(random_color),
+                        RadioState {
+                            value: AIType::Random,
+                            setting_key: SettingKey::AIMode,
+                        },
+                    ))
+                    .with_child((
+                        Text::new("Random"),
+                        TextFont::default(),
+                        TextColor(Color::WHITE),
+                    ))
+                    .observe(radio_click);
 
-                let greedy_color = if settings.ai_mode == AIType::Greedy {
-                    Color::srgb(0.4, 0.6, 0.4)
-                } else {
-                    Color::srgb(0.3, 0.3, 0.3)
-                };
-                row.spawn((
-                    Button,
-                    Node {
-                        width: Val::Px(100.0),
-                        height: Val::Px(30.0),
-                        justify_content: JustifyContent::Center,
-                        align_items: AlignItems::Center,
-                        ..default()
-                    },
-                    BackgroundColor(greedy_color),
-                    RadioState {
-                        value: AIType::Greedy,
-                        setting_key: SettingKey::AIMode,
-                    },
-                ))
-                .with_child((
-                    Text::new("Greedy"),
-                    TextFont::default(),
-                    TextColor(Color::WHITE),
-                ))
-                .observe(radio_click);
-            });
+                    let greedy_color = if settings.ai_mode == AIType::Greedy {
+                        Color::srgb(0.4, 0.6, 0.4)
+                    } else {
+                        Color::srgb(0.3, 0.3, 0.3)
+                    };
+                    row.spawn((
+                        Button,
+                        Node {
+                            width: Val::Px(100.0),
+                            height: Val::Px(30.0),
+                            justify_content: JustifyContent::Center,
+                            align_items: AlignItems::Center,
+                            ..default()
+                        },
+                        BackgroundColor(greedy_color),
+                        RadioState {
+                            value: AIType::Greedy,
+                            setting_key: SettingKey::AIMode,
+                        },
+                    ))
+                    .with_child((
+                        Text::new("Greedy"),
+                        TextFont::default(),
+                        TextColor(Color::WHITE),
+                    ))
+                    .observe(radio_click);
+                });
 
             // Rounds UI
             root.spawn((Node {
@@ -332,12 +340,18 @@ pub fn setup_settings(mut commands: Commands, settings: Res<GameSettings>) {
                     ))
                     .with_child((
                         Text::new("-"),
-                        TextFont { font_size: 30.0, ..default() },
+                        TextFont {
+                            font_size: 30.0,
+                            ..default()
+                        },
                         TextColor(Color::WHITE),
                     ));
                     row.spawn((
                         Text::new(settings.rounds.to_string()),
-                        TextFont { font_size: 28.0, ..default() },
+                        TextFont {
+                            font_size: 28.0,
+                            ..default()
+                        },
                         TextColor(Color::WHITE),
                         RoundsDisplay,
                     ));
@@ -355,7 +369,10 @@ pub fn setup_settings(mut commands: Commands, settings: Res<GameSettings>) {
                     ))
                     .with_child((
                         Text::new("+"),
-                        TextFont { font_size: 30.0, ..default() },
+                        TextFont {
+                            font_size: 30.0,
+                            ..default()
+                        },
                         TextColor(Color::WHITE),
                     ));
                 });
@@ -387,12 +404,18 @@ pub fn setup_settings(mut commands: Commands, settings: Res<GameSettings>) {
                     ))
                     .with_child((
                         Text::new("-"),
-                        TextFont { font_size: 30.0, ..default() },
+                        TextFont {
+                            font_size: 30.0,
+                            ..default()
+                        },
                         TextColor(Color::WHITE),
                     ));
                     row.spawn((
                         Text::new(settings.board_width.to_string()),
-                        TextFont { font_size: 28.0, ..default() },
+                        TextFont {
+                            font_size: 28.0,
+                            ..default()
+                        },
                         TextColor(Color::WHITE),
                         WidthDisplay,
                     ));
@@ -410,7 +433,10 @@ pub fn setup_settings(mut commands: Commands, settings: Res<GameSettings>) {
                     ))
                     .with_child((
                         Text::new("+"),
-                        TextFont { font_size: 30.0, ..default() },
+                        TextFont {
+                            font_size: 30.0,
+                            ..default()
+                        },
                         TextColor(Color::WHITE),
                     ));
                 });
@@ -442,12 +468,18 @@ pub fn setup_settings(mut commands: Commands, settings: Res<GameSettings>) {
                     ))
                     .with_child((
                         Text::new("-"),
-                        TextFont { font_size: 30.0, ..default() },
+                        TextFont {
+                            font_size: 30.0,
+                            ..default()
+                        },
                         TextColor(Color::WHITE),
                     ));
                     row.spawn((
                         Text::new(settings.board_height.to_string()),
-                        TextFont { font_size: 28.0, ..default() },
+                        TextFont {
+                            font_size: 28.0,
+                            ..default()
+                        },
                         TextColor(Color::WHITE),
                         HeightDisplay,
                     ));
@@ -465,7 +497,10 @@ pub fn setup_settings(mut commands: Commands, settings: Res<GameSettings>) {
                     ))
                     .with_child((
                         Text::new("+"),
-                        TextFont { font_size: 30.0, ..default() },
+                        TextFont {
+                            font_size: 30.0,
+                            ..default()
+                        },
                         TextColor(Color::WHITE),
                     ));
                 });
@@ -625,7 +660,7 @@ fn apply_settings(
     settings.rounds = temp_settings.rounds;
     settings.board_width = temp_settings.board_width;
     settings.board_height = temp_settings.board_height;
-    settings.same_piece_set = temp_settings.same_piece_set;   // new
+    settings.same_piece_set = temp_settings.same_piece_set; // new
     board_size.0 = IVec2::new(settings.board_width as i32, settings.board_height as i32);
     next_state.set(AppState::Menu);
 }
