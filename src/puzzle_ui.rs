@@ -40,9 +40,9 @@ pub struct PuzzlePieceData {
 #[derive(Deserialize, Serialize, Clone, Hash)]
 pub struct Solution {
     pub score: i32,
-    pub placements: Vec<SolutionPlacement>,
     #[serde(default = "default_timestamp")]
     pub timestamp: String,
+    pub placements: Vec<SolutionPlacement>,
 }
 
 fn default_timestamp() -> String {
