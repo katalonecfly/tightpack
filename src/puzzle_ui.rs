@@ -686,7 +686,7 @@ pub fn setup_puzzle_list(mut commands: Commands) {
 pub fn update_help_tooltip(
     mut commands: Commands,
     mut tooltip_state: ResMut<TooltipState>,
-    help_query: Query<&Interaction, With<HelpButton>>,
+    help_query: Query<&Interaction>,
     windows: Query<&Window>,
 ) {
     let hovering = help_query

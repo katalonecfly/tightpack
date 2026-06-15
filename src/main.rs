@@ -94,11 +94,7 @@ fn handle_reset(
     mut next_state: ResMut<NextState<AppState>>,
     mut game_state: ResMut<GameState>,
     puzzle_state: Option<ResMut<PuzzleGameState>>,
-    _duel_state: Option<ResMut<DuelState>>,
-    _round_counter: Option<ResMut<RoundCounter>>,
     mut piece_query: Query<(&mut Piece, &mut Transform)>,
-    _library: Res<PieceLibrary>,
-    _settings: Res<GameSettings>,
 ) {
     if keys.pressed(KeyCode::ControlLeft) && keys.just_pressed(KeyCode::KeyN) {
         match *current_state.get() {

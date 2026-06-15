@@ -535,7 +535,7 @@ fn toggle_checkbox(
 fn radio_click(
     trigger: On<Pointer<Click>>,
     mut temp_settings: ResMut<TempSettings>,
-    mut radio_query: Query<(&RadioState, &mut BackgroundColor, &Children), With<Button>>,
+    mut radio_query: Query<(&RadioState, &mut BackgroundColor), With<Button>>,
     all_radios: Query<(Entity, &RadioState)>,
 ) {
     let entity = trigger.event_target();
@@ -546,7 +546,7 @@ fn radio_click(
     };
     temp_settings.ai_mode = selected_value;
     for (e, _) in all_radios.iter() {
-        if let Ok((state, mut bg, _)) = radio_query.get_mut(e) {
+        if let Ok((state, mut bg)) = radio_query.get_mut(e) {
             if state.setting_key == SettingKey::AIMode {
                 *bg = if state.value == selected_value {
                     Color::srgb(0.4, 0.6, 0.4).into()
