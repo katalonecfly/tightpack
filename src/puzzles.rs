@@ -507,10 +507,9 @@ pub fn setup_puzzle(
         Cleanup,
     ));
 
-    let board_right = board_info.anchor.x + (board_info.size.x as f32 - 0.5) * board_info.tile_size;
-    let board_top = stash_top_y_puzzle();
-    let score_y = board_top + SCORE_Y_OFFSET;
-    let button_pos = Vec3::new(board_right - CONFIRM_BUTTON_WIDTH / 2.0, score_y, 0.0);
+    let board_center_x = board_info.anchor.x + (board_info.size.x as f32 - 1.0) * board_info.tile_size / 2.0;
+    let board_bottom = board_info.anchor.y - board_info.tile_size / 2.0;
+    let button_pos = Vec3::new(board_center_x, board_bottom - 50.0, 0.0);
     commands
         .spawn((
             Sprite::from_color(
