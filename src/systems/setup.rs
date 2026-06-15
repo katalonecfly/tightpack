@@ -358,7 +358,6 @@ pub fn spawn_draggable_piece(
                         Transform::from_translation(offset.as_vec2().extend(5.0) * TILE_SIZE),
                         Visibility::Hidden,
                         EffectPreview {
-                            offset: *offset,
                             condition: effect.condition.clone(),
                         },
                     ));

@@ -29,13 +29,12 @@ pub enum EffectCondition {
     MatchesColor(LinearRgba),
     IsEmpty,
     NoColorOnBoard(LinearRgba),
-    MatchesSize(usize), // new variant
+    MatchesSize(usize),
 }
 
 #[derive(Component)]
 pub struct EffectPreview {
-    pub offset: IVec2,
-    pub condition: EffectCondition,
+    pub condition: EffectCondition,   // offset removed – computed from transform
 }
 
 #[derive(Component)]

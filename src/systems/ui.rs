@@ -123,20 +123,23 @@ pub fn update_duel_score_ui(
 
 pub fn update_effect_previews(
     state: Res<GameState>,
-    piece_query: Query<(&Piece, &Children, Has<Hovered>, Has<Dragging>)>,
-    mut preview_query: Query<(&mut Visibility, &mut Sprite, &EffectPreview)>,
+    piece_query: Query<(&Piece, &Transform, &Children, Has<Hovered>, Has<Dragging>)>,
+    mut preview_query: Query<(&mut Visibility, &mut Sprite, &EffectPreview, &Transform)>,
     all_pieces: Query<&Piece>,
     board_size: Res<BoardSize>,
 ) {
-    for (piece, children, is_hovered, is_dragging) in &piece_query {
+    for (piece, piece_transform, children, is_hovered, is_dragging) in &piece_query {
         let show = is_hovered || is_dragging;
         for &child in children {
-            if let Ok((mut visibility, mut sprite, preview)) = preview_query.get_mut(child) {
+            if let Ok((mut visibility, mut sprite, preview, child_local_transform)) = preview_query.get_mut(child) {
                 if show {
                     *visibility = Visibility::Visible;
                     let mut active = false;
                     if let Some(grid_pos) = piece.placed_at {
-                        let target_cell = grid_pos + preview.offset;
+                        let local_offset = child_local_transform.translation;
+                        let world_offset = piece_transform.rotation * local_offset;
+                        let offset = (world_offset.truncate() / TILE_SIZE).round().as_ivec2();
+                        let target_cell = grid_pos + offset;
                         if is_in_bounds(target_cell, board_size.0) {
                             active = check_condition_with_sizes(&preview.condition, Some(target_cell), &state.board_cells, &all_pieces);
                         }
@@ -158,12 +161,12 @@ pub fn update_effect_previews(
 
 pub fn update_duel_effect_previews(
     duel_state: Res<DuelState>,
-    piece_query: Query<(&Piece, &Children, Has<Hovered>, Has<Dragging>)>,
-    mut preview_query: Query<(&mut Visibility, &mut Sprite, &EffectPreview)>,
+    piece_query: Query<(&Piece, &Transform, &Children, Has<Hovered>, Has<Dragging>)>,
+    mut preview_query: Query<(&mut Visibility, &mut Sprite, &EffectPreview, &Transform)>,
     all_pieces: Query<&Piece>,
     board_size: Res<BoardSize>,
 ) {
-    for (piece, children, is_hovered, is_dragging) in &piece_query {
+    for (piece, piece_transform, children, is_hovered, is_dragging) in &piece_query {
         let show = is_hovered || is_dragging;
         let board_cells = match piece.board_side {
             BoardSide::Left => &duel_state.player.board_cells,
@@ -171,12 +174,15 @@ pub fn update_duel_effect_previews(
             _ => continue,
         };
         for &child in children {
-            if let Ok((mut visibility, mut sprite, preview)) = preview_query.get_mut(child) {
+            if let Ok((mut visibility, mut sprite, preview, child_local_transform)) = preview_query.get_mut(child) {
                 if show {
                     *visibility = Visibility::Visible;
                     let mut active = false;
                     if let Some(grid_pos) = piece.placed_at {
-                        let target_cell = grid_pos + preview.offset;
+                        let local_offset = child_local_transform.translation;
+                        let world_offset = piece_transform.rotation * local_offset;
+                        let offset = (world_offset.truncate() / TILE_SIZE).round().as_ivec2();
+                        let target_cell = grid_pos + offset;
                         if is_in_bounds(target_cell, board_size.0) {
                             active = check_condition_with_sizes(&preview.condition, Some(target_cell), board_cells, &all_pieces);
                         }

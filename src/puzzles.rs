@@ -123,7 +123,6 @@ fn spawn_puzzle_piece(
                         Transform::from_translation(offset.as_vec2().extend(5.0) * TILE_SIZE),
                         Visibility::Hidden,
                         EffectPreview {
-                            offset: *offset,
                             condition: effect.condition.clone(),
                         },
                     ));
@@ -281,14 +280,13 @@ pub fn handle_puzzle_rotation(
         (&mut Transform, &mut Piece, &Children),
         (With<Dragging>, Without<OpponentPiece>),
     >,
-    mut preview_query: Query<&mut EffectPreview>,
     mut commands: Commands,
     ghost_query: Query<Entity, With<GhostTile>>,
     puzzle_state: Res<PuzzleGameState>,
     board_info: Res<PuzzleBoardInfo>,
 ) {
     if keyboard.just_pressed(KeyCode::KeyR) || mouse.just_pressed(MouseButton::Right) {
-        for (mut transform, mut piece, children) in piece_query.iter_mut() {
+        for (mut transform, mut piece, _children) in piece_query.iter_mut() {
             transform.rotate_z(-std::f32::consts::FRAC_PI_2);
             for offset in &mut piece.shape {
                 let old = *offset;
@@ -300,12 +298,6 @@ pub fn handle_puzzle_rotation(
                         let old = *offset;
                         *offset = IVec2::new(old.y, -old.x);
                     }
-                }
-            }
-            for &child in children {
-                if let Ok(mut preview) = preview_query.get_mut(child) {
-                    let old = preview.offset;
-                    preview.offset = IVec2::new(old.y, -old.x);
                 }
             }
             for entity in ghost_query.iter() {
@@ -839,7 +831,6 @@ fn spawn_solution_piece(
                         },
                         Transform::from_translation(offset.as_vec2().extend(5.0) * TILE_SIZE),
                         EffectPreview {
-                            offset: *offset,
                             condition: effect.condition.clone(),
                         },
                     ));
@@ -894,19 +885,22 @@ pub fn delete_user_solutions() -> Result<u32, String> {
 pub fn update_puzzle_effect_previews(
     puzzle_state: Res<PuzzleGameState>,
     board_info: Res<PuzzleBoardInfo>,
-    piece_query: Query<(&Piece, &Children, Has<Hovered>, Has<Dragging>)>,
-    mut preview_query: Query<(&mut Visibility, &mut Sprite, &EffectPreview)>,
+    piece_query: Query<(&Piece, &Transform, &Children, Has<Hovered>, Has<Dragging>)>,
+    mut preview_query: Query<(&mut Visibility, &mut Sprite, &EffectPreview, &Transform)>,
     all_pieces: Query<&Piece>,
 ) {
-    for (piece, children, is_hovered, is_dragging) in &piece_query {
+    for (piece, piece_transform, children, is_hovered, is_dragging) in &piece_query {
         let show = is_hovered || is_dragging;
         for &child in children {
-            if let Ok((mut visibility, mut sprite, preview)) = preview_query.get_mut(child) {
+            if let Ok((mut visibility, mut sprite, preview, child_local_transform)) = preview_query.get_mut(child) {
                 if show {
                     *visibility = Visibility::Visible;
                     let mut active = false;
                     if let Some(grid_pos) = piece.placed_at {
-                        let target_cell = grid_pos + preview.offset;
+                        let local_offset = child_local_transform.translation;
+                        let world_offset = piece_transform.rotation * local_offset;
+                        let offset = (world_offset.truncate() / TILE_SIZE).round().as_ivec2();
+                        let target_cell = grid_pos + offset;
                         if is_in_bounds_puzzle(target_cell, &board_info) {
                             active = check_condition_with_sizes(&preview.condition, Some(target_cell), &puzzle_state.board_cells, &all_pieces);
                         }

@@ -223,14 +223,13 @@ pub fn handle_rotation(
         (&mut Transform, &mut Piece, &Children),
         (With<Dragging>, Without<OpponentPiece>),
     >,
-    mut preview_query: Query<&mut EffectPreview>,
     mut commands: Commands,
     ghost_query: Query<Entity, With<GhostTile>>,
     state: Res<GameState>,
     board_size: Res<BoardSize>,
 ) {
     if keyboard.just_pressed(KeyCode::KeyR) || mouse.just_pressed(MouseButton::Right) {
-        for (mut transform, mut piece, children) in piece_query.iter_mut() {
+        for (mut transform, mut piece, _children) in piece_query.iter_mut() {
             transform.rotate_z(-std::f32::consts::FRAC_PI_2);
             for offset in &mut piece.shape {
                 let old = *offset;
@@ -242,12 +241,6 @@ pub fn handle_rotation(
                         let old = *offset;
                         *offset = IVec2::new(old.y, -old.x);
                     }
-                }
-            }
-            for &child in children {
-                if let Ok(mut preview) = preview_query.get_mut(child) {
-                    let old = preview.offset;
-                    preview.offset = IVec2::new(old.y, -old.x);
                 }
             }
             for entity in ghost_query.iter() {
