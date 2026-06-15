@@ -1,3 +1,4 @@
+use rand::RngExt;
 use crate::components::*;
 use crate::config::RawPieceConfig;
 use crate::helpers::*;
@@ -201,5 +202,75 @@ fn rotate_effects(effects: &mut Vec<GameEffect>) {
                 *offset = IVec2::new(old.y, -old.x);
             }
         }
+    }
+}
+
+pub fn random_placement(
+    draft_pieces: &[(Entity, &Piece)],
+    opponent_state: &GameState,
+    board_size: IVec2,
+) -> Option<AIPlacement> {
+    let mut candidates = Vec::new();
+
+    for (_entity, piece) in draft_pieces.iter() {
+        let mut shape = piece.shape.clone();
+        let mut effects = piece.effects.clone();
+
+        for rot in 0..4 {
+            if rot > 0 {
+                shape = rotate_shape(&shape);
+                rotate_effects(&mut effects);
+            }
+            for y in 0..board_size.y {
+                for x in 0..board_size.x {
+                    let origin = IVec2::new(x, y);
+                    if can_place(&shape, origin, opponent_state, board_size) {
+                        candidates.push(AIPlacement {
+                            raw_config: RawPieceConfig {
+                                shape: shape.clone(),
+                                color: "".into(),
+                                points: piece.points,
+                                effects: vec![],
+                                piece_type: crate::config::PieceType::Static,
+                            },
+                            origin,
+                            shape: shape.clone(),
+                            effects: effects.clone(),
+                            color: piece.color,
+                        });
+                    }
+                }
+            }
+        }
+    }
+
+    if candidates.is_empty() {
+        None
+    } else {
+        let mut rng = rand::rng();
+        let idx = rng.random_range(0..candidates.len());
+        Some(candidates.swap_remove(idx))
+    }
+}
+
+pub fn random_block_cell(
+    player_state: &GameState,
+    board_size: IVec2,
+) -> Option<IVec2> {
+    let mut empty_cells = Vec::new();
+    for y in 0..board_size.y {
+        for x in 0..board_size.x {
+            let cell = IVec2::new(x, y);
+            if is_cell_available(cell, &player_state.board_cells, &player_state.disabled_cells, board_size) {
+                empty_cells.push(cell);
+            }
+        }
+    }
+    if empty_cells.is_empty() {
+        None
+    } else {
+        let mut rng = rand::rng();
+        let idx = rng.random_range(0..empty_cells.len());
+        Some(empty_cells[idx])
     }
 }

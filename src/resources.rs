@@ -83,6 +83,7 @@ pub enum AIType {
     #[default]
     Dummy,
     Greedy,
+    Random,
 }
 
 #[derive(Resource)]

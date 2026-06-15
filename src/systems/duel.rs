@@ -3,7 +3,7 @@ use crate::components::*;
 use crate::config::RawPieceConfig;
 use crate::helpers::*;
 use crate::resources::{AIType, BoardSize, DuelMode, DuelState, DuelTurn, GameSettings, PieceLibrary, RoundCounter};
-use crate::systems::ai::{first_free_placement, greedy_block_cell, greedy_placement};
+use crate::systems::ai::{first_free_placement, greedy_block_cell, greedy_placement, random_placement, random_block_cell};
 use crate::systems::draft::DraftConfirmButton;
 use bevy::picking::prelude::*;
 use bevy::prelude::*;
@@ -443,9 +443,11 @@ pub fn on_confirm_click_duel(
             
             let placement = if settings.ai_mode == AIType::Greedy {
                 greedy_placement(&draft_refs, &duel_state.opponent, &opponent_placed, board_size.0)
+            } else if settings.ai_mode == AIType::Random {
+                random_placement(&draft_refs, &duel_state.opponent, board_size.0)
             } else {
                 first_free_placement(&draft_refs, &duel_state.opponent, board_size.0)
-            };            
+            };           
             if let Some(placement) = placement {
                 let world_pos = grid_to_world_duel(placement.origin, BoardSide::Right, board_size.0);
                 let entity = crate::systems::setup::spawn_draggable_piece(
@@ -491,6 +493,8 @@ pub fn on_confirm_click_duel(
 
             let ai_cell = if settings.ai_mode == AIType::Greedy {
                 greedy_block_cell(&duel_state.player, &player_pieces, board_size.0)
+            } else if settings.ai_mode == AIType::Random {
+                random_block_cell(&duel_state.player, board_size.0)
             } else {
                 pick_first_free(&duel_state.player.board_cells, &duel_state.player.disabled_cells, board_size.0)
             };
