@@ -96,7 +96,9 @@ fn handle_reset(
     puzzle_state: Option<ResMut<PuzzleGameState>>,
     mut piece_query: Query<(&mut Piece, &mut Transform)>,
 ) {
-    if keys.pressed(KeyCode::ControlLeft) && keys.just_pressed(KeyCode::KeyN) {
+    if (keys.pressed(KeyCode::ShiftLeft) || keys.pressed(KeyCode::ShiftRight))
+        && keys.just_pressed(KeyCode::KeyN)
+    {
         match *current_state.get() {
             AppState::Sandbox => {
                 game_state.board_cells.clear();

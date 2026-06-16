@@ -51,7 +51,7 @@ pub fn setup_controls(mut commands: Commands) {
                 ),
                 ("Hover over a piece", "Show its info (points, effects)"),
                 ("ESC", "Go back to previous screen"),
-                ("Ctrl + N", "Reset current puzzle / game mode"),
+                ("Shift + N", "Reset current puzzle / game mode"),
             ];
 
             for (action, description) in controls {
