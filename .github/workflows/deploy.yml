@@ -3,6 +3,14 @@ name: Deploy Web
 on:
   push:
     branches: [ "master" ]
+    paths:
+      - 'src/**'
+      - 'assets/**'
+      - 'web/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'Makefile'
+      - '.github/workflows/deploy.yml'
 
 permissions:
   contents: write
@@ -19,6 +27,9 @@ jobs:
           toolchain: stable
           target: wasm32-unknown-unknown
           override: true
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
 
       - name: Install wasm-bindgen
         run: cargo install -f wasm-bindgen-cli
