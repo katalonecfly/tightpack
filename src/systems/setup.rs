@@ -233,12 +233,14 @@ pub fn randomize_piece_properties(
 
     let mut rng = rand::rng();
     let chosen_raw = raw.effects.choose(&mut rng).unwrap();
-    let color = random_color(color_map);
+
+    let piece_color = random_color(color_map);
+    let effect_color = random_color(color_map);
 
     let condition = match &chosen_raw.condition {
         RawEffectCondition::IsEmpty => EffectCondition::IsEmpty,
-        RawEffectCondition::MatchesColor(_) => EffectCondition::MatchesColor(color),
-        RawEffectCondition::NoColorOnBoard(_) => EffectCondition::NoColorOnBoard(color),
+        RawEffectCondition::MatchesColor(_) => EffectCondition::MatchesColor(effect_color),
+        RawEffectCondition::NoColorOnBoard(_) => EffectCondition::NoColorOnBoard(effect_color),
         RawEffectCondition::MatchesSize(_) => {
             let random_size = rng.random_range(1..=4);
             EffectCondition::MatchesSize(random_size)
@@ -261,7 +263,7 @@ pub fn randomize_piece_properties(
         offsets: chosen_offsets,
     }];
 
-    (color, effects)
+    (piece_color, effects)
 }
 
 pub fn random_color(color_map: &HashMap<String, LinearRgba>) -> LinearRgba {

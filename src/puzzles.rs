@@ -901,7 +901,8 @@ fn spawn_solution_piece(
 
     for (effect_idx, effect) in effects.iter().enumerate() {
         if let Some(offsets) = &effect.offsets {
-            for (offset_idx, offset) in offsets.iter().enumerate() {                commands.entity(entity).with_children(|parent| {
+            for (offset_idx, offset) in offsets.iter().enumerate() {
+                commands.entity(entity).with_children(|parent| {
                     parent.spawn((
                         Sprite {
                             color: Color::srgb(1.0, 1.0, 0.0).into(),
@@ -913,7 +914,8 @@ fn spawn_solution_piece(
                             condition: effect.condition.clone(),
                             effect_index: effect_idx,
                             offset_index: offset_idx,
-                        },                    ));
+                        },
+                    ));
                 });
             }
         }
