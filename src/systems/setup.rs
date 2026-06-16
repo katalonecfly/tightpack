@@ -347,9 +347,9 @@ pub fn spawn_draggable_piece(
             }
         }
 
-        for effect in &effects {
+        for (effect_idx, effect) in effects.iter().enumerate() {
             if let Some(offsets) = &effect.offsets {
-                for offset in offsets {
+                for (offset_idx, offset) in offsets.iter().enumerate() {
                     let mut preview = parent.spawn((
                         Sprite {
                             color: Color::srgb(1.0, 1.0, 0.0).into(),
@@ -360,6 +360,8 @@ pub fn spawn_draggable_piece(
                         Visibility::Hidden,
                         EffectPreview {
                             condition: effect.condition.clone(),
+                            effect_index: effect_idx,
+                            offset_index: offset_idx,
                         },
                     ));
                     if hoverable {

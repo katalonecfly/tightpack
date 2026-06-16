@@ -35,6 +35,8 @@ pub enum EffectCondition {
 #[derive(Component)]
 pub struct EffectPreview {
     pub condition: EffectCondition,
+    pub effect_index: usize,
+    pub offset_index: usize,
 }
 
 #[derive(Component)]

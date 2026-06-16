@@ -120,9 +120,9 @@ fn spawn_puzzle_piece(
                 .observe(on_puzzle_drag_end)
                 .observe(crate::systems::interaction::on_right_click_unplace);
         }
-        for effect in &effects {
+        for (effect_idx, effect) in effects.iter().enumerate() {
             if let Some(offsets) = &effect.offsets {
-                for offset in offsets {
+                for (offset_idx, offset) in offsets.iter().enumerate() {
                     let mut preview = parent.spawn((
                         Sprite {
                             color: Color::srgb(1.0, 1.0, 0.0).into(),
@@ -133,6 +133,8 @@ fn spawn_puzzle_piece(
                         Visibility::Hidden,
                         EffectPreview {
                             condition: effect.condition.clone(),
+                            effect_index: effect_idx,
+                            offset_index: offset_idx,
                         },
                     ));
                     preview
@@ -897,10 +899,9 @@ fn spawn_solution_piece(
 
     crate::systems::visuals::refresh_piece_visuals(commands, entity, &shape, color);
 
-    for effect in &effects {
+    for (effect_idx, effect) in effects.iter().enumerate() {
         if let Some(offsets) = &effect.offsets {
-            for offset in offsets {
-                commands.entity(entity).with_children(|parent| {
+            for (offset_idx, offset) in offsets.iter().enumerate() {                commands.entity(entity).with_children(|parent| {
                     parent.spawn((
                         Sprite {
                             color: Color::srgb(1.0, 1.0, 0.0).into(),
@@ -910,8 +911,9 @@ fn spawn_solution_piece(
                         Transform::from_translation(offset.as_vec2().extend(5.0) * TILE_SIZE),
                         EffectPreview {
                             condition: effect.condition.clone(),
-                        },
-                    ));
+                            effect_index: effect_idx,
+                            offset_index: offset_idx,
+                        },                    ));
                 });
             }
         }
@@ -963,31 +965,32 @@ pub fn delete_user_solutions() -> Result<u32, String> {
 pub fn update_puzzle_effect_previews(
     puzzle_state: Res<PuzzleGameState>,
     board_info: Res<PuzzleBoardInfo>,
-    piece_query: Query<(&Piece, &Transform, &Children, Has<Hovered>, Has<Dragging>)>,
-    mut preview_query: Query<(&mut Visibility, &mut Sprite, &EffectPreview, &Transform)>,
+    piece_query: Query<(&Piece, &Children, Has<Hovered>, Has<Dragging>)>,
+    mut preview_query: Query<(&mut Visibility, &mut Sprite, &EffectPreview)>,
     all_pieces: Query<&Piece>,
 ) {
-    for (piece, piece_transform, children, is_hovered, is_dragging) in &piece_query {
+    for (piece, children, is_hovered, is_dragging) in &piece_query {
         let show = is_hovered || is_dragging;
         for &child in children {
-            if let Ok((mut visibility, mut sprite, preview, child_local_transform)) =
-                preview_query.get_mut(child)
-            {
+            if let Ok((mut visibility, mut sprite, preview)) = preview_query.get_mut(child) {
                 if show {
                     *visibility = Visibility::Visible;
                     let mut active = false;
                     if let Some(grid_pos) = piece.placed_at {
-                        let local_offset = child_local_transform.translation;
-                        let world_offset = piece_transform.rotation * local_offset;
-                        let offset = (world_offset.truncate() / TILE_SIZE).round().as_ivec2();
-                        let target_cell = grid_pos + offset;
-                        if is_in_bounds_puzzle(target_cell, &board_info) {
-                            active = check_condition_with_sizes(
-                                &preview.condition,
-                                Some(target_cell),
-                                &puzzle_state.board_cells,
-                                &all_pieces,
-                            );
+                        if let Some(effect) = piece.effects.get(preview.effect_index) {
+                            if let Some(offsets) = &effect.offsets {
+                                if let Some(offset) = offsets.get(preview.offset_index) {
+                                    let target_cell = grid_pos + *offset;
+                                    if is_in_bounds_puzzle(target_cell, &board_info) {
+                                        active = check_condition_with_sizes(
+                                            &preview.condition,
+                                            Some(target_cell),
+                                            &puzzle_state.board_cells,
+                                            &all_pieces,
+                                        );
+                                    }
+                                }
+                            }
                         }
                     }
                     if active {
